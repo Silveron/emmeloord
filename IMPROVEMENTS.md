@@ -161,3 +161,10 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - **Thursday market on the Kettingplein**, the real market day, place and hours (08:00 to 14:30, source: Visit Flevoland): two rows of stalls with striped awnings and crates of fruit and vegetables, and extra shoppers. Stalls stand from 07:30 to 15:00 game time.
 - **People on benches** near the centre (up to 14, sitting, facing the street).
 - Draw calls at the phone start view: 518.
+
+## 2026-11-20: plan step "a reason to keep playing" (career and garage)
+- **Career**: jobs give XP equal to their pay, polder coins give 25 XP. Ten levels (150, 400, 800, 1400, ... XP); the level and a progress bar sit in the HUD. Each level adds 5% to job pay. The taxi job unlocks at level 2. Old saves start with XP equal to their cash.
+- **Garage** at the real car dealer hall OpenStreetMap shows by the Nagelerstraat (forecourt on the north side, Meeuwenkant): showroom windows lit at night, a GARAGE sign and totem, cars for sale on the forecourt, a white dot on the minimap. Walk or drive onto the orange ring and press E.
+- **Cars to own**: Polder Hatch (your first car), Bezorgbus delivery van (€450, level 2, parcel jobs pay 25% more), Flevo GT (€1600, level 4, rear wing, 169 km/h), Volt E (€2700, level 6, fastest off the line). Bought cars are kept; switch between them in the garage. Your car waits on the forecourt.
+- **Upgrades** per car, three steps each: engine (top speed), turbo (acceleration), sport tyres (grip), unlocked by level. **Paint** in ten colours (€40).
+- Everything (XP, cars, upgrades, paint) is saved in the browser.

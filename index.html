@@ -1046,6 +1046,21 @@ for(const [pn,seg,t] of [['outerCW',0,.2],['outerCW',1,.5],['outerCW',2,.3],['ou
   c.ai={path:P_,idx:(seg+1)%P_.length,cruise:rand(10,13)};
 }
 
+// out-and-back traffic on the four roads into the polder (right-hand lanes, U-turn at each end)
+function radialPath(a,b){
+  const L=Math.hypot(b[0]-a[0],b[1]-a[1]),dx=(b[0]-a[0])/L,dz=(b[1]-a[1])/L,rx=-dz,rz=dx,o=3;
+  return [[a[0]+rx*o+dx*16,a[1]+rz*o+dz*16],[b[0]+rx*o-dx*14,b[1]+rz*o-dz*14],[b[0]-rx*o-dx*14,b[1]-rz*o-dz*14],[a[0]-rx*o+dx*16,a[1]-rz*o+dz*16]];
+}
+for(const r of ROADS.filter(r=>['Lemsterweg','Espelerlaan','Urkerweg','Marknesserweg'].includes(r.n))){
+  const inner=Math.hypot(r.a[0],r.a[1])<Math.hypot(r.b[0],r.b[1])?r.a:r.b,outer=inner===r.a?r.b:r.a;
+  const P_=radialPath(inner,outer);
+  for(const [seg,t] of [[0,.35],[2,.6]]){
+    const a=P_[seg],b=P_[seg+1];
+    const c=makeCar(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,Math.atan2(b[0]-a[0],b[1]-a[1]),pick(CARCOLS),rng()<.3?'van':'car');
+    c.ai={path:P_,idx:seg+1,cruise:rand(14,17)};
+  }
+}
+
 /* ---------- pedestrians ---------- */
 const SHIRTS=['#2c6fbb','#c0392b','#f2f0ea','#2e7d4f','#e6b422','#8e44ad','#ff7b1c','#34495e','#d35400','#16a085'];
 const SKINS=['#f1c9a5','#e0ac69','#c68642','#8d5524','#ffdbac'];
@@ -1709,11 +1724,26 @@ function drawMini(){
 function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 window.addEventListener('resize',resize);resize();
 
+/* adaptive resolution: drop the pixel ratio when frames are slow, raise it again when there is headroom */
+const PR_MAX=Math.min(window.devicePixelRatio||1,isTouchDevice?1.5:1.75);
+let prNow=PR_MAX,perfT=0,perfN=0;
+renderer.setPixelRatio(prNow);
+if(isTouchDevice){sun.shadow.mapSize.set(1024,1024);}
+function adaptQuality(dt){
+  perfT+=dt;perfN++;
+  if(perfT<2.5)return;
+  const fps=perfN/perfT;perfT=0;perfN=0;
+  let np=prNow;
+  if(fps<38)np=Math.max(0.6,prNow-0.25);else if(fps>57)np=Math.min(PR_MAX,prNow+0.25);
+  if(np!==prNow){prNow=np;renderer.setPixelRatio(prNow);resize();}
+}
 let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
   if(paused){last=now;renderer.render(scene,camera);return;}
-  const dt=Math.min(0.05,(now-last)/1000);last=now;elapsed+=dt;const t=now/1000;
+  const rawDt=(now-last)/1000;
+  const dt=Math.min(0.05,rawDt);last=now;elapsed+=dt;const t=now/1000;
+  if(started&&rawDt<1)adaptQuality(rawDt);
   if(started){
     if(P.mode==='drive')driveCar(P.car,dt);else walkPlayer(dt);
   }

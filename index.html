@@ -132,7 +132,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
 <canvas id="mini" width="360" height="360" hidden></canvas>
 <div id="speedo" class="panel" hidden><div class="eyebrow">Speed</div><div class="v"><span id="spd">0</span><small>km/h</small></div></div>
 <div id="prompt" class="panel" hidden></div>
-<div id="hint" hidden><kbd>E</kbd> car &nbsp;·&nbsp; <kbd>H</kbd> horn &nbsp;·&nbsp; <kbd>R</kbd> back to De Deel &nbsp;·&nbsp; <kbd>T</kbd> time &nbsp;·&nbsp; <kbd>M</kbd> sound &nbsp;·&nbsp; <kbd>P</kbd> pause &nbsp;·&nbsp; drag or click to look</div>
+<div id="hint" hidden><kbd>E</kbd> car &nbsp;·&nbsp; <kbd>H</kbd> horn &nbsp;·&nbsp; <kbd>R</kbd> back to De Deel &nbsp;·&nbsp; <kbd>T</kbd> time &nbsp;·&nbsp; <kbd>M</kbd> sound &nbsp;·&nbsp; <kbd>N</kbd> music &nbsp;·&nbsp; <kbd>P</kbd> pause &nbsp;·&nbsp; drag or click to look</div>
 <div id="mission" class="panel" hidden><div class="eyebrow" id="mTitle">Job</div><div id="mText"></div><b id="mTime"></b><div id="mDir"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2 L20 20 L12 15 L4 20 Z" fill="currentColor"/></svg><span id="mDist"></span></div></div>
 <div id="toasts" aria-live="polite"></div>
 <div id="flash"></div>
@@ -150,7 +150,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
     <div class="eyebrow">Paused</div>
     <h2>Taking a break</h2>
     <div id="pstats"></div>
-    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="preset" type="button" class="ghost">New game</button></div>
+    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="pmusic" type="button" class="ghost">Music: on</button><button id="preset" type="button" class="ghost">New game</button></div>
     <p class="small">Progress (coins, cash, best lap) is saved in this browser.</p>
   </div>
 </div>
@@ -169,6 +169,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
       <div><span>Look around</span><b>mouse</b></div>
       <div><span>Back to De Deel</span><b><kbd>R</kbd></b></div>
       <div><span>Sound on/off</span><b><kbd>M</kbd></b></div>
+      <div><span>Music on/off</span><b><kbd>N</kbd></b></div>
       <div><span>Skip one hour</span><b><kbd>T</kbd></b></div>
       <div><span>Pause</span><b><kbd>P</kbd></b></div>
     </div>
@@ -1321,6 +1322,15 @@ function jobSound(ok){if(!AC||muted)return;const t=AC.currentTime;if(ok){tone(52
 
 /* ---------- audio ---------- */
 let AC=null,master=null,engine=null,muted=false;
+/* background music: Ron's Suno song, looped quietly under the game sounds.
+   A plain <audio> element (not Web Audio) so it also works from file://. */
+let musicOn=true;const MUSIC=new Audio('music.mp3');MUSIC.loop=true;MUSIC.volume=0.28;MUSIC.preload='auto';
+function syncMusic(){
+  const want=started&&!paused&&!muted&&musicOn;
+  if(want&&MUSIC.paused){const pr=MUSIC.play();if(pr&&pr.catch)pr.catch(()=>{});}
+  else if(!want&&!MUSIC.paused)MUSIC.pause();
+}
+function toggleMusic(){musicOn=!musicOn;syncMusic();if($('pmusic'))$('pmusic').textContent='Music: '+(musicOn?'on':'off');saveGame();}
 function initAudio(){
   if(AC)return;
   try{
@@ -1456,7 +1466,8 @@ window.addEventListener('keydown',e=>{
   if(paused)return;
   if(e.code==='KeyE'||e.code==='KeyF')action();
   if(e.code==='KeyH')playerHorn();
-  if(e.code==='KeyM'){muted=!muted;if(master)master.gain.value=muted?0:0.55;toast(muted?'Sound off':'Sound on',1500);}
+  if(e.code==='KeyM'){muted=!muted;if(master)master.gain.value=muted?0:0.55;syncMusic();toast(muted?'Sound off':'Sound on',1500);}
+  if(e.code==='KeyN'){toggleMusic();toast(musicOn?'Music on':'Music off',1500);}
   if(e.code==='KeyR')resetPlayer();
   if(e.code==='KeyT'){gameMin=(gameMin+60)%1440;updateDayNight();updateClocks();$('clock').textContent=gameTimeStr();toast('Time skips ahead to '+gameTimeStr(),1400);}
 });
@@ -1522,14 +1533,14 @@ function enableTouch(){
 /* ---------- save & pause ---------- */
 const SAVE_KEY='emmeloord-vrijbaan-v1';
 function saveGame(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,best:BEST.trial,min:Math.round(gameMin),muted}));}catch(_){}
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,best:BEST.trial,min:Math.round(gameMin),muted,music:musicOn}));}catch(_){}
 }
 function loadGame(){
   let d=null;try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(_){d=null;}
   if(!d||!Array.isArray(d.coins))return false;
   d.coins.forEach((g,i)=>{const c=COINS[i];if(c&&g){c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;}});
   cash=+d.cash||0;BEST.trial=typeof d.best==='number'?d.best:null;
-  if(typeof d.min==='number')gameMin=d.min%1440;muted=!!d.muted;
+  if(typeof d.min==='number')gameMin=d.min%1440;muted=!!d.muted;musicOn=d.music!==false;
   $('coins').textContent=coinCount+'/'+COINS.length;$('cash').textContent='€'+cash;
   updateClocks();   // the sky follows on the first frame
   return coinCount>0||cash>0||BEST.trial!==null;
@@ -1548,13 +1559,15 @@ function setPaused(v){
   if(v){
     if(document.pointerLockElement)document.exitPointerLock();
     $('pstats').innerHTML=`<div><span class="eyebrow">Coins</span><b>${coinCount}/${COINS.length}</b></div><div><span class="eyebrow">Cash</span><b>€${cash}</b></div><div><span class="eyebrow">Best lap</span><b>${BEST.trial!==null?fmtTime(BEST.trial):'–'}</b></div>`;
-    $('psound').textContent='Sound: '+(muted?'off':'on');
+    $('psound').textContent='Sound: '+(muted?'off':'on');$('pmusic').textContent='Music: '+(musicOn?'on':'off');
     if(AC)AC.suspend();saveGame();
   }else{if(AC)AC.resume();canvas.focus();}
+  syncMusic();
 }
 $('resume').addEventListener('click',()=>setPaused(false));
 $('preset').addEventListener('click',wipeSave);
-$('psound').addEventListener('click',()=>{muted=!muted;if(master)master.gain.value=muted?0:0.55;$('psound').textContent='Sound: '+(muted?'off':'on');saveGame();});
+$('psound').addEventListener('click',()=>{muted=!muted;if(master)master.gain.value=muted?0:0.55;$('psound').textContent='Sound: '+(muted?'off':'on');syncMusic();saveGame();});
+$('pmusic').addEventListener('click',toggleMusic);
 $('bPause').addEventListener('click',()=>setPaused(!paused));
 document.addEventListener('visibilitychange',()=>{if(document.hidden){setPaused(true);}});
 setInterval(()=>{if(started)saveGame();},15000);
@@ -1568,6 +1581,7 @@ $('play').addEventListener('click',()=>{
   if(isTouchDevice)enableTouch();
   $('bPause').hidden=false;
   if(master)master.gain.value=muted?0:0.55;
+  syncMusic();
 });
 
 /* ---------- gameplay ---------- */
@@ -1960,7 +1974,7 @@ function frame(now){
   renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
-window.__game={setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click()};
+window.__game={setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

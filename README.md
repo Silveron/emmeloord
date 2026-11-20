@@ -24,6 +24,7 @@ python3 -m http.server 8000
 | R | Back to De Deel |
 | T | Skip one hour (day/night) |
 | M | Sound on/off |
+| N | Music on/off |
 | P / Esc | Pause (also the II button) |
 
 ### Phone and tablet

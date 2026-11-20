@@ -4,7 +4,7 @@ A small 3D open-world game in the browser, set in the centre of Emmeloord (Noord
 
 ## Play
 
-Open `index.html` in a desktop browser. No build step is needed; Three.js (r128) loads from cdnjs. To serve it locally:
+Open `index.html` in a browser (desktop or phone). No build step is needed; Three.js (r128) loads from cdnjs. To serve it locally:
 
 ```sh
 python3 -m http.server 8000
@@ -23,6 +23,10 @@ python3 -m http.server 8000
 | H | Horn |
 | R | Back to De Deel |
 | M | Sound on/off |
+
+### Phone and tablet
+
+Turn the phone sideways. Put your left thumb anywhere on the left side for a joystick (walk, or steer and accelerate in a car; push it all the way to run). Drag with your right thumb to look around. Buttons: **CAR** (get in/out), **JUMP/BRAKE** and **HORN**. You can also tap the "Get in" prompt.
 
 ## What's in town
 

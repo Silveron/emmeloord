@@ -17,3 +17,4 @@ No IMPROVEMENTS.md existed yet and no known bugs were logged, so this run starts
 8. **Performance**: adaptive pixel ratio when frame rate is low; lighter shadows on phones.
 
 ### Done
+- **Touch controls** (mobile): floating left-thumb joystick (analog walk speed, sprint at full push; throttle/brake/steer in a car), right-thumb look, CAR / JUMP-BRAKE / HORN buttons, tappable "Get in" prompt, HUD rearranged on touch screens. Also fixed a bug: on a phone held sideways the start card was taller than the screen and the Start button could not be reached; the card now scrolls and is compact on short screens.

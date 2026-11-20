@@ -707,8 +707,8 @@ const polyArea=p=>{let s=0;for(let i=0;i<p.length;i++){const a=p[i],b=p[(i+1)%p.
 function inPoly(x,z,p){let c=false;for(let i=0,j=p.length-1;i<p.length;j=i++){const a=p[i],b=p[j];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
 function segDist(x,z,ax,az,bx,bz){const dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz;let t=l2>0?((x-ax)*dx+(z-az)*dz)/l2:0;t=t<0?0:t>1?1:t;const qx=ax+dx*t,qz=az+dz*t;return [Math.hypot(x-qx,z-qz),qx,qz,t];}
 for(const b of BLDS)Object.assign(b,polyBox(b.p));
-// Hotel 't Voorhuys (east side of the square De Deel, past the car park, before the Lange Nering) gets its own model further down, so its OSM footprint is taken out here
-const VOORHUYS_FP=(()=>{const i=BLDS.findIndex(b=>{let cx=0,cz=0;for(const q of b.p){cx+=q[0];cz+=q[1];}cx/=b.p.length;cz/=b.p.length;return Math.hypot(cx-231,cz+44)<6;});return i<0?null:BLDS.splice(i,1)[0];})();
+// Hotel 't Voorhuys (OSM way 266435940, De Deel 20, at the entrance of the Lange Nering) gets its own model further down, in front of the rest of its block
+const VOORHUYS_FP=(()=>{const i=BLDS.findIndex(b=>{let cx=0,cz=0;for(const q of b.p){cx+=q[0];cz+=q[1];}cx/=b.p.length;cz/=b.p.length;return Math.hypot(cx-131,cz+124)<6;});return i<0?null:BLDS[i];})();
 
 /* roads leaving the town get extended straight out into the polder */
 const POLDER_ROADS=[];
@@ -1198,12 +1198,10 @@ const TM=(x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0)=>new THREE.Matrix4().compose(new THREE
 const LIGHT_HOOKS=[];
 let VOORHUYS=null;
 if(VOORHUYS_FP){
-  // frame from the OSM footprint: its west wall faces the square of De Deel; local +x runs along it, +z looks out over the square
-  const fp=VOORHUYS_FP.p,SQ=[170,-50];let best=null;
-  for(let i=0;i<fp.length;i++){const a=fp[i],b=fp[(i+1)%fp.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<12)continue;
-    let nx=-(b[1]-a[1])/L,nz=(b[0]-a[0])/L;const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;if((SQ[0]-mx)*nx+(SQ[1]-mz)*nz<0){nx=-nx;nz=-nz;}
-    const sc=((SQ[0]-mx)*nx+(SQ[1]-mz)*nz)/Math.hypot(SQ[0]-mx,SQ[1]-mz)*L;if(!best||sc>best.sc)best={sc,mx,mz,nx,nz};}
-  const {nx,nz}=best,ox=best.mx+nz*6,oz=best.mz-nx*6,th=Math.atan2(nx,nz);
+  // frame from OSM: the hotel's south front runs along the block from (125,-105) to (172.5,-119), facing the Polderfontein;
+  // the main block ends at the east corner, the annex lies to the west
+  const FA=[125.2,-105.3],FB=[172.5,-118.8],FL=Math.hypot(FB[0]-FA[0],FB[1]-FA[1]),ux=(FB[0]-FA[0])/FL,uz=(FB[1]-FA[1])/FL;
+  const nx=-uz,nz=ux,ox=FB[0]-ux*17+nx*2.3,oz=FB[1]-uz*17+nz*2.3,th=Math.atan2(nx,nz);// 2.3 m forward covers a bay of the block
   const G=new THREE.Group();G.position.set(ox,0,oz);G.rotation.y=th;scene.add(G);
   const toW=(x,z)=>[ox+Math.cos(th)*x+Math.sin(th)*z,oz-Math.sin(th)*x+Math.cos(th)*z];
   VOORHUYS={x:ox,z:oz,th,toW,nx,nz};
@@ -1314,7 +1312,7 @@ if(VOORHUYS_FP){
 /* ---------- the splash fountain on De Deel: an octagon of wet stone with jets rising straight from the floor ---------- */
 const FOUNTAIN={jets:null,data:[]};
 if(VOORHUYS){
-  const {toW,th}=VOORHUYS,[fx,fz]=toW(-5,12.6),R=5.4,RK=9;
+  const {toW,th}=VOORHUYS,[fx,fz]=[182.5,-96.5],R=6,RK=9;// the Polderfontein, OSM way 902694671 (2020)
   FOUNTAIN.x=fx;FOUNTAIN.z=fz;
   const oct=(r,rot)=>Array.from({length:8},(_,i)=>{const a=i/8*Math.PI*2+th+Math.PI/8;return [fx+Math.cos(a)*r,fz+Math.sin(a)*r];});
   // herringbone klinkers around it, the wet floor and a light stone edge
@@ -1331,7 +1329,7 @@ if(VOORHUYS){
   const splG=new THREE.CircleGeometry(0.32,10).rotateX(-Math.PI/2),splM=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.32,depthWrite:false});
   FOUNTAIN.jets=new THREE.InstancedMesh(jetG,jetM,pos.length);FOUNTAIN.spl=new THREE.InstancedMesh(splG,splM,pos.length);
   FOUNTAIN.jets.frustumCulled=FOUNTAIN.spl.frustumCulled=false;scene.add(FOUNTAIN.jets,FOUNTAIN.spl);
-  OSM_TREES=OSM_TREES.filter(([x,z])=>Math.hypot(x-fx,z-fz)>RK+1.5);
+  OSM_TREES=OSM_TREES.filter(([x,z])=>Math.hypot(x-fx,z-fz)>RK+1.5);OSM_LAMPS=OSM_LAMPS.filter(([x,z])=>Math.hypot(x-fx,z-fz)>R+1);
   FOUNTAIN.data=pos.map(([x,z],i)=>({x,z,h:1.0+rng()*1.6,ph:rng()*6.28,gr:(Math.floor((x-fx)/2.2+10)+Math.floor((z-fz)/2.2+10))%3}));
 }
 const _fm=new THREE.Matrix4(),_fq=new THREE.Quaternion(),_fs=new THREE.Vector3(),_fp=new THREE.Vector3();
@@ -1610,7 +1608,6 @@ const mapBase=document.createElement('canvas');mapBase.width=mapBase.height=MAPR
   for(const r of ROADS)if(r.c===0)line(r.p,r.w,'#f7f3ea');
   for(const r of ROADS)if(r.c===3)line(r.p,r.w,'#c98a6a');
   for(const b of BLDS)poly(b.p,b.shop?'#a8735c':'#8f8576');
-  if(VOORHUYS)poly(VOORHUYS.ring,'#a8735c');
 }
 const mini=$('mini'),mctx=mini.getContext('2d');
 
@@ -3152,7 +3149,7 @@ function frame(now){
   renderFrame();
 }
 requestAnimationFrame(frame);
-window.__game={dbg:()=>({PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,i*0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);for(const c of CARS)syncCar(c,0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={dbg:()=>({camera,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,i*0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);for(const c of CARS)syncCar(c,0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

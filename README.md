@@ -24,10 +24,15 @@ python3 -m http.server 8000
 | R | Back to De Deel |
 | T | Skip one hour (day/night) |
 | M | Sound on/off |
+| P / Esc | Pause (also the II button) |
 
 ### Phone and tablet
 
 Turn the phone sideways. Put your left thumb anywhere on the left side for a joystick (walk, or steer and accelerate in a car; push it all the way to run). Drag with your right thumb to look around. Buttons: **CAR** (get in/out), **JUMP/BRAKE** and **HORN**. You can also tap the "Get in" prompt.
+
+## Saving
+
+Coins, cash, your best lap and the time of day are saved in your browser automatically. The start screen then offers **Continue** or **New game**.
 
 ## Jobs
 

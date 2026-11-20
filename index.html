@@ -56,6 +56,20 @@ body.touch #mission{top:calc(14px + env(safe-area-inset-top,0px));bottom:auto;ma
 #play{font:800 18px var(--display);background:var(--orange);color:#1b1004;border:0;border-radius:8px;padding:12px 26px;cursor:pointer;letter-spacing:.01em}
 #play:hover{filter:brightness(1.08)}
 #play:focus-visible{outline:3px solid #fff;outline-offset:3px}
+button.ghost{font:700 15px var(--display);background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:11px 18px;cursor:pointer;margin-left:8px}
+button.ghost:hover{background:rgba(255,255,255,.08)}
+#saveinfo{font:500 12px var(--mono);color:var(--muted);margin-top:12px}
+#pause{position:fixed;inset:0;display:grid;place-items:center;background:rgba(8,12,16,.55);padding:16px;z-index:5}
+#pause .card{max-width:440px;width:100%;padding:22px;box-sizing:border-box}
+#pause h2{font-size:34px;font-weight:800;margin:6px 0 12px;letter-spacing:-.02em}
+#pause .row{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
+#pause .row .ghost{margin-left:0}
+#pause .small{font-size:12px;color:var(--muted);margin:10px 0 0}
+#pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#pstats div{display:flex;flex-direction:column;gap:5px}
+#pstats b{font:700 18px/1 var(--mono)}
+button.primary{font:800 16px var(--display);background:var(--orange);color:#1b1004;border:0;border-radius:8px;padding:11px 22px;cursor:pointer}
+#bPause{position:fixed;top:calc(88px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px));width:44px;height:44px;color:var(--ink);font:700 14px var(--mono);z-index:2;touch-action:none}
 #touchnote{font-size:13px;color:var(--muted);margin-top:12px}
 @media (max-width:600px){
   #mini{width:120px;height:120px}
@@ -100,7 +114,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
 <canvas id="mini" width="360" height="360" hidden></canvas>
 <div id="speedo" class="panel" hidden><div class="eyebrow">Speed</div><div class="v"><span id="spd">0</span><small>km/h</small></div></div>
 <div id="prompt" class="panel" hidden></div>
-<div id="hint" hidden><kbd>E</kbd> car &nbsp;·&nbsp; <kbd>H</kbd> horn &nbsp;·&nbsp; <kbd>R</kbd> back to De Deel &nbsp;·&nbsp; <kbd>T</kbd> time &nbsp;·&nbsp; <kbd>M</kbd> sound &nbsp;·&nbsp; drag or click to look</div>
+<div id="hint" hidden><kbd>E</kbd> car &nbsp;·&nbsp; <kbd>H</kbd> horn &nbsp;·&nbsp; <kbd>R</kbd> back to De Deel &nbsp;·&nbsp; <kbd>T</kbd> time &nbsp;·&nbsp; <kbd>M</kbd> sound &nbsp;·&nbsp; <kbd>P</kbd> pause &nbsp;·&nbsp; drag or click to look</div>
 <div id="mission" class="panel" hidden><div class="eyebrow" id="mTitle">Job</div><div id="mText"></div><b id="mTime"></b></div>
 <div id="toasts" aria-live="polite"></div>
 <div id="touch" hidden>
@@ -112,6 +126,16 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
   </div>
 </div>
 
+<div id="pause" hidden>
+  <div class="card panel">
+    <div class="eyebrow">Paused</div>
+    <h2>Taking a break</h2>
+    <div id="pstats"></div>
+    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="preset" type="button" class="ghost">New game</button></div>
+    <p class="small">Progress (coins, cash, best lap) is saved in this browser.</p>
+  </div>
+</div>
+<button id="bPause" type="button" class="panel" aria-label="Pause" hidden>II</button>
 <div id="start">
   <div class="card panel">
     <div class="eyebrow">Noordoostpolder · open world</div>
@@ -127,8 +151,11 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
       <div><span>Back to De Deel</span><b><kbd>R</kbd></b></div>
       <div><span>Sound on/off</span><b><kbd>M</kbd></b></div>
       <div><span>Skip one hour</span><b><kbd>T</kbd></b></div>
+      <div><span>Pause</span><b><kbd>P</kbd></b></div>
     </div>
     <button id="play" type="button">Start playing</button>
+    <button id="newgame" type="button" class="ghost" hidden>New game</button>
+    <div id="saveinfo" hidden></div>
     <div id="touchnote" hidden>On a phone: turn it sideways. Left thumb moves or steers, right thumb looks around, buttons for car, jump/brake and horn.</div>
   </div>
 </div>
@@ -1291,6 +1318,8 @@ window.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   keys[e.code]=true;
   if(!started||e.repeat)return;
+  if(e.code==='KeyP'||e.code==='Escape'){setPaused(!paused);return;}
+  if(paused)return;
   if(e.code==='KeyE'||e.code==='KeyF')action();
   if(e.code==='KeyH')horn();
   if(e.code==='KeyM'){muted=!muted;if(master)master.gain.value=muted?0:0.55;toast(muted?'Sound off':'Sound on',1500);}
@@ -1356,6 +1385,45 @@ function enableTouch(){
   $('prompt').addEventListener('click',()=>{if(TOUCH.on)action();});
   window.addEventListener('touchstart',()=>enableTouch(),{passive:true});
 }
+/* ---------- save & pause ---------- */
+const SAVE_KEY='emmeloord-vrijbaan-v1';
+function saveGame(){
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,best:BEST.trial,min:Math.round(gameMin),muted}));}catch(_){}
+}
+function loadGame(){
+  let d=null;try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(_){d=null;}
+  if(!d||!Array.isArray(d.coins))return false;
+  d.coins.forEach((g,i)=>{const c=COINS[i];if(c&&g){c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;}});
+  cash=+d.cash||0;BEST.trial=typeof d.best==='number'?d.best:null;
+  if(typeof d.min==='number')gameMin=d.min%1440;muted=!!d.muted;
+  $('coins').textContent=coinCount+'/'+COINS.length;$('cash').textContent='€'+cash;
+  updateClocks();   // the sky follows on the first frame
+  return coinCount>0||cash>0||BEST.trial!==null;
+}
+function wipeSave(){try{localStorage.removeItem(SAVE_KEY);}catch(_){}location.reload();}
+if(loadGame()){
+  $('play').textContent='Continue';$('newgame').hidden=false;
+  $('saveinfo').hidden=false;$('saveinfo').textContent=`Saved: ${coinCount}/${COINS.length} coins · €${cash}`+(BEST.trial!==null?` · best lap ${fmtTime(BEST.trial)}`:'');
+}
+$('newgame').addEventListener('click',wipeSave);
+let paused=false;
+function setPaused(v){
+  if(!started||v===paused)return;
+  paused=v;$('pause').hidden=!v;
+  for(const k in keys)keys[k]=false;
+  if(v){
+    if(document.pointerLockElement)document.exitPointerLock();
+    $('pstats').innerHTML=`<div><span class="eyebrow">Coins</span><b>${coinCount}/${COINS.length}</b></div><div><span class="eyebrow">Cash</span><b>€${cash}</b></div><div><span class="eyebrow">Best lap</span><b>${BEST.trial!==null?fmtTime(BEST.trial):'–'}</b></div>`;
+    $('psound').textContent='Sound: '+(muted?'off':'on');
+    if(AC)AC.suspend();saveGame();
+  }else{if(AC)AC.resume();canvas.focus();}
+}
+$('resume').addEventListener('click',()=>setPaused(false));
+$('preset').addEventListener('click',wipeSave);
+$('psound').addEventListener('click',()=>{muted=!muted;if(master)master.gain.value=muted?0:0.55;$('psound').textContent='Sound: '+(muted?'off':'on');saveGame();});
+$('bPause').addEventListener('click',()=>setPaused(!paused));
+document.addEventListener('visibilitychange',()=>{if(document.hidden){setPaused(true);}});
+setInterval(()=>{if(started)saveGame();},15000);
 $('play').addEventListener('click',()=>{
   started=true;initAudio();if(AC&&AC.state==='suspended')AC.resume();
   $('start').hidden=true;
@@ -1364,6 +1432,8 @@ $('play').addEventListener('click',()=>{
   toast('Find the <strong>12 polder coins</strong>. Your orange car is parked just north of De Deel.',5200);
   camYaw=P.h;camPitch=0.28;
   if(isTouchDevice)enableTouch();
+  $('bPause').hidden=false;
+  if(master)master.gain.value=muted?0:0.55;
 });
 
 /* ---------- gameplay ---------- */
@@ -1642,6 +1712,7 @@ window.addEventListener('resize',resize);resize();
 let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame);
+  if(paused){last=now;renderer.render(scene,camera);return;}
   const dt=Math.min(0.05,(now-last)/1000);last=now;elapsed+=dt;const t=now/1000;
   if(started){
     if(P.mode==='drive')driveCar(P.car,dt);else walkPlayer(dt);
@@ -1654,7 +1725,7 @@ function frame(now){
   for(const c of COINS){
     if(c.got)continue;c.m.rotation.y+=dt*2.4;c.m.position.y=1.3+Math.sin(t*2+c.x)*0.2;
     if(started&&Math.hypot(c.x-px,c.z-pz)<2.6){
-      c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;coinSound();
+      c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;coinSound();saveGame();
       $('coins').textContent=coinCount+'/'+COINS.length;
       if(coinCount===COINS.length)toast(`<strong>All 12 polder coins!</strong> You found them in ${Math.floor(elapsed/60)} min ${Math.floor(elapsed%60)} s.`,7000);
       else toast(`Polder coin <strong>${coinCount}/${COINS.length}</strong>`,1800);

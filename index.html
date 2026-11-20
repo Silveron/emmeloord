@@ -849,7 +849,10 @@ const waterMat=new THREE.MeshPhongMaterial({color:0x3f6f86,shininess:40,specular
 const TILES=new Map();
 function tileOf(x,z){const k=Math.floor(x/300)*1000+Math.floor(z/300);let t=TILES.get(k);if(!t){t={gable:FACADES.map(()=>new GB()),wall:FACADES.map(()=>new GB()),shop:new GB(),roof:new GB(),plain:new GB()};TILES.set(k,t);}return t;}
 const PLINTH=C('#3f302a'),PLINTH_STONE=C('#7c7872'),FASCIA=C('#f1efe9'),GUTTER=C('#3d4044');
-const ROOFCOLS=['#a8452c','#8c3a26','#4c5258','#3c4044','#b25a34','#5a4038'];
+// Emmeloord's terraces mostly have dark grey concrete tiles, a few red-brown ones (from drone footage)
+const ROOFCOLS=['#3a3d40','#2f3236','#45484b','#3c4044','#4c5258','#34373a','#5a4038','#7a3a28'];
+// minimum-area bounding rectangle of a footprint: [corners, area]
+function minRect(p){let best=null;for(let i=0;i<p.length;i++){const a=p[i],c=p[(i+1)%p.length];const L=Math.hypot(c[0]-a[0],c[1]-a[1]);if(L<0.5)continue;const ux=(c[0]-a[0])/L,uz=(c[1]-a[1])/L;let u0=1e9,u1=-1e9,v0=1e9,v1=-1e9;for(const q of p){const u=q[0]*ux+q[1]*uz,v=-q[0]*uz+q[1]*ux;u0=Math.min(u0,u);u1=Math.max(u1,u);v0=Math.min(v0,v);v1=Math.max(v1,v);}const A=(u1-u0)*(v1-v0);if(!best||A<best[1]){const P=(u,v)=>[u*ux-v*uz,u*uz+v*ux];best=[[P(u0,v0),P(u1,v0),P(u1,v1),P(u0,v1)],A];}}return best;}
 const FLATROOF=['#5b5d60','#6a6863','#4e5155','#77736b'];
 const SHOPNAMES=['Bakkerij','Kaashuis','Fietsen','Boekhandel','Bloemen','Snackbar','Drogist','Schoenen','IJssalon','Slagerij','Opticien','Speelgoed','Mode','Lunchroom','Viswinkel','Juwelier','Kapper','Apotheek','Koffie','Tabak','Muziek','Sport','Wonen','Brillen','Patat','Thee & Co','Stoffen','Groente','Reizen','Kringloop','Bistro','Poffertjes'];
 const SIGNCOLS=[['#1f3d5a','#f6f1e7'],['#7a1f1f','#f6e7c8'],['#2d5a3a','#f6f1e7'],['#f2e6c9','#3a2a1a'],['#111','#ff9a3c'],['#6a3b7a','#fff'],['#ffffff','#1f3d5a']];
@@ -876,10 +879,15 @@ const hash=(x,z)=>{let h=Math.imul(Math.round(x*7)|0,73856093)^Math.imul(Math.ro
     const tint=C('#ffffff').multiplyScalar(0.9+hash(cz,cx)*0.12);
     const plainCol=b.kind===3?C(['#a3a8ad','#b9b4a8','#8e969c','#c4c0b5'][Math.floor(hv*4)]):C(['#8a4c38','#9a8a78','#6f6a64'][Math.floor(hv*3)]);
     // gable direction: houses in a row get the ridge along the row
-    let gable=-1;
+    let gable=-1,rp=p,rInner=b.inner;
     if(b.gable&&n===4){
       if(b.inner.size){const j=[...b.inner][0];gable=j%2;}
       else{const l0=Math.hypot(p[1][0]-p[0][0],p[1][1]-p[0][1]),l1=Math.hypot(p[2][0]-p[1][0],p[2][1]-p[1][1]);gable=l0<l1?0:1;}
+    }else if(b.kind===0&&h<=10&&n>=4&&n<=12){
+      // low houses whose outline is close to a rectangle get a pitched roof too, ridge along the long side
+      const mr=minRect(p),A=Math.abs(polyArea(p));
+      if(mr&&A>=mr[1]*0.86&&A>20){rp=mr[0];if(polyArea(rp)*polyArea(p)<0)rp=rp.slice().reverse();rInner=new Set();
+        const l0=Math.hypot(rp[1][0]-rp[0][0],rp[1][1]-rp[0][1]),l1=Math.hypot(rp[2][0]-rp[1][0],rp[2][1]-rp[1][1]);gable=l0<l1?0:1;}
     }
     for(let i=0;i<n;i++){
       if(b.inner.has(i))continue;
@@ -899,7 +907,7 @@ const hash=(x,z)=>{let h=Math.imul(Math.round(x*7)|0,73856093)^Math.imul(Math.ro
     }
     if(gable>=0){
       // ridge runs between the midpoints of the two gable ends (edges gable and gable+2)
-      const e0=[p[gable],p[(gable+1)%4]],e1=[p[(gable+2)%4],p[(gable+3)%4]];
+      const e0=[rp[gable],rp[(gable+1)%4]],e1=[rp[(gable+2)%4],rp[(gable+3)%4]];
       const m0=[(e0[0][0]+e0[1][0])/2,(e0[0][1]+e0[1][1])/2],m1=[(e1[0][0]+e1[1][0])/2,(e1[0][1]+e1[1][1])/2];
       const span=Math.hypot(e0[1][0]-e0[0][0],e0[1][1]-e0[0][1]);
       const rh=h+Math.min(5.5,span*0.5*0.9);
@@ -922,7 +930,7 @@ const hash=(x,z)=>{let h=Math.imul(Math.round(x*7)|0,73856093)^Math.imul(Math.ro
       }
       // gable triangles (skip shared walls)
       for(const [k,e,m] of [[gable,e0,m0],[(gable+2)%4,e1,m1]]){
-        if(b.inner.has(k))continue;
+        if(rInner.has(k))continue;
         const dx=e[1][0]-e[0][0],dz=e[1][1]-e[0][1],L=Math.hypot(dx,dz);
         const nrm=[dz/L,0,-dx/L];
         const g=pal<0?plainGB:tl.gable[pal];

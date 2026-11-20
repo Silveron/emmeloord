@@ -139,3 +139,10 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - **Café terraces**: OSM cafés, restaurants, ice cream shops and snack bars within 700 m get a terrace of tables, chairs and parasols in front of the shop (merged into a few meshes, solid).
 - **Bus station**: people wait on the platforms A to G.
 - **Ducks**: small groups of ducks paddle on the canals near the centre, turning away from the banks and avoiding bridges (two instanced meshes).
+
+## 2026-11-20: plan steps "weather and seasons" and "landmarks"
+- **Morning mist**: on about half the days, mist lies over the polder from about 05:00 and burns off by 10:00 (fog closes in to ~110 m, the sky and sun fade).
+- **Wind gusts**: the trees sway harder in gusts that come and go.
+- **Seasons** (pause menu, "Season: Auto" follows the calendar): spring has thinner, fresher crowns like the drone video, autumn turns the leaves yellow-brown and thins them a little, winter has bare trees, frosty grass, and showers fall as snow that settles on grass and roofs and melts afterwards.
+- **Churches from OSM**: Heilige Michaëlkerk, De Rank, Nieuw Jeruzalemkerk and De Hoeksteen now have church buildings on their real footprints (brick with tall narrow windows) and a bell tower with a copper spire and a golden cross on the corner nearest the street. Their names show when you are there. The tower heights and looks are approximations.
+- The harbour (1e Industriehaven) lies just outside the mapped area, so it is not in the game yet.

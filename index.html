@@ -150,7 +150,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
     <div class="eyebrow">Paused</div>
     <h2>Taking a break</h2>
     <div id="pstats"></div>
-    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="pmusic" type="button" class="ghost">Music: on</button><button id="pgfx" type="button" class="ghost">Graphics: High</button><button id="preset" type="button" class="ghost">New game</button></div>
+    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="pmusic" type="button" class="ghost">Music: on</button><button id="pgfx" type="button" class="ghost">Graphics: High</button><button id="pseason" type="button" class="ghost">Season: Auto</button><button id="preset" type="button" class="ghost">New game</button></div>
     <p class="small">Progress (coins, cash, best lap) is saved in this browser.</p>
   </div>
 </div>
@@ -203,7 +203,7 @@ const lerpA=(a,b,t)=>a+wrapA(b-a)*t;
 const C=c=>new THREE.Color(c);
 const WHITE=C('#ffffff');
 // game clock in minutes; one real second is one game minute, so a full day takes 24 minutes
-let gameMin=8*60+30;
+let gameMin=8*60+30,SEASON_SET='auto',SEASON_NOW='summer';
 
 /* ---------- renderer ---------- */
 const canvas=$('game');
@@ -710,6 +710,9 @@ function segDist(x,z,ax,az,bx,bz){const dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz;let t=l
 for(const b of BLDS)Object.assign(b,polyBox(b.p));
 // Hotel 't Voorhuys (OSM way 266435940, De Deel 20, at the entrance of the Lange Nering) gets its own model further down, in front of the rest of its block
 const VOORHUYS_FP=(()=>{const i=BLDS.findIndex(b=>{let cx=0,cz=0;for(const q of b.p){cx+=q[0];cz+=q[1];}cx/=b.p.length;cz/=b.p.length;return Math.hypot(cx-131,cz+124)<6;});return i<0?null:BLDS[i];})();
+// churches from OSM (amenity=place_of_worship) get their own model, so their footprints come out of the generic buildings
+const CHURCHES=[{name:'Heilige Michaëlkerk',x:257.8,z:-271.5,tower:34},{name:'De Rank',x:45.6,z:-511.1,tower:26},{name:'Nieuw Jeruzalemkerk',x:505.0,z:111.5,tower:24},{name:'De Hoeksteen',x:187.1,z:59.7,tower:18}];
+for(const ch of CHURCHES){const i=BLDS.findIndex(b=>ch.x>b.x0-2&&ch.x<b.x1+2&&ch.z>b.z0-2&&ch.z<b.z1+2&&inPoly(ch.x,ch.z,b.p));if(i>=0)ch.b=BLDS.splice(i,1)[0];}
 
 /* roads leaving the town get extended straight out into the polder */
 const POLDER_ROADS=[];
@@ -1015,6 +1018,49 @@ const SHOPSPOTS=window.__SHOPSPOTS;
 }
 for(const t of TILES.values()){t.wall.forEach((g,i)=>g.mesh(wallMats[i]));t.gable.forEach((g,i)=>g.mesh(gableMats[i]));t.shop.mesh(shopMat);t.roof.mesh(roofMat);t.plain.mesh(plainMat);}
 
+
+/* ---------- churches from OSM (amenity=place_of_worship): a steep roof over the nave and a brick bell tower with a spire and cross ---------- */
+const LANDMARKS=[];
+{
+  const wallT=canvasTex(128,256,(g,w,h)=>{g.fillStyle='#7a5444';g.fillRect(0,0,w,h);
+    for(let y=0;y<h;y+=4){const off=(y/4)%2?0:6;for(let x=-off;x<w;x+=12){g.fillStyle=varyCol(pick(['#7d5646','#6e4a3c','#86604e','#734f40']),.03,.04);g.fillRect(x+.5,y+.5,11,3);}}
+    // one tall narrow window per bay, dark glass with a stone frame
+    g.fillStyle='#cfc6b6';g.fillRect(w/2-11,h*0.18-3,22,h*0.64+6);g.fillStyle='#1b1e22';g.fillRect(w/2-8,h*0.18,16,h*0.64);g.fillStyle='rgba(120,150,170,.35)';g.fillRect(w/2-8,h*0.18,6,h*0.64);
+    g.fillStyle='#cfc6b6';for(let y=h*0.18+h*0.16;y<h*0.82;y+=h*0.16)g.fillRect(w/2-8,y,16,2);});
+  wallT.wrapS=THREE.RepeatWrapping;
+  const wallM=Lam({map:wallT,roughness:0.9}),brick=Lam({map:(()=>{const t=towerBrick.clone();t.needsUpdate=true;t.repeat.set(3,8);return t;})(),color:'#8a6a58',roughness:0.9});
+  const roofM=Lam({color:'#3a3b3e',roughness:0.9}),copper=Lam({color:'#3c6e5a',roughness:0.6});
+  const gold=new THREE.MeshStandardMaterial({color:0xd4af37,metalness:0.9,roughness:0.3});
+  const gW=new GB(),gR=new GB();
+  for(const ch of CHURCHES){
+    const b=ch.b;if(!b)continue;
+    const p=b.p,eave=Math.max(9,Math.min(13,b.h+2));let cx=0,cz=0;for(const q of p){cx+=q[0];cz+=q[1];}cx/=p.length;cz/=p.length;
+    // walls: the real footprint extruded, one window bay per 4 m
+    const ccw=polyArea(p)>0;
+    for(let i=0;i<p.length;i++){const a=p[i],c=p[(i+1)%p.length],L=Math.hypot(c[0]-a[0],c[1]-a[1]);if(L<0.2)continue;
+      let nx=(c[1]-a[1])/L,nz=-(c[0]-a[0])/L;if(!ccw){nx=-nx;nz=-nz;}
+      const u=Math.max(1,Math.round(L/4));gW.quad([[a[0],0,a[1]],[c[0],0,c[1]],[c[0],eave,c[1]],[a[0],eave,a[1]]],[[0,0],[u,0],[u,1],[0,1]],[nx,0,nz],WHITE);}
+    fillPoly(gR,p,eave,4);
+    addCollider({poly:p,...polyBox(p)});
+    // bell tower on the corner closest to a street
+    let best=p[0],bd=1e9;for(const q of p){const n=nearestRoad(q[0],q[1],r=>r.c===0);const d=n?n.d:1e9;if(d<bd){bd=d;best=q;}}
+    const tw=ch.tower>25?6:5,H=ch.tower,dx=cx-best[0],dz=cz-best[1],dl=Math.hypot(dx,dz)||1,tx=best[0]+dx/dl*tw*0.5,tz=best[1]+dz/dl*tw*0.5;
+    const tg=new THREE.Group();tg.position.set(tx,0,tz);tg.rotation.y=Math.atan2(dx,dz)+Math.PI/4;scene.add(tg);
+    const box=(gb,x0,x1,y0,y1,z0,z1,c)=>boxGB(gb,x0,x1,y0,y1,z0,z1,c||WHITE);
+    const tb=new GB();box(tb,-tw/2,tw/2,0,H,-tw/2,tw/2);tg.add(tb.mesh(brick));
+    const td=new GB(),dk=C('#1d1c1b'),w=tw*0.14;
+    for(const off of [-tw*0.2,tw*0.2]){const y0=H-4.4;
+      box(td,tw/2-0.03,tw/2+0.03,y0,y0+3,off-w,off+w,dk);box(td,-tw/2-0.03,-tw/2+0.03,y0,y0+3,off-w,off+w,dk);
+      box(td,off-w,off+w,y0,y0+3,tw/2-0.03,tw/2+0.03,dk);box(td,off-w,off+w,y0,y0+3,-tw/2-0.03,-tw/2+0.03,dk);}
+    for(let y=3;y<H-6;y+=4)for(const [sx,sz] of [[1,0],[-1,0],[0,1],[0,-1]]){if(sx)box(td,sx*(tw/2+0.02)-0.02,sx*(tw/2+0.02)+0.02,y,y+1.6,-0.18,0.18,dk);else box(td,-0.18,0.18,y,y+1.6,sz*(tw/2+0.02)-0.02,sz*(tw/2+0.02)+0.02,dk);}
+    tg.add(td.mesh(plainMat,false));
+    const sp=new THREE.Mesh(new THREE.ConeGeometry(tw*0.75,H*0.32,4,1).rotateY(Math.PI/4),copper);sp.position.y=H+H*0.16;sp.castShadow=true;tg.add(sp);
+    const cr=new THREE.Mesh(mergeGeo([[UNIT,TM(0,0,0,0.12,1.6,0.12)],[UNIT,TM(0,0.25,0,0.8,0.12,0.12)]]),gold);cr.position.y=H+H*0.32+0.8;tg.add(cr);
+    addCollider({x:tx,z:tz,r:tw*0.7});
+    LANDMARKS.push({name:ch.name,x:cx,z:cz,r:Math.max(b.x1-b.x0,b.z1-b.z0)/2+8});
+  }
+  gW.mesh(wallM);gR.mesh(roofM);
+}
 /* ---------- Poldertoren (1959): 65.3 m, platform at 43.4 m, weather vane at 70.5 m, 13.4 m wide octagon ----------
    Looks matched to drone footage: dark brown brick all the way up, rows of narrow slits, dark clock faces with gold hands,
    tall belfry openings under the eaves, a green copper pyramid roof and a golden vane. */
@@ -1407,6 +1453,7 @@ glowTex.wrapS=glowTex.wrapT=THREE.ClampToEdgeWrapping;
 const LAMP_HEAD=new THREE.MeshLambertMaterial({color:0xfff3c8,emissive:0x887a50});
 const LAMP_POOL=new THREE.MeshBasicMaterial({map:glowTex,color:0xffc773,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-12});
 const TREES=[];
+const SEASON_MATS={},THIN_U={value:0};
 const WIND={value:new THREE.Vector2(0,1)};   // x = time, y = strength
 /* tree crowns: a cluster of noisy spheres merged into one mesh, darker underneath and inside (fake ambient occlusion) */
 function lumpyCrown(poplar,simple){
@@ -1498,10 +1545,13 @@ const TREE_CHUNKS=[];
   const geo={round:leafCrown(120),poplar:lumpyCrown(true)},far={round:leafCrown(40),poplar:lumpyCrown(true,true)};
   const leafMat=Lam({color:0xffffff,vertexColors:true,roughness:0.95});
   const cardMat=Lam({map:leafTex,alphaTest:0.5,side:THREE.DoubleSide,vertexColors:true,roughness:0.9,envMapIntensity:0.5});
-  const crownMat={round:cardMat,poplar:leafMat};
+  const crownMat={round:cardMat,poplar:leafMat};SEASON_MATS.card=cardMat;SEASON_MATS.leaf=leafMat;
   // wind: crowns sway, each tree with its own phase (from its position); stronger in rain
-  for(const mt of [cardMat,leafMat])mt.onBeforeCompile=sh=>{sh.uniforms.uWind=WIND;
-    sh.vertexShader='uniform vec2 uWind;\n'+sh.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+  for(const mt of [cardMat,leafMat])mt.onBeforeCompile=sh=>{sh.uniforms.uWind=WIND;sh.uniforms.uThin=THIN_U;
+    // uThin drops whole clumps of leaf cards (thin spring crowns), picked by a hash of the card's place in the crown
+    sh.fragmentShader='uniform float uThin;\nvarying float vThin;\n'+sh.fragmentShader.replace('void main() {','void main() {\n  if(vThin<uThin) discard;');
+    sh.vertexShader='uniform vec2 uWind;\nvarying float vThin;\n'+sh.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+      vThin=fract(sin(dot(floor(position*2.5),vec3(12.9898,78.233,37.719)))*43758.5453);
       #ifdef USE_INSTANCING
       { vec3 ip=instanceMatrix[3].xyz; float ph=ip.x*0.13+ip.z*0.17; float h=clamp(position.y+0.7,0.0,1.6);
         float sw=(sin(uWind.x*1.1+ph)*0.6+sin(uWind.x*2.3+ph*1.7)*0.25)*uWind.y*h;
@@ -2510,6 +2560,7 @@ function toast(html,ms){
 const DEEL=PAVED.filter(a=>a.k===1&&inPoly(111,-42,a.p))[0];
 function zoneName(x,z){
   if(Math.hypot(x-TOWER.x,z-TOWER.z)<16)return 'Poldertoren';
+  for(const l of LANDMARKS)if(Math.hypot(x-l.x,z-l.z)<l.r)return l.name;
   if(DEEL&&inPoly(x,z,DEEL.p))return 'De Deel';
   const n=nearestRoad(x,z,r=>r.n.length>2);
   if(n&&n.d<7)return n.r.n.replace(/^de /,'De ');
@@ -2599,7 +2650,7 @@ function enableTouch(){
 const SAVE_KEY='emmeloord-vrijbaan-v1';
 let GFX_SAVED=null,GFX=isTouchDevice?1:2,gfxAuto=true;
 function saveGame(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,best:BEST.trial,min:Math.round(gameMin),muted,music:musicOn,gfx:gfxAuto?null:GFX}));}catch(_){}
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,best:BEST.trial,min:Math.round(gameMin),muted,music:musicOn,gfx:gfxAuto?null:GFX,season:SEASON_SET}));}catch(_){}
 }
 function loadGame(){
   let d=null;try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(_){d=null;}
@@ -2903,7 +2954,7 @@ const DN={
   glow:C('#ffcf86'),rainTop:C('#6f7c88'),rainBot:C('#a3adb4'),cloudDay:C('#8a99a8'),cloudNight:C('#141a26'),
   c1:new THREE.Color(),c2:new THREE.Color()
 };
-let NIGHT=0,RAIN=0,rainTarget=0,weatherT=150;
+let NIGHT=0,RAIN=0,rainTarget=0,weatherT=150,FOGK=0,FOG_DAY=Math.random()<0.35,FOG_ROLLED=false,SNOW=0,SNOWING=false;
 /* rain: a box of falling streaks that follows the camera */
 const RAIN_N=2200,RAIN_BOX=45;
 const rainGeo=new THREE.BufferGeometry(),rainPos=new Float32Array(RAIN_N*6),rainSeed=new Float32Array(RAIN_N*3);
@@ -2920,10 +2971,13 @@ function updateWeather(dt){
     else weatherT=rand(90,240);
   }
   RAIN+=clamp(rainTarget-RAIN,-dt/12,dt/12);
+  // snow settles while it snows and melts slowly afterwards
+  const sn=SEASON_NOW==='winter'?(RAIN>0.3?SNOW+dt/45:SNOW-dt/600):SNOW-dt/20;SNOW=clamp(sn,0,1);SNOW_U.value=SNOW;
   rainLines.visible=RAIN>0.02;
   if(!rainLines.visible)return;
-  rainMat.opacity=RAIN*0.6;
-  rainFall=(rainFall+dt*26)%40;
+  SNOWING=SEASON_NOW==='winter';rainMat.color.setHex(SNOWING?0xffffff:0xb8c6d4);
+  rainMat.opacity=RAIN*(SNOWING?0.85:0.6);
+  rainFall=(rainFall+dt*(SNOWING?2.6:26))%40;
   const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z,n=Math.floor(RAIN_N*RAIN);
   const wx=0.12;
   for(let i=0;i<RAIN_N;i++){
@@ -2934,6 +2988,7 @@ function updateWeather(dt){
     x=((x-cx)%(2*RAIN_BOX)+3*RAIN_BOX)%(2*RAIN_BOX)-RAIN_BOX+cx;
     z=((z-cz)%(2*RAIN_BOX)+3*RAIN_BOX)%(2*RAIN_BOX)-RAIN_BOX+cz;
     const y=cy+20-((rainSeed[i*3+1]+rainFall)%40);
+    if(SNOWING){const sx=x+Math.sin(y*0.7+i)*0.6;rainPos[k]=sx;rainPos[k+1]=y;rainPos[k+2]=z;rainPos[k+3]=sx+0.06;rainPos[k+4]=y-0.07;rainPos[k+5]=z;continue;}
     rainPos[k]=x;rainPos[k+1]=y;rainPos[k+2]=z;rainPos[k+3]=x-wx;rainPos[k+4]=y-0.9;rainPos[k+5]=z;
   }
   rainGeo.attributes.position.needsUpdate=true;
@@ -2965,6 +3020,16 @@ function updateDayNight(){
   scene.fog.near=150-80*RAIN;scene.fog.far=900-450*RAIN;
   sun.color.copy(DN.moon).lerp(DN.sunDay,day).lerp(DN.sunDusk,dusk*0.8);
   sun.intensity=(0.22+2.1*day)*(1-0.6*RAIN);
+  // morning mist over the polder: on some days from about 05:00 until 10:00
+  if(h>=3.8&&h<4.2&&!FOG_ROLLED){FOG_ROLLED=true;FOG_DAY=rng()<0.45;}else if(h>12)FOG_ROLLED=false;
+  FOGK=FOG_DAY?sstep(4.6,6.2,h)*(1-sstep(8.6,10.4,h))*(1-0.5*RAIN):0;
+  if(FOGK>0.001){
+    const fc=DN.c1.clone().setRGB(0.80,0.82,0.83).multiplyScalar(0.3+0.7*day);
+    scene.fog.color.lerp(fc,FOGK);scene.background.copy(scene.fog.color);
+    scene.fog.near+=(5-scene.fog.near)*FOGK;scene.fog.far+=(110-scene.fog.far)*FOGK;
+    su.top.value.lerp(fc,FOGK*0.9);su.bot.value.lerp(fc,FOGK);wp.w*=1-FOGK;sun.intensity*=1-0.65*FOGK;
+    for(const m of CLOUD_MATS)m.visible=m.visible&&FOGK<0.5;
+  }
   hemi.color.copy(DN.hemiNight).lerp(DN.hemiDay,day);hemi.groundColor.copy(DN.gndNight).lerp(DN.gndDay,day);
   hemi.intensity=(0.22+0.22*day)*(1-0.1*RAIN);
   STARS.material.opacity=sstep(0.55,0.95,NIGHT)*0.9;
@@ -3230,7 +3295,7 @@ function frame(now){
     }
   }
   for(const b of BLADES)b.rotation.z+=dt*0.9;
-  WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6;
+  WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6+Math.max(0,Math.sin(t*0.11)*Math.sin(t*0.37+1))*1.6;// gusts come and go
   waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;
   updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateCarLights(t);updateSpray(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
@@ -3270,7 +3335,29 @@ function frame(now){
   renderFrame();
 }
 requestAnimationFrame(frame);
-window.__game={dbg:()=>({camera,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,i*0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);for(const c of CARS)syncCar(c,0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+
+/* ---------- seasons: Auto follows the calendar; spring has thin fresh crowns (like the drone video), autumn turns the leaves, winter is bare and can snow ---------- */
+const SEASONS=['auto','spring','summer','autumn','winter'],SEASON_NL={auto:'Auto',spring:'Spring',summer:'Summer',autumn:'Autumn',winter:'Winter'};
+const SNOW_U={value:0};
+const GRASS_MATS=[...new Set(PHOTO_SLOTS.filter(s=>s[1]==='grass').map(s=>s[0]))];
+const GRASS_BASE=GRASS_MATS.map(m=>m.color.clone());
+// snow cover: blend ground, grass and roofs towards white as SNOW rises
+for(const [m,k] of [...GRASS_MATS.map(m=>[m,0.95]),[roofMat,0.9]]){const prev=m.onBeforeCompile;m.onBeforeCompile=(sh,r)=>{if(prev)prev(sh,r);sh.uniforms.uSnow=SNOW_U;
+  sh.fragmentShader='uniform float uSnow;\n'+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.93,0.95,0.98),clamp(uSnow*'+k.toFixed(2)+'*(0.85+0.3*fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)),0.0,1.0));');};m.needsUpdate=true;}
+function calendarSeason(){const mo=new Date().getMonth();return mo<2||mo===11?'winter':mo<5?'spring':mo<8?'summer':'autumn';}
+function applySeason(){
+  SEASON_NOW=SEASON_SET==='auto'?calendarSeason():SEASON_SET;
+  const T={spring:[1.15,1.3,0.8],summer:[1,1,1],autumn:[2.6,0.95,0.2],winter:[1,1,1]}[SEASON_NOW];THIN_U.value={spring:0.45,autumn:0.18}[SEASON_NOW]||0;
+  const G={spring:[1.04,1.08,0.95],summer:[1,1,1],autumn:[0.98,0.92,0.72],winter:[0.86,0.86,0.8]}[SEASON_NOW];
+  for(const k of ['card','leaf']){const m=SEASON_MATS[k];if(!m)continue;m.color.setRGB(...T);m.visible=SEASON_NOW!=='winter';}
+  GRASS_MATS.forEach((m,i)=>m.color.copy(GRASS_BASE[i]).multiply(new THREE.Color(...G)));
+  if(SEASON_NOW!=='winter')SNOW=0;
+  if($('pseason'))$('pseason').textContent='Season: '+SEASON_NL[SEASON_SET]+(SEASON_SET==='auto'?' ('+SEASON_NL[SEASON_NOW]+')':'');
+}
+try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
+applySeason();
+$('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
+window.__game={dbg:()=>({camera,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,i*0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);for(const c of CARS)syncCar(c,0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

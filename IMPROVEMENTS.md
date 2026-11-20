@@ -101,3 +101,12 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - Draw calls: people 15 → 5 meshes, cars 24 → 11 meshes, night-only light pools and beams skipped by day. A busy street on a phone went from ~2,700 to ~1,500 draw calls.
 - Unreal Engine was asked about; the game stays in the browser (Three.js) so it keeps working on the GitHub Pages link and phones.
 - Ideas next: real CC0 glTF car and tree models, a few photo shop fronts, roughness maps for wet-road puddles.
+
+## 2026-11-20 — Graphics round 4: real animated characters
+
+- Pedestrians, cyclists and taxi passengers are now a rigged, animated CC0 human (Quaternius "Man"): idle, walk and run clips, with the gait driven by distance walked so feet don't slide. Each person is recoloured per vertex and merged into one skinned mesh, so a pedestrian is still one draw call. People more than 70 m away animate at a quarter of the rate.
+- The player is the CC0 Quaternius "Adventurer" (backpack removed), recoloured to the old orange top and dark jeans. It uses idle, walk and run.
+- Cyclists use the sitting pose, leaning forward with hands on the bars.
+- The models load after the game starts (`loadRigs`, `assets/models/*.glb`, loader in `assets/lib/`). Until they arrive, or if they fail, the old procedural people stay.
+- CC0 cars and trees (Kenney) were tried and not used, because they look more toy-like than the current ones.
+- Phone street view: 275 → 312 draw calls.

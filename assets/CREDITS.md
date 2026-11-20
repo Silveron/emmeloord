@@ -1,6 +1,6 @@
 # Asset credits
 
-All files in this folder come from [Poly Haven](https://polyhaven.com) and are **CC0** (public domain). They were resized and colour-adjusted for the game.
+The textures and skies in this folder come from [Poly Haven](https://polyhaven.com) and are **CC0** (public domain). They were resized and colour-adjusted for the game.
 
 | File | Source |
 |---|---|
@@ -15,3 +15,16 @@ All files in this folder come from [Poly Haven](https://polyhaven.com) and are *
 | pavement*.jpg | concrete_pavement_02 |
 | roof*.jpg | clay_roof_tiles_03 (desaturated so roofs can be tinted) |
 | grass*.jpg | leafy_grass (recoloured greener) |
+
+## Characters (`models/`)
+
+Both are **CC0** by [Quaternius](https://quaternius.com), taken from the CC0 copies in the `@netforge/asset-library-files` npm package. They were cut down to the animations the game uses (idle, walk, run, sit, wave), the backpack was removed from the adventurer, and mesh compression was removed so three.js r128 can load them without a decoder.
+
+| File | Source |
+|---|---|
+| models/people.glb | "Man" (worker) from the Ultimate Animated Character pack, recoloured per pedestrian in code |
+| models/hero.glb | "Adventurer" from the Ultimate Modular Men pack, recoloured orange in code |
+
+## Code (`lib/`)
+
+`GLTFLoader.js` and `SkeletonUtils.js` are the MIT-licensed three.js r128 example files (`examples/js/`).

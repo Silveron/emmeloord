@@ -86,3 +86,11 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - Performance: trees split into 150 m chunks (hidden out of view, shadows only nearby, simpler crowns beyond 320 m).
 - Lantern street lamps, tapered turbine blades.
 - Not touched: road layout and the Poldertoren (another thread is rebuilding those).
+
+## 2026-11-20 — Graphics round 2 (Ron: "even more realistic")
+- Graphics setting Low / Medium / High in the pause menu, saved. Phones start on Medium, laptops on High; if frames stay slow at the lowest resolution the game steps down by itself (only when the player has not picked a level).
+- High: post-processing chain (screen-space ambient occlusion from the depth buffer, bloom, colour grading, vignette, FXAA) and a 4096 shadow map.
+- Billboard clouds with shaded undersides, tinted by time of day and rain.
+- Wet streets in rain: asphalt, klinkers and paving get darker and glossy.
+- Plinths, white fascia boards and gutters on the OpenStreetMap buildings; less neon grass.
+- Note: some views in town draw 2,000+ objects per frame (before this change too); merging street furniture and people would help phones.

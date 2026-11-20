@@ -1378,16 +1378,34 @@ const PG={
   leg:new THREE.CylinderGeometry(0.095,0.055,0.8,8),shoe:new THREE.SphereGeometry(0.1,8,4,0,Math.PI*2,0,Math.PI/2),
 };
 function piece(geo,c,x,y,z,parent,sx,sy,sz){const m=new THREE.Mesh(geo,lm(c));m.position.set(x,y,z);if(sx)m.scale.set(sx,sy,sz);m.castShadow=true;parent.add(m);return m;}
+/* each person is 5 meshes (body, two arms, two legs): parts are merged into one geometry with vertex colours */
+const PERSON_MAT=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.85,envMapIntensity:0.65});
+const _pm=new THREE.Matrix4(),_pq=new THREE.Quaternion(),_ps=new THREE.Vector3(),_pp=new THREE.Vector3();
+function mergeParts(parts){
+  const pos=[],nor=[],col=[];
+  for(const [geo,c,x,y,z,sx,sy,sz] of parts){
+    const g=(geo.index?geo.toNonIndexed():geo.clone());
+    _pm.compose(_pp.set(x,y,z),_pq.identity(),_ps.set(sx||1,sy||1,sz||1));g.applyMatrix4(_pm);
+    const cc=C(c).convertSRGBToLinear(),P=g.attributes.position,N=g.attributes.normal;
+    for(let i=0;i<P.count;i++){pos.push(P.getX(i),P.getY(i),P.getZ(i));nor.push(N.getX(i),N.getY(i),N.getZ(i));col.push(cc.r,cc.g,cc.b);}
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  g.computeBoundingSphere();return g;
+}
+const PERSON_GEO={};
+function personGeo(key,parts){return PERSON_GEO[key]||(PERSON_GEO[key]=mergeParts(parts));}
 function makePerson(o){
   const g=new THREE.Group();
-  piece(PG.torso,o.shirt,0,1.13,0,g,1,1,0.66);
-  piece(PG.shoulders,o.shirt,0,1.42,0,g,1.12,0.45,0.7);
-  piece(PG.hips,o.pants,0,0.85,0,g,1,1,0.7);
-  piece(PG.head,o.skin,0,1.62,0.01,g,1,1.15,1.02);
-  piece(PG.hair,o.hair,0,1.645,-0.012,g,1,1.05,1.05);
-  piece(PG.eye,'#222',-0.05,1.645,0.125,g);piece(PG.eye,'#222',0.05,1.645,0.125,g);
-  const arm=s=>{const p=new THREE.Group();p.position.set(s*.27,1.4,0);g.add(p);piece(PG.arm,o.shirt,0,-.29,0,p);piece(PG.hand,o.skin,0,-.6,0.01,p,1,1.2,0.9);return p;};
-  const leg=s=>{const p=new THREE.Group();p.position.set(s*.1,.85,0);g.add(p);piece(PG.leg,o.pants,0,-.4,0,p);piece(PG.shoe,'#2a2a2a',0,-.8,.05,p,0.95,0.8,1.6);return p;};
+  const add=(geo,parent)=>{const m=new THREE.Mesh(geo,PERSON_MAT);m.castShadow=true;parent.add(m);return m;};
+  add(personGeo('b'+o.shirt+o.pants+o.skin+o.hair,[
+    [PG.torso,o.shirt,0,1.13,0,1,1,0.66],[PG.shoulders,o.shirt,0,1.42,0,1.12,0.45,0.7],[PG.hips,o.pants,0,0.85,0,1,1,0.7],
+    [PG.head,o.skin,0,1.62,0.01,1,1.15,1.02],[PG.hair,o.hair,0,1.645,-0.012,1,1.05,1.05],
+    [PG.eye,'#222',-0.05,1.645,0.125],[PG.eye,'#222',0.05,1.645,0.125]]),g);
+  const armG=personGeo('a'+o.shirt+o.skin,[[PG.arm,o.shirt,0,-.29,0],[PG.hand,o.skin,0,-.6,0.01,1,1.2,0.9]]);
+  const legG=personGeo('l'+o.pants,[[PG.leg,o.pants,0,-.4,0],[PG.shoe,'#2a2a2a',0,-.8,.05,0.95,0.8,1.6]]);
+  const arm=s=>{const p=new THREE.Group();p.position.set(s*.27,1.4,0);g.add(p);add(armG,p);return p;};
+  const leg=s=>{const p=new THREE.Group();p.position.set(s*.1,.85,0);g.add(p);add(legG,p);return p;};
   const r={g,la:arm(-1),ra:arm(1),ll:leg(-1),rl:leg(1)};
   scene.add(g);return r;
 }
@@ -1450,29 +1468,56 @@ const tailMat=new THREE.MeshLambertMaterial({color:0xc4211b,emissive:0x400000});
 const BEAM_MAT=new THREE.MeshBasicMaterial({map:glowTex,color:0xfff0c8,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-12});
 const BEAM_GEO=new THREE.PlaneGeometry(5,14).rotateX(-Math.PI/2);
 const CARS=[];
+/* merge geometries (position, normal, uv) placed by matrices into one; uvFix pins every vertex to one texel */
+function mergeGeo(list){
+  const pos=[],nor=[],uv=[];
+  for(const [geo,m,uvFix] of list){
+    const g=(geo.index?geo.toNonIndexed():geo.clone());g.applyMatrix4(m);
+    const P=g.attributes.position,N=g.attributes.normal,U=g.attributes.uv;
+    for(let i=0;i<P.count;i++){pos.push(P.getX(i),P.getY(i),P.getZ(i));nor.push(N.getX(i),N.getY(i),N.getZ(i));if(uvFix)uv.push(uvFix[0],uvFix[1]);else uv.push(U?U.getX(i):0,U?U.getY(i):0);}
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.computeBoundingSphere();return g;
+}
+const TM=(x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0)=>new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx,ry,0)),new THREE.Vector3(sx,sy,sz));
+/* a car is ~11 draw calls: painted shell, glass, trim, head lights, tail lights, plates, contact shadow and four wheels */
+const CARPARTS={};
+for(const kind of ['car','van']){
+  const G=CARGEO[kind],van=kind==='van',I=new THREE.Matrix4();
+  CARPARTS[kind]={
+    shell:mergeGeo([[G.body,I],[G.roof,I],[UNIT,TM(-1,1.04,van?1.3:0.82,.12,.1,.18)],[UNIT,TM(1,1.04,van?1.3:0.82,.12,.1,.18)]]),
+  };
+}
+CARPARTS.trim=mergeGeo([[UNIT,TM(0,.42,2.14,1.86,.16,.16)],[UNIT,TM(0,.42,-2.16,1.86,.16,.16)],[UNIT,TM(0,.66,2.19,1.1,.14,.04)]]);
+CARPARTS.head=mergeGeo([[UNIT,TM(-.6,.8,2.16,.42,.13,.06,-0.25)],[UNIT,TM(.6,.8,2.16,.42,.13,.06,-0.25)]]);
+CARPARTS.tail=mergeGeo([[UNIT,TM(-.66,.86,-2.17,.36,.15,.06)],[UNIT,TM(.66,.86,-2.17,.36,.15,.06)]]);
+CARPARTS.plates=mergeGeo([[PLATE_GEO,TM(0,.5,2.235)],[PLATE_GEO,TM(0,.5,-2.245,1,1,1,0,Math.PI)]]);
+CARPARTS.wheel=(()=>{
+  const side=RIM_GEO.clone();side.clearGroups();
+  // rim side samples the bright ring of the rim texture, the tyre samples its dark corner; the caps keep their spoke UVs
+  const caps=new THREE.CylinderGeometry(.235,.235,.24,16,1,false);caps.rotateZ(Math.PI/2);
+  const capOnly=new THREE.BufferGeometry();{const ng=caps.toNonIndexed();const grp=caps.groups;const P=[],N=[],U=[];const src=caps.index.array;
+    for(const gr of grp){if(gr.materialIndex===0)continue;for(let i=gr.start;i<gr.start+gr.count;i++){const k=src[i];P.push(caps.attributes.position.getX(k),caps.attributes.position.getY(k),caps.attributes.position.getZ(k));N.push(caps.attributes.normal.getX(k),caps.attributes.normal.getY(k),caps.attributes.normal.getZ(k));U.push(caps.attributes.uv.getX(k),caps.attributes.uv.getY(k));}}
+    capOnly.setAttribute('position',new THREE.Float32BufferAttribute(P,3));capOnly.setAttribute('normal',new THREE.Float32BufferAttribute(N,3));capOnly.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));}
+  const I=new THREE.Matrix4();
+  return mergeGeo([[TIRE_GEO,I,[0.02,0.02]],[side,I,[0.94,0.5]],[capOnly,I]]);
+})();
+const WHEEL_MAT=new THREE.MeshStandardMaterial({map:RIM_FACE,metalness:0.45,roughness:0.45});
+const TRIMMAT=new THREE.MeshStandardMaterial({color:0x1d1e20,roughness:0.6});
 function makeCar(x,z,h,color,kind){
   const g=new THREE.Group();scene.add(g);
   const body=new THREE.Group();g.add(body);
-  const van=kind==='van',G=CARGEO[van?'van':'car'],paint=paintMat(color);
-  const M=(geo,mat,x,y,z,cast=true)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=cast;body.add(m);return m;};
-  M(G.body,paint,0,0,0);M(G.glass,GLASS_MAT,0,0,0);M(G.roof,paint,0,0,0);
-  // bumpers, grille, sills
-  part(1.86,.16,.16,'#202224',0,.42,2.14,body);part(1.86,.16,.16,'#202224',0,.42,-2.16,body);
-  part(1.1,.14,.04,'#151617',0,.66,2.19,body);
-  for(const s of [-1,1]){
-    const hl=new THREE.Mesh(UNIT,headMat);hl.scale.set(.42,.13,.06);hl.position.set(s*.6,.8,2.16);hl.rotation.x=-0.25;body.add(hl);
-    const tl=new THREE.Mesh(UNIT,tailMat);tl.scale.set(.36,.15,.06);tl.position.set(s*.66,.86,-2.17);body.add(tl);
-    // door mirrors
-    const mx=s*1.0;M(UNIT,paint,mx,1.04,van?1.3:0.82).scale.set(.12,.1,.18);
-  }
-  for(const z of [2.235,-2.245]){const pl=new THREE.Mesh(PLATE_GEO,PLATE_MAT);pl.position.set(0,.5,z);if(z<0)pl.rotation.y=Math.PI;body.add(pl);}
+  const van=kind==='van',paint=paintMat(color),CP=CARPARTS[van?'van':'car'];
+  const M=(geo,mat,cast=true)=>{const m=new THREE.Mesh(geo,mat);m.castShadow=cast;body.add(m);return m;};
+  M(CP.shell,paint);M(CARGEO[van?'van':'car'].glass,GLASS_MAT);M(CARPARTS.trim,TRIMMAT);
+  M(CARPARTS.head,headMat,false);M(CARPARTS.tail,tailMat,false);M(CARPARTS.plates,PLATE_MAT,false);
   const shadow=new THREE.Mesh(CAR_SHADOW_GEO,CAR_SHADOW_MAT);shadow.position.y=0.07;shadow.renderOrder=1;g.add(shadow);
   const beam=new THREE.Mesh(BEAM_GEO,BEAM_MAT);beam.position.set(0,0.17,8.5);beam.renderOrder=2;g.add(beam);
   const wheels=[],fronts=[];
   for(const sx of [-1,1])for(const sz of [1.38,-1.38]){
     const pv=new THREE.Group();pv.position.set(sx*.9,.38,sz);g.add(pv);
-    const w=new THREE.Mesh(TIRE_GEO,TIRE_MAT);w.castShadow=true;pv.add(w);
-    const rim=new THREE.Mesh(RIM_GEO,RIM_MATS);w.add(rim);
+    const w=new THREE.Mesh(CARPARTS.wheel,WHEEL_MAT);w.castShadow=true;pv.add(w);
     wheels.push(w);if(sz>0)fronts.push(pv);
   }
   const c={g,body,wheels,fronts,x,z,h,speed:0,steer:0,ai:null,color,blockedT:0,impatient:0,honked:0};
@@ -2344,7 +2389,7 @@ function updateDayNight(){
   for(const m of wallMats)m.emissive.copy(DN.glow).multiplyScalar(lights*1.5);
   shopMat.emissive.setScalar(lights*0.95);
   LAMP_HEAD.emissive.setRGB(0.53+lights*0.47,0.48+lights*0.45,0.31+lights*0.4);
-  LAMP_POOL.opacity=lights*0.55;BEAM_MAT.opacity=lights*0.42;
+  LAMP_POOL.opacity=lights*0.55;BEAM_MAT.opacity=lights*0.42;LAMP_POOL.visible=lights>0.01;BEAM_MAT.visible=lights>0.01;
   headMat.emissive.setRGB(0.6+lights*0.4,0.56+lights*0.4,0.44+lights*0.4);
   tailMat.emissive.setRGB(0.25+lights*0.55,0,0);
   c1.copy(DN.cloudNight).multiplyScalar(1.6).lerp(WHITE,day).lerp(DN.sunDusk,dusk*0.35).multiplyScalar(1-0.42*RAIN);
@@ -2559,7 +2604,7 @@ function applyPhotoTextures(){
   for(const [m,k,sc] of PHOTO_SLOTS){
     if(!I[k])continue;const r=sc/PHOTO_M[k];
     m.map=tex(I[k],true,r);if(I[k+'_n']){m.normalMap=tex(I[k+'_n'],false,r);m.normalScale=new THREE.Vector2(1,1);}
-    if(k==='grass')m.color.setScalar(0.72);
+    if(k==='grass')m.color.setScalar(0.72);else if(k==='pavement')m.color.setScalar(0.8);
     m.needsUpdate=true;
   }
   if(I.roof){roofMat.map=tex(I.roof,true,2/PHOTO_M.roof);if(I.roof_n)roofMat.normalMap=tex(I.roof_n,false,2/PHOTO_M.roof);roofMat.needsUpdate=true;}

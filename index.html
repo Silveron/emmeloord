@@ -232,8 +232,16 @@ const SUN_OFF=new THREE.Vector3(-70,120,50);
 
 /* sky dome: gradient, a sun disc with a soft halo, and a darker band below the horizon */
 const SKY_VS='varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}';
+/* by day the dome shows photographed skies (CC0 Poly Haven HDRIs: clear, sunset, overcast), blended by time and rain */
 const SKY_FS=`uniform vec3 top;uniform vec3 bot;uniform vec3 sunDir;uniform vec3 sunCol;uniform float sunAmt;varying vec3 vP;
+uniform sampler2D tDay;uniform sampler2D tDusk;uniform sampler2D tOver;uniform vec4 wPhoto;uniform float uShift;
+vec3 lin(vec3 c){return pow(c,vec3(2.2));}
 void main(){vec3 d=normalize(vP);float h=clamp(d.y*1.7,0.0,1.0);vec3 c=mix(bot,top,pow(h,0.75));
+if(wPhoto.w>0.001){
+  vec2 uv=vec2(fract(atan(d.z,d.x)/6.2831853+0.5+uShift),clamp(asin(clamp(d.y,-1.0,1.0))/3.1415927+0.5,0.502,0.998));
+  vec3 ph=lin(texture2D(tDay,uv).rgb)*wPhoto.x+lin(texture2D(tDusk,uv).rgb)*wPhoto.y+lin(texture2D(tOver,uv).rgb)*wPhoto.z;
+  c=mix(c,ph*1.35,wPhoto.w);
+}
 float s=max(dot(d,normalize(sunDir)),0.0);
 c+=sunCol*(pow(s,6.0)*0.22+pow(s,64.0)*0.5)*sunAmt;
 c+=sunCol*smoothstep(0.9993,0.9997,s)*4.0*sunAmt;
@@ -242,23 +250,36 @@ gl_FragColor=vec4(c,1.0);
 #include <tonemapping_fragment>
 #include <encodings_fragment>
 }`;
-const skyUniforms=()=>({top:{value:new THREE.Color(0x5b9ad8)},bot:{value:new THREE.Color(FOG)},sunDir:{value:new THREE.Vector3(-0.5,0.7,0.4)},sunCol:{value:new THREE.Color(0xfff0d6)},sunAmt:{value:1}});
+const SKY_BLANK=new THREE.DataTexture(new Uint8Array([128,128,128,255]),1,1);SKY_BLANK.needsUpdate=true;
+const skyUniforms=()=>({top:{value:new THREE.Color(0x5b9ad8)},bot:{value:new THREE.Color(FOG)},sunDir:{value:new THREE.Vector3(-0.5,0.7,0.4)},sunCol:{value:new THREE.Color(0xfff0d6)},sunAmt:{value:1},
+  tDay:{value:SKY_BLANK},tDusk:{value:SKY_BLANK},tOver:{value:SKY_BLANK},wPhoto:{value:new THREE.Vector4(0,0,0,0)},uShift:{value:0}});
 const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,uniforms:skyUniforms(),vertexShader:SKY_VS,fragmentShader:SKY_FS});
 const sky=new THREE.Mesh(new THREE.SphereGeometry(1800,32,16),skyMat);
 sky.renderOrder=-1;scene.add(sky);
 /* image-based lighting: a blurred copy of the sky lights every PBR material (reflections on cars, glass and wet roads) */
 const pmrem=new THREE.PMREMGenerator(renderer);
 const envScene=new THREE.Scene();
-const envSkyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:skyUniforms(),vertexShader:SKY_VS,fragmentShader:SKY_FS});
+const envSkyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:skyMat.uniforms,vertexShader:SKY_VS,fragmentShader:SKY_FS});
 envScene.add(new THREE.Mesh(new THREE.SphereGeometry(50,24,12),envSkyMat));
 {const gnd=new THREE.Mesh(new THREE.CircleGeometry(49,24).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0x4a5a3c}));gnd.position.y=-2;envScene.add(gnd);envScene.userData.gnd=gnd;}
 let envRT=null,envKey='',envT=-99;
+/* photo skies: loaded in the background; the horizon colour of each becomes the fog colour so distant houses melt into it */
+const SKYPHOTO={ready:0,hor:{}};
+{
+  const L=new THREE.TextureLoader();
+  for(const [k,f] of [['tDay','sky_day'],['tDusk','sky_dusk'],['tOver','sky_overcast']]){
+    L.load('assets/'+f+'.jpg',t=>{
+      t.wrapS=THREE.RepeatWrapping;t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;skyMat.uniforms[k].value=t;
+      try{const c=document.createElement('canvas');c.width=64;c.height=32;const g=c.getContext('2d');g.drawImage(t.image,0,0,64,32);const d=g.getImageData(0,15,64,2).data;let r=0,gg=0,b=0;for(let i=0;i<d.length;i+=4){r+=d[i];gg+=d[i+1];b+=d[i+2];}const n=d.length/4;SKYPHOTO.hor[k]=new THREE.Color(r/n/255,gg/n/255,b/n/255).convertSRGBToLinear();}catch(_){}
+      SKYPHOTO.ready++;
+    },undefined,()=>{});
+  }
+}
 function updateEnv(force){
-  const u=skyMat.uniforms,key=u.top.value.getHexString()+u.bot.value.getHexString()+u.sunCol.value.getHexString();
+  const u=skyMat.uniforms,w=u.wPhoto.value,key=u.top.value.getHexString()+u.bot.value.getHexString()+u.sunCol.value.getHexString()+[w.x,w.y,w.z,w.w,u.uShift.value].map(v=>v.toFixed(2)).join();
   const now=performance.now()/1000;
   if(!force&&(key===envKey||now-envT<2.5))return;
   envKey=key;envT=now;
-  const e=envSkyMat.uniforms;e.top.value.copy(u.top.value);e.bot.value.copy(u.bot.value);e.sunDir.value.copy(u.sunDir.value);e.sunCol.value.copy(u.sunCol.value);e.sunAmt.value=u.sunAmt.value;
   envScene.userData.gnd.material.color.copy(u.bot.value).multiplyScalar(0.35).lerp(C('#3e4a32'),0.5);
   const rt=pmrem.fromScene(envScene,0.02,0.1,100);
   scene.environment=rt.texture;if(envRT)envRT.dispose();envRT=rt;
@@ -304,9 +325,9 @@ function varyCol(hex,dl,ds){const c=C(hex);c.offsetHSL((rng()-.5)*0.02,(rng()-.5
 /* Facades are 2x2 atlases: every cell is one window bay of one floor (3.4 m x 3 m), so neighbouring windows differ.
    The top ~12% of each cell is plain wall; gable triangles sample that strip. */
 const FACADES=[
-  {kind:'brick',bricks:['#8f3f2a','#9c4a32','#7f3624','#a5543a','#874130','#6e3022'],mortar:'#cbbfae',frame:'#f3f0e8',map:'#7d3e2c'},
-  {kind:'brick',bricks:['#5a3324','#4e2c20','#66402d','#553022','#47291f','#6b3f2b'],mortar:'#9a9084',frame:'#24382d',map:'#553326'},
-  {kind:'brick',bricks:['#c49a5f','#b78c52','#d0a96c','#ba915a','#a98049','#c9a46e'],mortar:'#e7dcc6',frame:'#ffffff',map:'#a8834f'},
+  {kind:'brick',photo:'brick_red',pm:1.0,bricks:['#8f3f2a','#9c4a32','#7f3624','#a5543a','#874130','#6e3022'],mortar:'#cbbfae',frame:'#f3f0e8',map:'#7d3e2c'},
+  {kind:'brick',photo:'brick_dark',pm:1.05,bricks:['#5a3324','#4e2c20','#66402d','#553022','#47291f','#6b3f2b'],mortar:'#9a9084',frame:'#24382d',map:'#553326'},
+  {kind:'brick',photo:'brick_buff',pm:1.9,bricks:['#c49a5f','#b78c52','#d0a96c','#ba915a','#a98049','#c9a46e'],mortar:'#e7dcc6',frame:'#ffffff',map:'#a8834f'},
   {kind:'plaster',base:'#ebe5d8',frame:'#3a4046',map:'#bdb6a8'},
   {kind:'office',base:'#b3b0a8',frame:'#3b4148',map:'#85827c'},
 ];
@@ -406,7 +427,22 @@ function facadeCell(g,hg,f,cx,cy,glow){
 }
 function makeFacade(f){
   const s=texSet(512,512,f.kind==='brick'?2.2:1.6,(g,hg)=>{for(let cy=0;cy<2;cy++)for(let cx=0;cx<2;cx++)facadeCell(g,hg,f,cx,cy,false);});
-  s.map.repeat.set(.5,.5);s.normalMap.repeat.set(.5,.5);return s;
+  s.map.repeat.set(.5,.5);s.normalMap.repeat.set(.5,.5);f.set=s;return s;
+}
+/* repaint a brick facade atlas with a photographed brick wall; windows are drawn on top again */
+function photoFacade(f,img,nimg){
+  const map=f.set.map,nm=f.set.normalMap,g=map.image.getContext('2d'),ng=nm.image.getContext('2d');
+  const old=document.createElement('canvas');old.width=512;old.height=512;old.getContext('2d').drawImage(nm.image,0,0);
+  const px=CELL_PX/3.4*f.pm/img.width;   // canvas pixels per photo pixel
+  const pat=(ctx,im)=>{const p=ctx.createPattern(im,'repeat');p.setTransform&&p.setTransform(new DOMMatrix().scale(px,px));return p;};
+  g.fillStyle=pat(g,img);g.fillRect(0,0,512,512);
+  ng.fillStyle=pat(ng,nimg);ng.fillRect(0,0,512,512);
+  for(let cy=0;cy<2;cy++)for(let cx=0;cx<2;cx++){
+    const x0=cx*CELL_PX,y0=cy*CELL_PX;
+    g.save();g.beginPath();g.rect(x0,y0,CELL_PX,CELL_PX);g.clip();houseWindow(g,DUMMY_HG,f,x0,y0,cy*2+cx,false);g.restore();
+    ng.drawImage(old,x0+55,y0+35,147,175,x0+55,y0+35,147,175);
+  }
+  map.needsUpdate=true;nm.needsUpdate=true;
 }
 /* night glow maps: warm light where the windows are, black elsewhere */
 const GLOW='#ffcf86';
@@ -518,7 +554,7 @@ const towerTex=canvasTex(128,256,(g,w,h)=>{
 const stripeTex=canvasTex(64,16,(g,w,h)=>{for(let x=0;x<w;x+=16){g.fillStyle='#f2efe6';g.fillRect(x,0,8,h);g.fillStyle='#d23b2a';g.fillRect(x+8,0,8,h);}});
 
 /* ---------- geometry batching ---------- */
-const WET_MATS=[];
+const WET_MATS=[],PHOTO_SLOTS=[];
 class GB{
   constructor(){this.p=[];this.n=[];this.uv=[];this.c=[];this.idx=[];}
   quad(v,uv,n,col){
@@ -715,6 +751,7 @@ function inWater(x,z){for(const w of WATER){const b=w.b;if(x>b.x0&&x<b.x1&&z>b.z
   const gb=new GB();
   flat(gb,-WORLD-20,WORLD+20,-WORLD-20,WORLD+20,0,10);
   gb.mesh(Lam({map:grassTex}),false,true);
+  PHOTO_SLOTS.push([gb.__mesh.material,'grass',10]);
 }
 
 /* ---------- streets, pavements, squares, water ---------- */
@@ -802,6 +839,7 @@ const waterMat=new THREE.MeshPhongMaterial({color:0x3f6f86,shininess:40,specular
   gRoad.mesh(overlay({map:asphaltTex,normalMap:asphaltSet.normalMap,roughness:0.92},6),false,true);
   gKlink.mesh(overlay({map:klinkerTex,normalMap:klinkerSet.normalMap,roughness:0.8},6),false,true);
   for(const g of [gRoad,gKlink,gPed,gFoot,gCycle]){const m=g.__mesh;if(m)WET_MATS.push([m.material,m.material.roughness]);}
+  for(const [g,k,sc] of [[gGreen,'grass',6],[gBank,'pavement',2.4],[gPed,'klinker',4],[gPlat,'pavement',2.4],[gFoot,'pavement',2.4],[gCycle,'asphalt',8],[gRoad,'asphalt',8],[gKlink,'klinker',4]])if(g.__mesh)PHOTO_SLOTS.push([g.__mesh.material,k,sc]);
   gMark.mesh(overlay({vertexColors:true},7),false,true);
   gRail.mesh(plainMat,true,true);
 }
@@ -2288,6 +2326,13 @@ function updateDayNight(){
   c1.copy(DN.topNight).lerp(DN.topDay,day).lerp(DN.topDusk,dusk*0.6);skyMat.uniforms.top.value.copy(c1);
   c2.copy(DN.botNight).lerp(DN.botDay,day).lerp(DN.botDusk,dusk*0.75);skyMat.uniforms.bot.value.copy(c2);
   if(RAIN>0.001){const g1=DN.rainTop.clone().multiplyScalar(0.25+0.75*day),g2=DN.rainBot.clone().multiplyScalar(0.2+0.8*day);c1.lerp(g1,RAIN*0.85);c2.lerp(g2,RAIN*0.85);skyMat.uniforms.top.value.copy(c1);skyMat.uniforms.bot.value.copy(c2);}
+  // photographed sky by day; fog takes the photo's horizon colour
+  const su=skyMat.uniforms,wp=su.wPhoto.value;
+  const pAmt=SKYPHOTO.ready>=3&&GFX>0?sstep(-0.1,0.1,elev):0;
+  const wo=RAIN,wd=Math.min(1,dusk*1.4)*(1-RAIN);wp.set(Math.max(0,1-wo-wd),wd,wo,pAmt);
+  su.uShift.value=0.61-(Math.atan2(SUN_OFF.z,SUN_OFF.x)/(Math.PI*2)+0.5);
+  if(pAmt>0){const hc=DN.c1.clone().setRGB(0,0,0);for(const [k,w] of [['tDay',wp.x],['tDusk',wp.y],['tOver',wp.z]])if(SKYPHOTO.hor[k])hc.add(SKYPHOTO.hor[k].clone().multiplyScalar(w*1.35));c2.lerp(hc,pAmt*0.9);su.bot.value.copy(c2);}
+  for(const m of CLOUD_MATS)m.visible=pAmt<0.6;
   scene.fog.color.copy(c2);scene.background.copy(c2);
   scene.fog.near=220-120*RAIN;scene.fog.far=1050-600*RAIN;
   sun.color.copy(DN.moon).lerp(DN.sunDay,day).lerp(DN.sunDusk,dusk*0.8);
@@ -2490,6 +2535,40 @@ function setQuality(q,auto){
   PR_MAX=Math.min(window.devicePixelRatio||1,GFX===0?1:isTouchDevice?1.5:GFX===2?1.5:1.75);
   prNow=Math.min(prNow,PR_MAX);if(GFX===0)prNow=Math.min(prNow,1);renderer.setPixelRatio(prNow);resize();
   if($('pgfx'))$('pgfx').textContent='Graphics: '+GFX_NAMES[GFX];
+  if(GFX>0)loadPhotoTextures();
+}
+
+/* photo textures (CC0, Poly Haven): loaded in the background on Medium and High, procedural textures stay as the fallback */
+const PHOTO={state:0,img:{}};
+const PHOTO_M={grass:3,pavement:1.8,klinker:1.8,asphalt:3,roof:2.6};
+function loadPhotoTextures(){
+  if(PHOTO.state)return;PHOTO.state=1;
+  const names=['grass','pavement','klinker','asphalt','roof','brick_red','brick_dark','brick_buff'];
+  const files=[];for(const n of names){files.push(n,n+'_n');}
+  let left=files.length;
+  for(const f of files){
+    const im=new Image();
+    im.onload=()=>{PHOTO.img[f]=im;if(--left===0)applyPhotoTextures();};
+    im.onerror=()=>{if(--left===0)applyPhotoTextures();};
+    im.src='assets/'+f+'.jpg';
+  }
+}
+function applyPhotoTextures(){
+  PHOTO.state=2;const I=PHOTO.img;
+  const tex=(im,srgb,rep)=>{const t=new THREE.Texture(im);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(8,maxAniso);if(srgb)t.encoding=THREE.sRGBEncoding;t.repeat.set(rep,rep);t.needsUpdate=true;return t;};
+  for(const [m,k,sc] of PHOTO_SLOTS){
+    if(!I[k])continue;const r=sc/PHOTO_M[k];
+    m.map=tex(I[k],true,r);if(I[k+'_n']){m.normalMap=tex(I[k+'_n'],false,r);m.normalScale=new THREE.Vector2(1,1);}
+    if(k==='grass')m.color.setScalar(0.72);
+    m.needsUpdate=true;
+  }
+  if(I.roof){roofMat.map=tex(I.roof,true,2/PHOTO_M.roof);if(I.roof_n)roofMat.normalMap=tex(I.roof_n,false,2/PHOTO_M.roof);roofMat.needsUpdate=true;}
+  FACADES.forEach((f,i)=>{
+    if(!f.photo||!I[f.photo]||!I[f.photo+'_n'])return;
+    photoFacade(f,I[f.photo],I[f.photo+'_n']);
+    const gm=gableMats[i];gm.map=tex(I[f.photo],true,1);gm.map.repeat.set(3.4/f.pm,3/f.pm);
+    gm.normalMap=tex(I[f.photo+'_n'],false,1);gm.normalMap.repeat.set(3.4/f.pm,3/f.pm);gm.needsUpdate=true;
+  });
 }
 postResizeFn=POST.resize;
 if(GFX_SAVED!==null)setQuality(GFX_SAVED,false);else setQuality(GFX,true);

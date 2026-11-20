@@ -965,12 +965,15 @@ const hash=(x,z)=>{let h=Math.imul(Math.round(x*7)|0,73856093)^Math.imul(Math.ro
 const SHOPSPOTS=window.__SHOPSPOTS;
 for(const t of TILES.values()){t.wall.forEach((g,i)=>g.mesh(wallMats[i]));t.gable.forEach((g,i)=>g.mesh(gableMats[i]));t.shop.mesh(shopMat);t.roof.mesh(roofMat);t.plain.mesh(plainMat);}
 
-/* ---------- Poldertoren (1959): 65.3 m, platform at 43.4 m, weather vane at 70.5 m, 13.4 m wide octagon ---------- */
-const clockHands=[];
+/* ---------- Poldertoren (1959): 65.3 m, platform at 43.4 m, weather vane at 70.5 m, 13.4 m wide octagon ----------
+   Looks matched to drone footage: dark brown brick all the way up, rows of narrow slits, dark clock faces with gold hands,
+   tall belfry openings under the eaves, a green copper pyramid roof and a golden vane. */
+const clockHands=[],TOWER_MATS=[];
+const slitMat=new THREE.MeshStandardMaterial({color:0x0e0c0b,roughness:0.95,envMapIntensity:0.12});
 let carousel=null;
 {
   const g=new THREE.Group();g.position.set(TOWER.x,0,TOWER.z);scene.add(g);
-  const concrete=lm('#d9d4c9'),concreteDk=lm('#bdb7ab'),dark=lm('#33302e');
+  const concrete=lm('#9c9283'),concreteDk=lm('#857c70'),dark=lm('#33302e');
   const add=(geo,mat,x,y,z,parent)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;(parent||g).add(m);return m;};
   const B=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
   const TH=TOWER.th;                       // rotation of the octagon, taken from its footprint on the map
@@ -984,25 +987,23 @@ let carousel=null;
   add(oct(R+0.9,R+0.9,0.8),concreteDk,0,0.4,0);
   // brick shaft with slit windows
   const tt=towerBrick;tt.repeat.set(22,11);
-  const brick=Lam({map:tt});
+  const brick=Lam({map:tt,color:'#9a7c6a'});TOWER_MATS.push([brick,40,40]);
   add(oct(R,R*0.97,42.6),brick,0,0.8+21.3,0);
   // tall narrow window slits, two columns on every face
   {
     const sg=new GB(),dk=C('#262321');
     for(let k=0;k<8;k++){
       const a=fang(k),fx=Math.sin(a),fz=Math.cos(a),tx=Math.cos(a),tz=-Math.sin(a),d=apo*0.985+0.03;
-      for(const o of [-1.25,1.25])for(let y=3.2;y<40.5;y+=3.6){
+      for(const o of [-1.7,0,1.7])for(let y=3.2;y<40.5;y+=3.6){
         if((k===doorFaceK&&y<6)||(y>34.5&&y<40.5&&k%2===1))continue;
-        const cx=fx*d+tx*o,cz=fz*d+tz*o,hw=0.22,y0=y,y1=y+2.3;
+        const cx=fx*d+tx*o,cz=fz*d+tz*o,hw=0.2,y0=y,y1=y+2.6;
         sg.quad([[cx-tx*hw,y0,cz-tz*hw],[cx+tx*hw,y0,cz+tz*hw],[cx+tx*hw,y1,cz+tz*hw],[cx-tx*hw,y1,cz-tz*hw]],U4,[fx,0,fz],dk);
       }
     }
-    const sm=sg.mesh(plainMat,false,false);if(sm){scene.remove(sm);g.add(sm);}
+    const sm=sg.mesh(slitMat,false,false);if(sm){scene.remove(sm);g.add(sm);}
   }
-  // concrete ribs on the eight corners
-  for(let k=0;k<8;k++){const a=ang(k);const m=add(B(0.7,42.6,0.7),concrete,Math.sin(a)*R*0.985,0.8+21.3,Math.cos(a)*R*0.985);m.rotation.y=a;}
-  // horizontal concrete bands
-  for(const y of [0.8,15.0,29.0]){add(oct(R+0.18,R+0.18,0.5),concrete,0,y+0.25,0);}
+  // a low stone base band (the real shaft has no light ribs or bands: it reads as one dark brick column)
+  add(oct(R+0.12,R+0.12,0.5),concrete,0,1.05,0);
   // entrance facing De Deel (east)
   {const a=fang(doorFace),fx=Math.sin(a),fz=Math.cos(a);
    const d=add(B(3.0,3.6,0.4),dark,fx*(apo+0.05),2.6,fz*(apo+0.05));d.rotation.y=a;
@@ -1027,7 +1028,7 @@ let carousel=null;
     F(fg=>{P(.8,.6,.5,'#8c3f2e',0,.3,0,fg);P(.14,.8,.14,'#6b2f22',.25,.95,0,fg);P(.3,.3,.52,'#555',-.2,.75,0,fg);},5);
   }
   // clocks on four faces just below the platform
-  const faceMat=lm('#f3efe4'),handMat=lm('#1c1c1c');
+  const faceMat=new THREE.MeshStandardMaterial({color:0x181513,roughness:0.6,envMapIntensity:0.25}),handMat=new THREE.MeshStandardMaterial({color:0xd4a843,metalness:0.8,roughness:0.3});
   for(const k of [1,3,5,7]){
     const a=fang(k);
     const cg=new THREE.Group();cg.rotation.y=a;g.add(cg);
@@ -1041,46 +1042,46 @@ let carousel=null;
     add(B(0.12,1.7,0.06),handMat,0,0.78,0,mp).castShadow=false;
     clockHands.push({hp,mp});
   }
-  // visitor platform at 43.4 m: a cantilevered concrete gallery with a railing
-  add(oct(R+1.1,R+1.1,0.7),concrete,0,43.05,0);
-  const rail=lm('#e9e6df');
-  for(let k=0;k<8;k++){
-    const a0=ang(k),a1=ang(k+1),r=R+1.0;
-    const x0=Math.sin(a0)*r,z0=Math.cos(a0)*r,x1=Math.sin(a1)*r,z1=Math.cos(a1)*r,L=Math.hypot(x1-x0,z1-z0);
-    const m=add(B(L,0.08,0.08),rail,(x0+x1)/2,44.55,(z0+z1)/2);m.rotation.y=Math.atan2(x1-x0,z1-z0)+Math.PI/2;
-    const m2=add(B(L,0.06,0.06),rail,(x0+x1)/2,44.0,(z0+z1)/2);m2.rotation.y=m.rotation.y;
-    for(let s=0;s<6;s++){const t=s/6;add(B(0.06,1.1,0.06),rail,x0+(x1-x0)*t,44.0,z0+(z1-z0)*t);}
-  }
-  // open carillon chamber: slender concrete columns around a brick core, 48 bells inside
-  for(let k=0;k<8;k++){const a=ang(k);const m=add(B(0.75,12.2,0.75),concrete,Math.sin(a)*(R-0.5),43.4+6.1,Math.cos(a)*(R-0.5));m.rotation.y=a;}
-  for(const y of [49.4]){add(oct(R-0.2,R-0.2,0.45,true),concrete,0,y,0).material=concrete;}
-  add(oct(2.2,2.2,12.2),brick,0,43.4+6.1,0);
-  const bellMat=new THREE.MeshStandardMaterial({color:0xb58d4e,metalness:.75,roughness:.35,side:THREE.DoubleSide});
-  const prof=[[0,1],[0.22,1],[0.32,0.9],[0.38,0.55],[0.46,0.22],[0.6,0.04],[0.62,0]].map(p=>new THREE.Vector2(p[0],p[1]));
-  const bellGeo=new THREE.LatheGeometry(prof,14);
+  // upper shaft: the brick carries on above the clocks to the eaves
+  const brick2=Lam({map:towerBrick.clone(),color:'#9a7c6a'});brick2.map.needsUpdate=true;brick2.map.repeat.set(22,4);TOWER_MATS.push([brick2,40,12]);
+  add(oct(R*0.97,R*0.955,14.0),brick2,0,42.6+0.8+7.0,0);
+  // belfry: tall dark openings with louvres under the eaves, three per face, behind them the carillon
   {
-    const inst=new THREE.InstancedMesh(bellGeo,bellMat,48),M=new THREE.Matrix4(),Q=new THREE.Quaternion(),S=new THREE.Vector3(),Pp=new THREE.Vector3();
-    for(let i=0;i<48;i++){
-      const ring=i<20?0:i<36?1:2,n=ring===0?20:ring===1?16:12,k=ring===0?i:ring===1?i-20:i-36;
-      const a=k/n*Math.PI*2+ring*0.3,r=[4.6,3.6,2.9][ring],y=[44.1,47.0,50.6][ring];
-      const s=[1.9,1.25,0.8][ring]*(1-k/n*0.35);
-      M.compose(Pp.set(Math.sin(a)*r,y+(1-s*0.6),Math.cos(a)*r),Q.identity(),S.set(s,s,s));inst.setMatrixAt(i,M);
+    const sg=new GB(),dk=C('#1a1715'),lv=C('#3a332d');
+    for(let k=0;k<8;k++){
+      const a=fang(k),fx=Math.sin(a),fz=Math.cos(a),tx=Math.cos(a),tz=-Math.sin(a),d=apo*0.955+0.04;
+      for(const o of [-1.6,0,1.6]){
+        const cx=fx*d+tx*o,cz=fz*d+tz*o,hw=0.38,y0=47.2,y1=55.2;
+        sg.quad([[cx-tx*hw,y0,cz-tz*hw],[cx+tx*hw,y0,cz+tz*hw],[cx+tx*hw,y1,cz+tz*hw],[cx-tx*hw,y1,cz-tz*hw]],U4,[fx,0,fz],dk);
+        for(let y=y0+0.5;y<y1;y+=0.7)sg.quad([[cx-tx*hw+fx*.02,y,cz-tz*hw+fz*.02],[cx+tx*hw+fx*.02,y,cz+tz*hw+fz*.02],[cx+tx*hw+fx*.02,y+0.12,cz+tz*hw+fz*.02],[cx-tx*hw+fx*.02,y+0.12,cz-tz*hw+fz*.02]],U4,[fx,0.4,fz],lv);
+      }
+      // smaller slits between the clocks and the belfry
+      for(const o of [-1.7,0,1.7]){const cx=fx*d+tx*o,cz=fz*d+tz*o,hw=0.2;sg.quad([[cx-tx*hw,43.6,cz-tz*hw],[cx+tx*hw,43.6,cz+tz*hw],[cx+tx*hw,46.2,cz+tz*hw],[cx-tx*hw,46.2,cz-tz*hw]],U4,[fx,0,fz],dk);}
     }
-    inst.castShadow=true;g.add(inst);
+    const sm=sg.mesh(slitMat,false,false);if(sm){scene.remove(sm);g.add(sm);}
   }
-  // roof slab, small lantern, needle and the weather vane at 70.5 m
-  add(oct(R+0.5,R+0.5,1.0),concrete,0,56.1,0);
-  add(oct(R-0.6,R-1.2,0.6),concreteDk,0,56.9,0);
-  add(oct(2.8,2.8,4.6),concrete,0,59.5,0);
-  for(let k=0;k<8;k++){const a=fang(k);const m=add(B(1.1,3.2,0.12),dark,Math.sin(a)*2.62,59.6,Math.cos(a)*2.62);m.rotation.y=a;}
-  add(oct(3.3,3.3,0.5),concrete,0,62.05,0);
-  add(new THREE.ConeGeometry(2.6,3.0,8,1,false,TH),concreteDk,0,63.8,0);
-  add(new THREE.CylinderGeometry(0.1,0.22,5.4,8),dark,0,67.6,0);
-  add(new THREE.SphereGeometry(0.42,12,10),lm('#c9a24d'),0,68.6,0);
-  const vane=new THREE.Group();vane.position.set(0,70.3,0);g.add(vane);
-  add(B(0.08,0.08,2.6),dark,0,0,0,vane);
-  add(new THREE.ConeGeometry(0.28,0.7,4),dark,0,0,1.5,vane).rotation.x=Math.PI/2;
-  add(B(0.05,0.9,1.0),lm('#c9a24d'),0,0.3,-1.0,vane);
+  // the visitor gallery: a thin stone ledge with a dark railing just under the eaves
+  add(oct(R+0.55,R+0.55,0.35),concrete,0,43.4,0);
+  add(oct(R+0.45,R+0.45,0.4),concrete,0,56.6,0);
+  const rail=lm('#2c2a28');
+  for(let k=0;k<8;k++){
+    const a0=ang(k),a1=ang(k+1),r=R+0.45;
+    const x0=Math.sin(a0)*r,z0=Math.cos(a0)*r,x1=Math.sin(a1)*r,z1=Math.cos(a1)*r,L=Math.hypot(x1-x0,z1-z0);
+    const m=add(B(L,0.08,0.08),rail,(x0+x1)/2,44.6,(z0+z1)/2);m.rotation.y=Math.atan2(x1-x0,z1-z0)+Math.PI/2;
+    for(let q=0;q<6;q++){const t=q/6;add(B(0.05,1.1,0.05),rail,x0+(x1-x0)*t,44.1,z0+(z1-z0)*t);}
+  }
+  // green copper roof: a steep eight-sided pyramid with a slight flare at the eaves
+  const copper=Lam({color:'#3c6e5a',roughness:0.6,metalness:0.2,envMapIntensity:0.6});
+  add(oct(R+0.75,R+0.6,0.5),copper,0,57.05,0);
+  add(new THREE.ConeGeometry(R+0.55,9.0,8,1,false,TH),copper,0,57.3+4.5,0);
+  // needle, golden ball and the golden weather vane
+  const gold=new THREE.MeshStandardMaterial({color:0xe0b44a,metalness:0.85,roughness:0.28,envMapIntensity:1.2});
+  add(new THREE.CylinderGeometry(0.08,0.16,4.2,8),dark,0,67.8,0);
+  add(new THREE.SphereGeometry(0.5,14,10),gold,0,67.0,0);
+  const vane=new THREE.Group();vane.position.set(0,70.0,0);g.add(vane);
+  add(B(0.08,0.08,2.4),gold,0,0,0,vane);
+  add(new THREE.ConeGeometry(0.3,0.7,4),gold,0,0,1.4,vane).rotation.x=Math.PI/2;
+  add(new THREE.TorusGeometry(0.6,0.16,8,20,Math.PI*1.2),gold,0,0.75,-0.7,vane).rotation.y=Math.PI/2;
   addCollider({x:TOWER.x,z:TOWER.z,r:R+0.6});
 }
 function updateClocks(){
@@ -2716,6 +2717,7 @@ function applyPhotoTextures(){
     m.needsUpdate=true;
   }
   if(I.roof){roofMat.map=tex(I.roof,true,2/PHOTO_M.roof);if(I.roof_n)roofMat.normalMap=tex(I.roof_n,false,2/PHOTO_M.roof);roofMat.needsUpdate=true;}
+  if(I.brick_dark)for(const [m,u,v] of TOWER_MATS){m.map=tex(I.brick_dark,true,1);m.map.repeat.set(u,v);if(I.brick_dark_n){m.normalMap=tex(I.brick_dark_n,false,1);m.normalMap.repeat.set(u,v);}m.color.set('#d8c8bc');m.needsUpdate=true;}
   FACADES.forEach((f,i)=>{
     if(!f.photo||!I[f.photo]||!I[f.photo+'_n'])return;
     photoFacade(f,I[f.photo],I[f.photo+'_n']);

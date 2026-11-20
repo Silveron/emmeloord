@@ -153,3 +153,11 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - **Traffic lights** at the 24 signals OpenStreetMap marks on the town's roads (Korte Dreef, Lange Dreef/Nagelerstraat, Urkerweg, Kettingstraat, Boslaan and others). Each faces the traffic it controls and has a white stop line. Crossing streets take turns (green 14 s, amber 3 s, a short all-red). AI cars and buses roll up to the stop line on red, queue behind each other without honking, and go on amber only when they are too close to stop.
 - **Red-light camera**: drive through red and you are fined €90 (flash and sound, like the flitspaal).
 - Draw calls at the phone start view: 524 (was 518 to 538).
+
+## 2026-11-20: bus 146, police, benches and the Thursday market
+- **Bus 146 (Dronten)** now runs too, on its OpenStreetMap route, stopping at Smeden and Zuyderzee College. Buses only hop between two platforms of the bus station when you can't see them.
+- **Police**: after a flitspaal or red-light fine, a police car (white with blue and yellow blocks, flashing blue lights, two-tone siren) comes after you along the streets. Stop next to it and you are pulled over (€150 ticket); get more than about 330 m away for a few seconds and you lose them.
+- **Days of the week**: the clock shows the day (it starts on today's real weekday and moves on at midnight).
+- **Thursday market on the Kettingplein**, the real market day, place and hours (08:00 to 14:30, source: Visit Flevoland): two rows of stalls with striped awnings and crates of fruit and vegetables, and extra shoppers. Stalls stand from 07:30 to 15:00 game time.
+- **People on benches** near the centre (up to 14, sitting, facing the street).
+- Draw calls at the phone start view: 518.

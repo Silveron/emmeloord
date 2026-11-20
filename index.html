@@ -1172,8 +1172,9 @@ function updateTreeChunks(px,pz){
   for(const p of PEDS.slice(1))for(let x=p.x0+8;x<p.x1;x+=18)for(const s of [-1,1])spots.push([x,s*6.2]);
   for(let x=-38;x<=38;x+=19)for(const z of [-43,43])if(Math.abs(x)>8)spots.push([x,z]);
   const ok=spots.filter(([x,z])=>!blocked(x,z,0.6));
-  const pole=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06,0.1,5,6),lm('#2f3336'),ok.length);
-  const head=new THREE.InstancedMesh(new THREE.BoxGeometry(0.5,0.22,0.5),LAMP_HEAD,ok.length);
+  const pole=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.055,0.11,5,8),Lam({color:0x2f3336,metalness:0.6,roughness:0.45}),ok.length);
+  // lantern head: glass bowl under a dark hood
+  const head=new THREE.InstancedMesh(new THREE.LatheGeometry([[0.001,-0.2],[0.1,-0.2],[0.2,0.02],[0.3,0.1],[0.08,0.24],[0.001,0.26]].map(p=>new THREE.Vector2(p[0],p[1])),12),LAMP_HEAD,ok.length);
   const pool=new THREE.InstancedMesh(new THREE.PlaneGeometry(9,9).rotateX(-Math.PI/2),LAMP_POOL,ok.length);
   const pm=new THREE.Matrix4();ok.forEach(([x,z],i)=>{pm.makeTranslation(x,0.16,z);pool.setMatrixAt(i,pm);});
   pool.renderOrder=2;scene.add(pool);
@@ -1207,6 +1208,7 @@ const FIELDS=[];
   gFur.mesh(overlay({map:furrowTex},1),false,true);
 }
 const BLADES=[];
+const BLADE_GEO=new THREE.CylinderGeometry(0.2,0.95,34,6);BLADE_GEO.scale(1,1,0.32);
 {
   const white=lm('#eef0f0');
   const pos=[];for(let x=-600;x<=600;x+=200)pos.push([x,-820]);for(let z=-500;z<=150;z+=220)pos.push([860,z]);for(let x=-500;x<=500;x+=250)pos.push([x,760]);
@@ -1215,7 +1217,7 @@ const BLADES=[];
     const t=new THREE.Mesh(new THREE.CylinderGeometry(1.1,2.2,90,10),white);t.position.y=45;g.add(t);
     const n=new THREE.Mesh(new THREE.BoxGeometry(3,3,8),white);n.position.set(0,91,0);g.add(n);
     const hub=new THREE.Group();hub.position.set(0,91,4.3);g.add(hub);
-    for(let k=0;k<3;k++){const b=new THREE.Mesh(new THREE.BoxGeometry(1.6,34,0.4),white);b.position.y=17;const arm=new THREE.Group();arm.rotation.z=k*Math.PI*2/3;arm.add(b);hub.add(arm);}
+    for(let k=0;k<3;k++){const b=new THREE.Mesh(BLADE_GEO,white);b.position.y=17;const arm=new THREE.Group();arm.rotation.z=k*Math.PI*2/3;arm.add(b);hub.add(arm);}
     hub.rotation.z=rng()*6;BLADES.push(hub);
   }
 }

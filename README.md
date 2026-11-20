@@ -1,6 +1,6 @@
 # Emmeloord Vrijbaan
 
-A small 3D open-world game in the browser, set in the centre of Emmeloord (Noordoostpolder, the Netherlands). Walk across De Deel, get into any car, and drive the ring road around the Poldertoren.
+A small 3D open-world game in the browser, set in the centre of Emmeloord (Noordoostpolder, the Netherlands). Walk across De Deel, get into any car, and drive the real streets around the Poldertoren.
 
 ## Play
 
@@ -43,15 +43,15 @@ Coins, cash, your best lap and the time of day are saved in your browser automat
 
 Coloured light beams mark three jobs (also shown on the minimap). Stand or drive into one and press **E** (or tap the prompt):
 
-- **Parcel delivery** (blue, on De Deel): pick up a parcel at a shop on the Nering and deliver it to an address in town. Works on foot or by car.
+- **Parcel delivery** (blue, on De Deel): pick up a parcel at a real shop in the centre and deliver it to an address on a real street. Works on foot or by car.
 - **Polder taxi** (yellow, north of De Deel): pick up a passenger and drive them home, sometimes far out into the polder. Stop at the marker to let them in and out.
-- **Ring road time trial** (pink, on the Ringweg): one lap through all the gates before the timer runs out. Your best lap is remembered.
+- **Centrum time trial** (pink): one lap around the centre (Korte Dreef, Espelerlaan, Koningin Julianastraat, Noordzijde, Smedingplein, Lange Dreef) through all the gates before the timer runs out. Your best lap is remembered.
 
 Finishing faster pays more cash. **R** cancels a job.
 
 ## What's in town
 
-- The Poldertoren (1959): brick shaft, visitor platform, open carillon crown with bells, clocks that show the game time.
+- The Poldertoren (1959, 65 m to the top of the weather vane): octagonal brick shaft with white concrete ribs and bands, the glass case with the turning figures (mammoth, caveman, cog ship, pioneer, combine harvester, factory) above the door facing De Deel, four clocks that show the game time, the visitor platform and the open crown with its 48-bell carillon.
 - De Deel with market stalls, bikes and benches; shops along Lange Nering and Korte Nering; Lange and Korte Achterzijde.
 - Cyclists riding the ring roads (they ring their bell if you block the way).
 - A ring road with traffic, and Lemsterweg, Urkerweg, Marknesserweg and Espelerlaan leading out to tulip fields, farms and wind turbines.
@@ -60,4 +60,4 @@ Finishing faster pays more cash. **R** cancels a job.
 - A canal with a bridge, a park with a pond, and 12 orange polder coins to find.
 - Background music: "Emmeloord, Vrijbaan" (made by Ron with Suno, `music.mp3`), looping quietly under the game sounds from the start menu on. **N** or the pause menu turns it off; the choice is saved.
 
-The street layout is a simplified approximation of the real town; side streets, buildings and shop names are invented.
+Streets, squares, parking, water, parks, building footprints, shops, trees and street lamps come from OpenStreetMap (© OpenStreetMap contributors, ODbL, https://www.openstreetmap.org/copyright), for about 1.8 by 1.5 km around the Poldertoren. Building heights, facades, colours and the polder outside the town are approximated.

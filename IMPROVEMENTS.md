@@ -2,6 +2,25 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-20 (real map + Poldertoren)
+
+Ron asked for the roads and squares to match the real town and for a more accurate Poldertoren.
+
+### Done
+- **Real street map** (content): roads, cycle paths, footpaths, De Deel and other squares, parking lots, canals, parks, building footprints, shops, trees and lamps now come from OpenStreetMap (about 1.8 x 1.5 km around the tower), stored compactly in the page (`EMM_DATA` / `EMM_BIN`). Google Street View was not reachable from the build environment, so OSM is the source.
+- **Traffic and people on the real network** (gameplay): AI cars and cyclists follow the real road graph (right-hand lanes, pick turns by road size); parked cars stand in real parking bays; pedestrians walk on the squares and the Nering.
+- **Jobs on real streets** (gameplay): parcels are picked up at real shops and delivered to named streets; the taxi uses real addresses; the ring road time trial became the Centrum time trial (19 gates).
+- **Poldertoren** (graphics): octagon taken from the OSM footprint, finer brick, white concrete corner ribs and bands, window slits, the glass figure case with rotating figures facing De Deel, clocks on four faces, platform at about 43 m, open bell chamber with 48 bells, roof, lantern, spire and weather vane at about 65-70 m.
+- Building collisions use the real footprints; canals push you out (except on bridges).
+
+### Problems / notes
+- The scene is heavier (about 600k triangles). Software rendering in the test browser runs slower than before; real GPUs should be fine, and adaptive quality still applies.
+- Building heights, colours and facade details are approximated (OSM has few heights here).
+
+### Ideas for next run
+- Building heights from AHN (Dutch elevation data) or BAG.
+- Real house numbers for taxi addresses.
+
 ## 2026-11-20 (run 1)
 
 ### Plan (prioritized)

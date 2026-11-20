@@ -673,6 +673,7 @@ function collide(x,z,r){
 function blocked(x,z,r){const res=collide(x,z,r);return res.hit;}
 
 const UNIT=new THREE.BoxGeometry(1,1,1);
+const TM=(x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0)=>new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx,ry,0)),new THREE.Vector3(sx,sy,sz));
 /* ---------- real map data (OpenStreetMap, converted to metres around the Poldertoren) ---------- */
 const MAPD=window.EMM_DATA;
 const [RX0,RX1,RZ0,RZ1]=MAPD.region;
@@ -982,10 +983,36 @@ const hash=(x,z)=>{let h=Math.imul(Math.round(x*7)|0,73856093)^Math.imul(Math.ro
     const m=new THREE.Mesh(new THREE.PlaneGeometry(w,hh),new THREE.MeshLambertMaterial({map:signTex(text,cols[0],cols[1]),emissive:0x222222}));
     const sx=best.a[0]+(best.c[0]-best.a[0])*clamp(best.t,w/2/best.L+0.02,1-w/2/best.L-0.02),sz=best.a[1]+(best.c[1]-best.a[1])*clamp(best.t,w/2/best.L+0.02,1-w/2/best.L-0.02);
     m.position.set(sx+best.nx*0.12,Math.min(4.1,best.b.h-0.6),sz+best.nz*0.12);m.rotation.y=Math.atan2(best.nx,best.nz);scene.add(m);
-    window.__SHOPSPOTS.push({x:sx+best.nx*2.2,z:sz+best.nz*2.2,name:text});
+    window.__SHOPSPOTS.push({x:sx+best.nx*2.2,z:sz+best.nz*2.2,name:text,type,nx:best.nx,nz:best.nz,wx:sx,wz:sz});
   }
 }
 const SHOPSPOTS=window.__SHOPSPOTS;
+
+/* ---------- café and restaurant terraces in front of the OSM cafés, restaurants and ice cream shops: tables, chairs and parasols in two merged meshes ---------- */
+{
+  const gb=new GB(),par=[],parG=new THREE.ConeGeometry(1.5,0.55,8,1,true);
+  const CHAIR=[C('#2d2d2d'),C('#6b4a32'),C('#b9b4aa')],TOP=[C('#e9e6df'),C('#3a3a3a'),C('#7a5638')],CANV=['#f3f0e6','#2f5d50','#a8322a','#e6b422','#1f3d5a'];
+  const parMats={};
+  for(const sp of SHOPSPOTS){
+    if(!/cafe|restaurant|ice_cream|fast_food|pub|bar/.test(sp.type||'')||Math.hypot(sp.x,sp.z)>700)continue;
+    const tx=-sp.nz,tz=sp.nx,ct=pick(CHAIR),tt=pick(TOP),canv=pick(CANV);
+    for(const off of [-2.6,0,2.6]){
+      const x=sp.wx+sp.nx*2.6+tx*off,z=sp.wz+sp.nz*2.6+tz*off;
+      if(blocked(x,z,1.1)||onRoad(x,z,2.2))continue;
+      boxGB(gb,x-0.04,x+0.04,0,0.72,z-0.04,z+0.04,ct);boxGB(gb,x-0.4,x+0.4,0.72,0.75,z-0.4,z+0.4,tt);
+      for(const [cx,cz,a] of [[0.7,0,0],[-0.7,0,0],[0,0.7,1],[0,-0.7,1]]){const X=x+cx,Z=z+cz;
+        boxGB(gb,X-0.2,X+0.2,0.43,0.47,Z-0.2,Z+0.2,ct);
+        const bx=cx>0?0.18:cx<0?-0.18:0,bz=cz>0?0.18:cz<0?-0.18:0;
+        if(a===0)boxGB(gb,X+bx-0.02,X+bx+0.02,0.47,0.9,Z-0.2,Z+0.2,ct);else boxGB(gb,X-0.2,X+0.2,0.47,0.9,Z+bz-0.02,Z+bz+0.02,ct);
+        for(const [lx,lz] of [[-0.17,-0.17],[0.17,-0.17],[-0.17,0.17],[0.17,0.17]])boxGB(gb,X+lx-0.015,X+lx+0.015,0,0.43,Z+lz-0.015,Z+lz+0.015,ct);}
+      boxGB(gb,x-0.025,x+0.025,0.75,2.45,z-0.025,z+0.025,C('#d8d8d8'));
+      (parMats[canv]=parMats[canv]||[]).push([parG,TM(x,2.45,z)]);
+      addCollider({x,z,r:0.55});
+    }
+  }
+  const m=gb.mesh(plainMat,true,true);
+  for(const [col,list] of Object.entries(parMats)){const pm=new THREE.Mesh(mergeGeo(list),new THREE.MeshStandardMaterial({color:col,roughness:0.9,side:THREE.DoubleSide}));pm.castShadow=true;scene.add(pm);}
+}
 for(const t of TILES.values()){t.wall.forEach((g,i)=>g.mesh(wallMats[i]));t.gable.forEach((g,i)=>g.mesh(gableMats[i]));t.shop.mesh(shopMat);t.roof.mesh(roofMat);t.plain.mesh(plainMat);}
 
 /* ---------- Poldertoren (1959): 65.3 m, platform at 43.4 m, weather vane at 70.5 m, 13.4 m wide octagon ----------
@@ -1115,6 +1142,40 @@ const BIRDS=(()=>{
   const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0x1d1f22,side:THREE.DoubleSide}));m.frustumCulled=false;scene.add(m);
   return {flocks,birds,pos,g};
 })();
+
+/* ---------- ducks paddling on the canals near the centre: two instanced meshes (body, head) ---------- */
+const DUCKS=(()=>{
+  const body=new THREE.SphereGeometry(0.2,8,6).scale(1,0.7,1.6),head=new THREE.SphereGeometry(0.09,8,6);head.translate(0,0.2,0.24);
+  const tail=new THREE.ConeGeometry(0.06,0.14,5).rotateX(-1.9).translate(0,0.06,-0.27);
+  const bodyG=mergeGeo([[body,new THREE.Matrix4()],[tail,new THREE.Matrix4()]]);
+  const pools=WATER.filter(w=>w.b&&Math.hypot((w.b.x0+w.b.x1)/2,(w.b.z0+w.b.z1)/2)<500);
+  const list=[];
+  for(let gi=0;gi<6&&pools.length;gi++){
+    const w=pick(pools);let x=0,z=0,ok=false;for(let k=0;k<60&&!ok;k++){x=rand(w.b.x0,w.b.x1);z=rand(w.b.z0,w.b.z1);ok=inPoly(x,z,w)&&!onBridge(x,z)&&!onBridge(x,z-5);}
+    if(!ok)continue;const grp={w,x,z,h:rng()*6.28,turn:0};
+    for(let i=0,n=randInt(3,6);i<n;i++)list.push({g:grp,ox:(rng()-.5)*3,oz:-i*0.9-rng()*0.5,ph:rng()*6,male:rng()<.5});
+  }
+  const bm=new THREE.InstancedMesh(bodyG,new THREE.MeshStandardMaterial({roughness:0.8}),Math.max(1,list.length));
+  const hm=new THREE.InstancedMesh(head,new THREE.MeshStandardMaterial({roughness:0.6}),Math.max(1,list.length));
+  const c=new THREE.Color();list.forEach((d,i)=>{bm.setColorAt(i,c.set(d.male?'#4f4943':'#4a3626'));hm.setColorAt(i,c.set(d.male?'#1f5c2e':'#6b4f35'));});
+  bm.count=hm.count=list.length;bm.castShadow=true;scene.add(bm,hm);
+  return {list,bm,hm,groups:[...new Set(list.map(d=>d.g))]};
+})();
+const _dm=new THREE.Matrix4(),_dq=new THREE.Quaternion(),_dv=new THREE.Vector3(),_ds=new THREE.Vector3(1,1,1),_dy=new THREE.Vector3(0,1,0);
+function updateDucks(dt,t){
+  const D=DUCKS;if(!D.list.length)return;
+  const near=D.groups.some(g=>Math.hypot(g.x-camera.position.x,g.z-camera.position.z)<200);D.bm.visible=D.hm.visible=near;if(!near)return;
+  for(const g of D.groups){
+    // paddle slowly, wander, and turn away from the bank
+    if(rng()<dt*0.3)g.turn=(rng()-.5)*0.6;g.h+=g.turn*dt;
+    const nx=g.x+Math.sin(g.h)*0.35*dt,nz=g.z+Math.cos(g.h)*0.35*dt,ax=g.x+Math.sin(g.h)*3.5,az=g.z+Math.cos(g.h)*3.5;
+    if(inPoly(ax,az,g.w)&&!onBridge(ax,az)){g.x=nx;g.z=nz;}else g.h+=1.2*dt+0.02;
+  }
+  D.list.forEach((d,i)=>{const g=d.g,sh=Math.sin(g.h),ch=Math.cos(g.h);
+    const x=g.x+ch*d.ox+sh*d.oz,z=g.z-sh*d.ox+ch*d.oz,bob=Math.sin(t*2+d.ph)*0.015;
+    _dq.setFromAxisAngle(_dy,g.h+Math.sin(t*0.7+d.ph)*0.25);_dm.compose(_dv.set(x,0.06+bob,z),_dq,_ds);D.bm.setMatrixAt(i,_dm);D.hm.setMatrixAt(i,_dm);});
+  D.bm.instanceMatrix.needsUpdate=D.hm.instanceMatrix.needsUpdate=true;
+}
 function updateBirds(dt,t){
   const {flocks,birds,pos,g}=BIRDS;
   for(const fl of flocks)fl.a+=fl.sp*dt;
@@ -1194,7 +1255,6 @@ plainGB2.mesh(plainMat);
 /* ---------- trees & lamps ---------- */
 const glowTex=canvasTex(64,64,(g,w,h)=>{const gr=g.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.45,'rgba(255,255,255,.45)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,w,h);});
 /* ---------- Hotel 't Voorhuys on De Deel, modelled after photos: buff brick, hipped dark roof, curved conservatory with an orange canopy ---------- */
-const TM=(x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0)=>new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx,ry,0)),new THREE.Vector3(sx,sy,sz));
 const LIGHT_HOOKS=[];
 let VOORHUYS=null;
 if(VOORHUYS_FP){
@@ -2076,6 +2136,18 @@ for(let i=0;i<34;i++){
   NPCS.push({zone,m,x:p[0],z:p[1],h:0,tx:t[0],tz:t[1],spd:rand(1.1,1.6),phase:rng()*6,stuck:0,lx:p[0],lz:p[1],dodge:0,dvx:0,dvz:0,wait:rand(0,3)});
 }
 
+// people waiting on the bus station platforms, facing the buses
+{
+  const isl=ROADS.filter(r=>r.c===2&&/^[A-G]$/.test(r.n)&&r.p.length>=4);
+  for(const r of isl){const q=r.p.slice(0,4);let cx=0,cz=0;for(const p of q){cx+=p[0];cz+=p[1];}cx/=4;cz/=4;
+    let ux=0,uz=0,bl=0;for(let i=0;i<4;i++){const a=q[i],b=q[(i+1)%4],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L>bl){bl=L;ux=(b[0]-a[0])/L;uz=(b[1]-a[1])/L;}}
+    for(let k=0,n=randInt(1,3);k<n;k++){const t=rand(-7,7),x=cx+ux*t+(rng()-.5)*0.6,z=cz+uz*t+(rng()-.5)*0.6;
+      const m=makePerson({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS)});
+      const h=Math.atan2(-uz,ux)+(rng()<.5?0:Math.PI)+(rng()-.5)*0.6;m.g.position.set(x,0.2,z);m.g.rotation.y=h;m.g.userData.y0=0.2;
+      NPCS.push({zone:null,m,x,z,h,tx:x,tz:z,spd:1.2,phase:rng()*6,stuck:0,lx:x,lz:z,dodge:0,dvx:0,dvz:0,wait:1e9,stay:true});}
+  }
+}
+
 /* ---------- speed cameras on the polder roads (limit 80 km/h) ---------- */
 const SPEEDCAMS=[];
 {
@@ -2724,7 +2796,7 @@ function walkPlayer(dt){
 }
 function updateNPCs(dt){
   for(const n of NPCS){
-    if(n.wait>0){n.wait-=dt;animPerson(n.m,0,0);n.m.g.position.set(n.x,0,n.z);continue;}
+    if(n.wait>0){n.wait-=dt;animPerson(n.m,0,0);n.m.g.position.set(n.x,n.stay?0.2:0,n.z);continue;}
     let moving=true,spd=n.spd;
     let danger=null;
     for(const c of CARS){
@@ -2757,11 +2829,60 @@ function syncCar(c,dt){
   for(const f of c.fronts)f.rotation.y=c.steer*0.45;
   // suspension: the body rolls out of turns, dips its nose when braking and squats when pulling away (a damped spring)
   if(dt>0){
-    const acc=clamp((c.speed-(c._ls===undefined?c.speed:c._ls))/dt,-25,25);c._ls=c.speed;
+    const acc=clamp((c.speed-(c._ls===undefined?c.speed:c._ls))/dt,-25,25);c._ls=c.speed;c._acc=(c._acc||0)*0.85+acc*0.15;
     const tRoll=-c.steer*clamp(c.speed*Math.abs(c.speed)/260,-1.3,1.3)*0.055,tPitch=clamp(-acc/10,-1,1)*0.03;
     c._rv=(c._rv||0)+((tRoll-c.body.rotation.z)*70-(c._rv||0)*10)*dt;c._pv=(c._pv||0)+((tPitch-c.body.rotation.x)*70-(c._pv||0)*10)*dt;
     c.body.rotation.z+=c._rv*dt;c.body.rotation.x+=c._pv*dt;
   }
+}
+
+/* ---------- car lights and rain spray: glows for head, tail, brake and indicator lights of every car, one instanced mesh for all ---------- */
+let LIGHTS_K=0;LIGHT_HOOKS.push(l=>{LIGHTS_K=l;});
+const CARGLOW=(()=>{
+  const n=CARS.length*6,m=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:glowTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}),n);
+  m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3),3);m.frustumCulled=false;m.renderOrder=3;scene.add(m);return m;
+})();
+// local spots: [x,y,z,kind] kind 0 head, 1 tail/brake, 2 indicator front, 3 indicator rear
+const GLOW_SPOTS=[[-0.6,0.8,2.3,0],[0.6,0.8,2.3,0],[-0.66,0.86,-2.27,1],[0.66,0.86,-2.27,1],[0,0.74,2.22,2],[0,0.8,-2.24,3]];
+const _gm=new THREE.Matrix4(),_gp=new THREE.Vector3(),_gs=new THREE.Vector3(),_gc=new THREE.Color();
+function updateCarLights(t){
+  const cam=camera.position,q=camera.quaternion,blink=(t*1.6)%1<0.5;let k=0;
+  for(const c of CARS){if(k+6>CARGLOW.count)break;
+    const d=Math.hypot(c.x-cam.x,c.z-cam.z),sh=Math.sin(c.h),ch=Math.cos(c.h),face=d>0.1?(sh*(cam.x-c.x)+ch*(cam.z-c.z))/d:0;
+    const near=d<170,braking=(c._acc||0)<-2.5&&Math.abs(c.speed)>0.3||(c.ai&&Math.abs(c.speed)<0.4);
+    // indicators: AI cars signal while turning at junctions, everyone while steering hard at low speed
+    if(Math.abs(c.steer)>0.5&&Math.abs(c.speed)>0.5&&Math.abs(c.speed)<9){c._ind=Math.sign(c.steer);c._indT=1.2;}else if(c._indT>0)c._indT-=FRAME_DT||0.016;else c._ind=0;
+    const occupied=c.ai||c===P.car;
+    for(const [lx0,ly,lz,kind] of GLOW_SPOTS){
+      let s=0,r=0,g=0,b=0,lx=lx0;
+      if(near&&occupied){
+        if(kind===0){s=0.72*LIGHTS_K*clamp(face*1.5+0.3,0,1);r=0.85;g=0.78;b=0.62;}
+        else if(kind===1){const br=braking?1:0;s=(0.65*LIGHTS_K+br*(0.6+0.45*LIGHTS_K))*clamp(-face*1.5+0.3,0,1);r=1;g=0.08;b=0.05;if(!br){r*=0.8;}}
+        else if(c._ind&&blink){s=0.75;r=1;g=0.55;b=0.08;lx=c._ind>0?0.86:-0.86;}
+      }
+      if(s<0.02){_gm.makeScale(0,0,0);}
+      else{const wx=c.x+ch*lx+sh*lz,wz=c.z-sh*lx+ch*lz;_gm.compose(_gp.set(wx,ly,wz),q,_gs.set(s,s,s));}
+      CARGLOW.setMatrixAt(k,_gm);CARGLOW.instanceColor.setXYZ(k,r,g,b);k++;
+    }
+  }
+  CARGLOW.instanceMatrix.needsUpdate=true;CARGLOW.instanceColor.needsUpdate=true;
+}
+// spray thrown up by tyres on wet roads
+const SPRAY=(()=>{const N=360,pos=new Float32Array(N*3).fill(-999),vel=new Float32Array(N*3),life=new Float32Array(N);
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const m=new THREE.PointsMaterial({map:glowTex,color:0xc9d2d8,size:1.1,transparent:true,opacity:0.28,depthWrite:false,sizeAttenuation:true});
+  const p=new THREE.Points(g,m);p.frustumCulled=false;scene.add(p);return {p,pos,vel,life,N,i:0};})();
+function updateSpray(dt){
+  const S=SPRAY,cam=camera.position;
+  if(RAIN>0.25)for(const c of CARS){const sp=Math.abs(c.speed);if(sp<4.5||Math.hypot(c.x-cam.x,c.z-cam.z)>90)continue;
+    const sh=Math.sin(c.h),ch=Math.cos(c.h),n=Math.min(3,sp*dt*RAIN*1.6+(rng()<0.5?1:0))|0;
+    for(let j=0;j<n;j++){const i=S.i=(S.i+1)%S.N,side=rng()<.5?-0.9:0.9,lz=c.speed>0?-1.6:1.6;
+      S.pos[i*3]=c.x+ch*side+sh*lz;S.pos[i*3+1]=0.25;S.pos[i*3+2]=c.z-sh*side+ch*lz;
+      const back=-Math.sign(c.speed)*sp*0.25;S.vel[i*3]=sh*back+(rng()-.5)*1.2;S.vel[i*3+1]=0.8+rng()*1.4;S.vel[i*3+2]=ch*back+(rng()-.5)*1.2;S.life[i]=0.7+rng()*0.4;}}
+  for(let i=0;i<S.N;i++){if(S.life[i]<=0)continue;S.life[i]-=dt;
+    if(S.life[i]<=0){S.pos[i*3+1]=-999;continue;}
+    S.vel[i*3+1]-=4*dt;S.pos[i*3]+=S.vel[i*3]*dt;S.pos[i*3+1]=Math.max(0.05,S.pos[i*3+1]+S.vel[i*3+1]*dt);S.pos[i*3+2]+=S.vel[i*3+2]*dt;}
+  S.p.geometry.attributes.position.needsUpdate=true;S.p.visible=RAIN>0.2;
 }
 
 /* ---------- day & night ---------- */
@@ -3111,7 +3232,7 @@ function frame(now){
   for(const b of BLADES)b.rotation.z+=dt*0.9;
   WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6;
   waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;
-  updateBirds(dt,t);updateFountain(t);
+  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateCarLights(t);updateSpray(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
   for(const c of CLOUDS){c.position.x+=dt*3;if(c.position.x>1200)c.position.x=-1200;}
@@ -3149,7 +3270,7 @@ function frame(now){
   renderFrame();
 }
 requestAnimationFrame(frame);
-window.__game={dbg:()=>({camera,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,i*0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);for(const c of CARS)syncCar(c,0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={dbg:()=>({camera,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,i*0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);for(const c of CARS)syncCar(c,0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

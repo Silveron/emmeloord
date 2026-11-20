@@ -132,3 +132,10 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - **Bus station** (the lot right beside the tower, platforms A to G): asphalt, raised platforms with kerbs, three 12 m city buses parked at platforms with doors to the platform, a glass shelter on platform B. Buses are solid but do not drive yet.
 - **Hotel 't Voorhuys** stands where OpenStreetMap has it (way 266435940, De Deel 20): on the south front of its block at the entrance of the Lange Nering, in front of the rest of that block: buff brick, hipped dark roof, curved glass conservatory with an orange canopy and white slanted posts, lighter annex with three flags, terrace with parasols and box-ball planters, lit "'t Voorhuys" lettering, warm uplights and lit windows at night.
 - **Polderfontein** (splash fountain, OSM way 902694671, 2020) at its real spot on De Deel in front of the hotel: octagon of wet stone in herringbone klinkers with 22 jets that pulse and take turns in three groups.
+
+## 2026-11-20: plan steps "better cars" and "a living town"
+- **Car lights**: every driven car now has glowing head lights and tail lights at dusk and night (seen only from the side they face), bright brake lights whenever a car slows down or waits (day and night), and blinking orange indicators when cars turn at junctions. All glows are one instanced mesh.
+- **Rain spray**: cars faster than about 16 km/h throw up spray from their tyres on wet roads (one shared particle system).
+- **Café terraces**: OSM cafés, restaurants, ice cream shops and snack bars within 700 m get a terrace of tables, chairs and parasols in front of the shop (merged into a few meshes, solid).
+- **Bus station**: people wait on the platforms A to G.
+- **Ducks**: small groups of ducks paddle on the canals near the centre, turning away from the banks and avoiding bridges (two instanced meshes).

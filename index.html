@@ -1079,6 +1079,51 @@ for(let i=0;i<30;i++){
   NPCS.push({m,x:p[0],z:p[1],h:0,tx:t[0],tz:t[1],spd:rand(1.1,1.6),phase:rng()*6,stuck:0,lx:p[0],lz:p[1],dodge:0,dvx:0,dvz:0,wait:rand(0,3)});
 }
 
+/* ---------- cyclists ---------- */
+const CYCLISTS=[];
+{
+  const tire=new THREE.TorusGeometry(0.34,0.045,6,18),tireMat=lm('#1d1d1d'),tube=new THREE.BoxGeometry(0.05,0.05,1);
+  const bpaths=[lanePath(INNER,3.5),lanePath(INNER.slice().reverse(),3.5),lanePath(OUTER,4.6),lanePath(OUTER.slice().reverse(),4.6)];
+  for(let i=0;i<10;i++){
+    const path=bpaths[i%4],seg=randInt(0,3),tt=rng();
+    const a=path[seg],b=path[(seg+1)%4];
+    const g=new THREE.Group();scene.add(g);
+    const fm=lm(pick(['#1f3d5a','#222','#7a1f1f','#2d5a3a','#d9d4c8','#ff7b1c','#6a3b7a']));
+    const wheels=[];
+    for(const z of [-0.52,0.52]){const w=new THREE.Mesh(tire,tireMat);w.position.set(0,0.36,z);w.rotation.y=Math.PI/2;w.castShadow=true;g.add(w);wheels.push(w);}
+    const T=(x,y,z,rx,sz,m)=>{const t=new THREE.Mesh(tube,m||fm);t.position.set(x,y,z);t.rotation.x=rx;t.scale.z=sz;t.castShadow=true;g.add(t);return t;};
+    T(0,0.62,0.02,0,0.85);T(0,0.5,-0.2,0.9,0.6);T(0,0.64,0.47,1.3,0.6);T(0,1.0,0.5,0,0.08,lm('#888')).scale.x=10;
+    // rider: reuse the person model, seated
+    const rider=makePerson({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS)});
+    scene.remove(rider.g);g.add(rider.g);rider.g.position.set(0,0.12,-0.22);rider.g.rotation.x=0.18;
+    rider.la.rotation.x=-1.1;rider.ra.rotation.x=-1.1;
+    CYCLISTS.push({g,rider,wheels,path,idx:(seg+1)%4,x:a[0]+(b[0]-a[0])*tt,z:a[1]+(b[1]-a[1])*tt,h:Math.atan2(b[0]-a[0],b[1]-a[1]),speed:0,cruise:rand(4.2,5.6),phase:rng()*6,rang:0});
+  }
+}
+function bikeBell(){if(!AC||muted)return;const t=AC.currentTime;for(const d of [0,0.16]){tone(2350,t+d,0.35,0.06,'sine');tone(3700,t+d,0.2,0.025,'sine');}}
+function updateCyclists(dt,t){
+  for(const b of CYCLISTS){
+    const tg=b.path[b.idx],dx=tg[0]-b.x,dz=tg[1]-b.z,dist=Math.hypot(dx,dz);
+    if(dist<4)b.idx=(b.idx+1)%b.path.length;
+    const diff=wrapA(Math.atan2(dx,dz)-b.h);
+    let target=Math.abs(diff)>0.4?2.5:b.cruise;
+    const fx=Math.sin(b.h),fz=Math.cos(b.h);
+    const look=(ox,oz)=>{const rx=ox-b.x,rz=oz-b.z,al=rx*fx+rz*fz,lat=-rx*fz+rz*fx;if(al>0&&al<7&&Math.abs(lat)<1.6)target=Math.min(target,Math.max(0,(al-2.6)*1.2));};
+    for(const c of CARS)look(c.x,c.z);
+    if(P.mode==='walk')look(P.x,P.z);
+    for(const o of CYCLISTS)if(o!==b)look(o.x,o.z);
+    b.speed+=clamp(target-b.speed,-6*dt,2*dt);
+    b.h+=clamp(diff,-1.6*dt,1.6*dt);
+    b.x+=Math.sin(b.h)*b.speed*dt;b.z+=Math.cos(b.h)*b.speed*dt;
+    personVsCars(b,0.5);
+    // ring the bell when the player blocks the way
+    if(started&&target<1&&t-b.rang>5){const px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;if(Math.hypot(px-b.x,pz-b.z)<9){b.rang=t;bikeBell();}}
+    b.phase+=b.speed*dt*1.6;
+    const s=Math.sin(b.phase)*0.6;b.rider.ll.rotation.x=-0.9+s;b.rider.rl.rotation.x=-0.9-s;
+    b.g.position.set(b.x,0,b.z);b.g.rotation.y=b.h;b.g.rotation.z=-clamp(diff,-0.4,0.4)*0.25;
+  }
+}
+
 /* ---------- player ---------- */
 const START={x:6,z:-36,h:Math.atan2(-20,24)};
 const P={x:START.x,z:START.z,y:0,vy:0,h:START.h,mode:'walk',car:null,phase:0,
@@ -1544,6 +1589,7 @@ function aiCar(c,dt,t){
     for(const o of CARS)if(o!==c)check(o.x,o.z,o);
     if(P.mode==='walk')check(P.x,P.z,P);
     for(const n of NPCS)check(n.x,n.z,n);
+    for(const b of CYCLISTS)check(b.x,b.z,b);
   }else c.impatient-=dt;
   if(target<0.5&&c.speed<1){c.blockedT+=dt;
     if(blockedBy&&(blockedBy===P||blockedBy===P.car)&&c.blockedT>1.2&&t-c.honked>4){c.honked=t;const d=Math.hypot(P.x-c.x,P.z-c.z);if(d<40)horn();}
@@ -1799,7 +1845,7 @@ function frame(now){
   for(const c of CARS)if(c.ai)aiCar(c,dt,t);
   carVsCar();
   for(const c of CARS){if(c!==P.car&&!c.ai){c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),6*dt);if(Math.abs(c.speed)>0.01){c.x+=Math.sin(c.h)*c.speed*dt;c.z+=Math.cos(c.h)*c.speed*dt;carCollideWorld(c,false);}}syncCar(c,dt);}
-  updateNPCs(dt);
+  updateNPCs(dt);updateCyclists(dt,t);
   const px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
   for(const c of COINS){
     if(c.got)continue;c.m.rotation.y+=dt*2.4;c.m.position.y=1.3+Math.sin(t*2+c.x)*0.2;
@@ -1846,7 +1892,7 @@ function frame(now){
   renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
-window.__game={audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click()};
+window.__game={setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click()};
 })();
 </script>
 </body>

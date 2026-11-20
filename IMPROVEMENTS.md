@@ -126,3 +126,9 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - The canal water has moving ripples (an animated normal map).
 - Flocks of birds circle the Poldertoren and the town. All the birds are one dynamic mesh with flapping wings.
 - The player leans into turns and holds a mid-stride pose while jumping.
+
+## 2026-11-20: De Deel, buses, 't Voorhuys and the fountain (Ron's photos)
+- **Brown klinkers** on both car parks beside the Poldertoren, aisles included (no centre lines there); the bays are filled with parked cars, drawn as instanced meshes so they cost a few draw calls in total.
+- **Buses**: two 12 m low-floor city buses (white with a coloured stripe, line 141 "Centrum" display) wait at a stop on the car park aisle next to the tower, with a glass bus shelter and an "H" sign. They are solid, but do not drive yet.
+- **Hotel 't Voorhuys** replaces a small OSM footprint on De Deel north of the tower (location is a best guess, OSM gives no name there): buff brick, hipped dark roof, curved glass conservatory with an orange canopy and white slanted posts, lighter annex with three flags, terrace with parasols and box-ball planters, lit "'t Voorhuys" lettering, warm uplights and lit windows at night.
+- **Splash fountain** in front of the hotel: octagon of wet stone in herringbone klinkers with 22 jets that pulse and take turns in three groups.

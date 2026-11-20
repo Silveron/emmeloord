@@ -110,3 +110,11 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - The models load after the game starts (`loadRigs`, `assets/models/*.glb`, loader in `assets/lib/`). Until they arrive, or if they fail, the old procedural people stay.
 - CC0 cars and trees (Kenney) were tried and not used, because they look more toy-like than the current ones.
 - Phone street view: 275 → 312 draw calls.
+
+## 2026-11-20 — Matching Ron's drone video ("Emmeloord van Boven")
+
+- Poldertoren rebuilt to match the footage: dark brown brick all the way up, no white ribs or bands, three rows of narrow slits per face, dark clock faces with gold hands, a brick belfry with louvred openings, a dark gallery rail, a green copper roof and a golden ball and vane.
+- Houses with an almost rectangular footprint now get pitched roofs (about 2,100 more). Roof colours are mostly dark grey concrete tiles.
+- Street trees: tall trunks with limbs and loose crowns made of alpha-tested leaf cards. Far chunks use fewer cards.
+- More dark brown brick on houses, darker canal water, darker grass, closer haze, and slightly less saturation on High.
+- Phone street view: 312 → 336 draw calls.

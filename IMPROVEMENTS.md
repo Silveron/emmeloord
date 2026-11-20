@@ -118,3 +118,11 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - Street trees: tall trunks with limbs and loose crowns made of alpha-tested leaf cards. Far chunks use fewer cards.
 - More dark brown brick on houses, darker canal water, darker grass, closer haze, and slightly less saturation on High.
 - Phone street view: 312 → 336 draw calls.
+
+## 2026-11-20 — More animation
+
+- Car suspension: the body rolls in turns, the nose dips when braking and the car squats when pulling away (a damped spring in `syncCar`).
+- Trees sway in the wind (a vertex shader on the crowns, each tree with its own phase). The wind is stronger in rain.
+- The canal water has moving ripples (an animated normal map).
+- Flocks of birds circle the Poldertoren and the town. All the birds are one dynamic mesh with flapping wings.
+- The player leans into turns and holds a mid-stride pose while jumping.

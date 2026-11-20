@@ -1253,9 +1253,12 @@ function initAudio(){
     const wn=loopNoise(),wf=AC.createBiquadFilter();wf.type='lowpass';wf.frequency.value=380;
     const wg=AC.createGain();wg.gain.value=0;wn.connect(wf);wf.connect(wg);wg.connect(master);
     wind={f:wf,g:wg};
+    const rn2=loopNoise(),rf2=AC.createBiquadFilter();rf2.type='highpass';rf2.frequency.value=2500;
+    const rg2=AC.createGain();rg2.gain.value=0;rn2.connect(rf2);rf2.connect(rg2);rg2.connect(master);
+    rainS={g:rg2};
   }catch(e){AC=null;}
 }
-let NOISE=null,tyre=null,wind=null,birdT=2,cricketT=1,stepPhase=0;
+let NOISE=null,tyre=null,wind=null,rainS=null,birdT=2,cricketT=1,stepPhase=0;
 function noiseHit(t,dur,vol,freq,type,q){
   const n=AC.createBufferSource();n.buffer=NOISE;
   const f=AC.createBiquadFilter();f.type=type||'lowpass';f.frequency.value=freq||800;if(q)f.Q.value=q;
@@ -1290,6 +1293,7 @@ function updateAudio(dt,px,pz){
   if(drv){const hb=K('Space');slip=Math.max(hb&&sp>6?Math.min(1,sp/18):0,Math.abs(c.steer)>0.7&&sp>17?(sp-17)/12:0);}
   tyre.g.gain.setTargetAtTime(clamp(slip,0,1)*0.07,t,0.06);
   tyre.f.frequency.setTargetAtTime(1700+Math.random()*500,t,0.02);
+  rainS.g.gain.setTargetAtTime(RAIN*(drv?0.05:0.035),t,0.3);
   // wind
   const inTown=px>-310&&px<330&&pz>-190&&pz<190;
   wind.g.gain.setTargetAtTime((inTown?0.012:0.035)+Math.min(0.05,sp*0.0016),t,0.4);
@@ -1298,7 +1302,7 @@ function updateAudio(dt,px,pz){
   if(!drv&&P.y<=0.001){const ph=Math.floor(P.phase/Math.PI);if(ph!==stepPhase){stepPhase=ph;noiseHit(t,0.07,0.05,onPed(px,pz,0)||onRoad(px,pz,0)?1400:600,'lowpass');}}
   // birds by day (not on the ring road), crickets at night outside the centre
   birdT-=dt;cricketT-=dt;
-  if(NIGHT<0.4&&birdT<0){birdT=rand(1.5,6);const f=rand(2200,3600),n=randInt(2,5);for(let i=0;i<n;i++)chirp(t+i*0.11,f,f*rand(1.15,1.4),0.08,0.025);}
+  if(NIGHT<0.4&&RAIN<0.3&&birdT<0){birdT=rand(1.5,6);const f=rand(2200,3600),n=randInt(2,5);for(let i=0;i<n;i++)chirp(t+i*0.11,f,f*rand(1.15,1.4),0.08,0.025);}
   if(NIGHT>0.6&&cricketT<0){cricketT=rand(0.4,1.6);const n=randInt(3,6),f=rand(4300,4900);for(let i=0;i<n;i++)chirp(t+i*0.06,f,f*1.02,0.035,inTown?0.006:0.014);}
 }
 function tone(freq,t,dur,vol,type){
@@ -1648,10 +1652,44 @@ const DN={
   botDay:C(FOG),botDusk:C('#f2a66e'),botNight:C('#141d31'),
   sunDay:C('#fff0d6'),sunDusk:C('#ffad66'),moon:C('#9fb4ff'),
   hemiDay:C('#e4f1ff'),hemiNight:C('#5d70a8'),gndDay:C('#5a7048'),gndNight:C('#1c2430'),
-  glow:C('#ffcf86'),cloudDay:C('#8a99a8'),cloudNight:C('#141a26'),
+  glow:C('#ffcf86'),rainTop:C('#6f7c88'),rainBot:C('#a3adb4'),cloudDay:C('#8a99a8'),cloudNight:C('#141a26'),
   c1:new THREE.Color(),c2:new THREE.Color()
 };
-let NIGHT=0;
+let NIGHT=0,RAIN=0,rainTarget=0,weatherT=150;
+/* rain: a box of falling streaks that follows the camera */
+const RAIN_N=2200,RAIN_BOX=45;
+const rainGeo=new THREE.BufferGeometry(),rainPos=new Float32Array(RAIN_N*6),rainSeed=new Float32Array(RAIN_N*3);
+for(let i=0;i<RAIN_N;i++){rainSeed[i*3]=rand(-RAIN_BOX,RAIN_BOX);rainSeed[i*3+1]=rand(0,40);rainSeed[i*3+2]=rand(-RAIN_BOX,RAIN_BOX);}
+rainGeo.setAttribute('position',new THREE.BufferAttribute(rainPos,3));
+const rainMat=new THREE.LineBasicMaterial({color:0xb8c6d4,transparent:true,opacity:0,depthWrite:false});
+const rainLines=new THREE.LineSegments(rainGeo,rainMat);rainLines.frustumCulled=false;rainLines.visible=false;scene.add(rainLines);
+let rainFall=0;
+function updateWeather(dt){
+  weatherT-=dt;
+  if(weatherT<=0){
+    if(rainTarget>0){rainTarget=0;weatherT=rand(150,400);}
+    else if(rng()<0.45){rainTarget=rand(0.55,1);weatherT=rand(60,170);if(started)toast('A polder shower rolls in.',2200);}
+    else weatherT=rand(90,240);
+  }
+  RAIN+=clamp(rainTarget-RAIN,-dt/12,dt/12);
+  rainLines.visible=RAIN>0.02;
+  if(!rainLines.visible)return;
+  rainMat.opacity=RAIN*0.6;
+  rainFall=(rainFall+dt*26)%40;
+  const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z,n=Math.floor(RAIN_N*RAIN);
+  const wx=0.12;
+  for(let i=0;i<RAIN_N;i++){
+    const k=i*6;
+    if(i>=n){rainPos[k+1]=rainPos[k+4]=-999;continue;}
+    let x=rainSeed[i*3],z=rainSeed[i*3+2];
+    // keep each drop's column fixed in world space, wrapped into the box around the camera
+    x=((x-cx)%(2*RAIN_BOX)+3*RAIN_BOX)%(2*RAIN_BOX)-RAIN_BOX+cx;
+    z=((z-cz)%(2*RAIN_BOX)+3*RAIN_BOX)%(2*RAIN_BOX)-RAIN_BOX+cz;
+    const y=cy+20-((rainSeed[i*3+1]+rainFall)%40);
+    rainPos[k]=x;rainPos[k+1]=y;rainPos[k+2]=z;rainPos[k+3]=x-wx;rainPos[k+4]=y-0.9;rainPos[k+5]=z;
+  }
+  rainGeo.attributes.position.needsUpdate=true;
+}
 const sstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 function updateDayNight(){
   const h=(gameMin/60)%24;
@@ -1667,11 +1705,13 @@ function updateDayNight(){
   const c1=DN.c1,c2=DN.c2;
   c1.copy(DN.topNight).lerp(DN.topDay,day).lerp(DN.topDusk,dusk*0.6);skyMat.uniforms.top.value.copy(c1);
   c2.copy(DN.botNight).lerp(DN.botDay,day).lerp(DN.botDusk,dusk*0.75);skyMat.uniforms.bot.value.copy(c2);
+  if(RAIN>0.001){const g1=DN.rainTop.clone().multiplyScalar(0.25+0.75*day),g2=DN.rainBot.clone().multiplyScalar(0.2+0.8*day);c1.lerp(g1,RAIN*0.85);c2.lerp(g2,RAIN*0.85);skyMat.uniforms.top.value.copy(c1);skyMat.uniforms.bot.value.copy(c2);}
   scene.fog.color.copy(c2);scene.background.copy(c2);
+  scene.fog.near=220-120*RAIN;scene.fog.far=1050-600*RAIN;
   sun.color.copy(DN.moon).lerp(DN.sunDay,day).lerp(DN.sunDusk,dusk*0.8);
-  sun.intensity=0.16+0.79*day;
+  sun.intensity=(0.16+0.79*day)*(1-0.55*RAIN);
   hemi.color.copy(DN.hemiNight).lerp(DN.hemiDay,day);hemi.groundColor.copy(DN.gndNight).lerp(DN.gndDay,day);
-  hemi.intensity=0.32+0.42*day;
+  hemi.intensity=(0.32+0.42*day)*(1-0.1*RAIN);
   STARS.material.opacity=sstep(0.55,0.95,NIGHT)*0.9;
   const lights=sstep(0.35,0.75,NIGHT);
   for(const m of wallMats)m.emissive.copy(DN.glow).multiplyScalar(lights*0.75);
@@ -1681,7 +1721,7 @@ function updateDayNight(){
   headMat.emissive.setRGB(0.6+lights*0.4,0.56+lights*0.4,0.44+lights*0.4);
   tailMat.emissive.setRGB(0.25+lights*0.55,0,0);
   CLOUD_MAT.emissive.copy(DN.cloudNight).lerp(DN.cloudDay,day);
-  CLOUD_MAT.color.setScalar(0.25+0.75*day);
+  CLOUD_MAT.color.setScalar((0.25+0.75*day)*(1-0.45*RAIN));CLOUD_MAT.emissive.multiplyScalar(1-0.5*RAIN);
   headSpot.intensity=lights*1.6;
   renderer.toneMappingExposure=1;
 }
@@ -1796,6 +1836,7 @@ function frame(now){
     drawMini();
   }
   gameMin=(gameMin+dt)%1440;
+  updateWeather(dt);
   secTimer+=dt;if(secTimer>0.25){secTimer=0;updateClocks();updateDayNight();$('clock').textContent=gameTimeStr();}
   // the spotlight stays in the scene (toggling visibility would recompile every shader); it only moves and dims
   if(started&&P.mode==='drive'){
@@ -1805,7 +1846,7 @@ function frame(now){
   renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
-window.__game={audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},start:()=>$('play').click()};
+window.__game={audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click()};
 })();
 </script>
 </body>

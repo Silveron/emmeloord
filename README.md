@@ -16,7 +16,7 @@ python3 -m http.server 8000
 | Key | Action |
 | --- | --- |
 | W A S D / arrow keys | Walk, or drive when in a car |
-| E | Get in or out of a car (you can also borrow a car from traffic) |
+| E | Get in or out of a car (you can also borrow a car from traffic), or start a job at a job marker |
 | Shift | Sprint |
 | Space | Jump, or handbrake when driving |
 | Mouse | Click or drag to look around, scroll to zoom |
@@ -28,6 +28,16 @@ python3 -m http.server 8000
 ### Phone and tablet
 
 Turn the phone sideways. Put your left thumb anywhere on the left side for a joystick (walk, or steer and accelerate in a car; push it all the way to run). Drag with your right thumb to look around. Buttons: **CAR** (get in/out), **JUMP/BRAKE** and **HORN**. You can also tap the "Get in" prompt.
+
+## Jobs
+
+Coloured light beams mark three jobs (also shown on the minimap). Stand or drive into one and press **E** (or tap the prompt):
+
+- **Parcel delivery** (blue, on De Deel): pick up a parcel at a shop on the Nering and deliver it to an address in town. Works on foot or by car.
+- **Polder taxi** (yellow, north of De Deel): pick up a passenger and drive them home, sometimes far out into the polder. Stop at the marker to let them in and out.
+- **Ring road time trial** (pink, on the Ringweg): one lap through all the gates before the timer runs out. Your best lap is remembered.
+
+Finishing faster pays more cash. **R** cancels a job.
 
 ## What's in town
 

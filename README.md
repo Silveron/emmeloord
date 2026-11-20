@@ -51,13 +51,13 @@ Finishing faster pays more cash. **R** cancels a job.
 
 ## What's in town
 
-- The Poldertoren (1959): brick shaft, visitor platform, open carillon crown with bells, clocks that show the game time, and a carillon tune when you are nearby.
+- The Poldertoren (1959): brick shaft, visitor platform, open carillon crown with bells, clocks that show the game time.
 - De Deel with market stalls, bikes and benches; shops along Lange Nering and Korte Nering; Lange and Korte Achterzijde.
 - Cyclists riding the ring roads (they ring their bell if you block the way).
 - A ring road with traffic, and Lemsterweg, Urkerweg, Marknesserweg and Espelerlaan leading out to tulip fields, farms and wind turbines.
 - Polder weather: rain showers roll in now and then, with grey skies, falling rain and the sound of it.
 - A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights.
 - A canal with a bridge, a park with a pond, and 12 orange polder coins to find.
-- Background music: "Emmeloord, Vrijbaan" (made by Ron with Suno, `music.mp3`), looping quietly under the game sounds. **N** or the pause menu turns it off; the choice is saved.
+- Background music: "Emmeloord, Vrijbaan" (made by Ron with Suno, `music.mp3`), looping quietly under the game sounds from the start menu on. **N** or the pause menu turns it off; the choice is saved.
 
 The street layout is a simplified approximation of the real town; side streets, buildings and shop names are invented.

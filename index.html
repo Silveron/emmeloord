@@ -1646,10 +1646,15 @@ let AC=null,master=null,engine=null,muted=false;
    A plain <audio> element (not Web Audio) so it also works from file://. */
 let musicOn=true;const MUSIC=new Audio('music.mp3');MUSIC.loop=true;MUSIC.volume=0.28;MUSIC.preload='auto';
 function syncMusic(){
-  const want=started&&!paused&&!muted&&musicOn;
+  const want=!paused&&!muted&&musicOn&&!document.hidden;
   if(want&&MUSIC.paused){const pr=MUSIC.play();if(pr&&pr.catch)pr.catch(()=>{});}
   else if(!want&&!MUSIC.paused)MUSIC.pause();
 }
+// the song already plays on the start menu; browsers that block autoplay start it on the first click, tap or key
+function musicKick(){syncMusic();if(!MUSIC.paused)for(const ev of ['pointerdown','keydown','touchstart'])window.removeEventListener(ev,musicKick,true);}
+for(const ev of ['pointerdown','keydown','touchstart'])window.addEventListener(ev,musicKick,true);
+MUSIC.addEventListener('canplay',()=>syncMusic(),{once:true});
+document.addEventListener('visibilitychange',()=>syncMusic());
 function toggleMusic(){musicOn=!musicOn;syncMusic();if($('pmusic'))$('pmusic').textContent='Music: '+(musicOn?'on':'off');saveGame();}
 function initAudio(){
   if(AC)return;
@@ -1738,12 +1743,6 @@ function tone(freq,t,dur,vol,type){
   g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   o.connect(g);g.connect(master);o.start(t);o.stop(t+dur+0.05);
 }
-function bell(freq,t,vol){[[1,1],[2,.45],[2.4,.3],[3,.22],[4.2,.12]].forEach(([m,a])=>tone(freq*m,t,2.6/m+0.6,vol*a));}
-function carillon(vol){
-  if(!AC||muted||vol<0.01)return;
-  const notes=[659.25,587.33,523.25,587.33,659.25,783.99,659.25,523.25,587.33,392,523.25];
-  const t0=AC.currentTime+0.05;notes.forEach((f,i)=>bell(f,t0+i*0.42,vol));
-}
 // your horn makes nearby pedestrians jump out of the way
 function playerHorn(){
   horn();
@@ -1781,13 +1780,13 @@ const K=(...c)=>c.some(k=>keys[k]);
 window.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   keys[e.code]=true;
+  if(e.code==='KeyN'&&!e.repeat){toggleMusic();if(started)toast(musicOn?'Music on':'Music off',1500);return;}
   if(!started||e.repeat)return;
   if(e.code==='KeyP'||e.code==='Escape'){setPaused(!paused);return;}
   if(paused)return;
   if(e.code==='KeyE'||e.code==='KeyF')action();
   if(e.code==='KeyH')playerHorn();
   if(e.code==='KeyM'){muted=!muted;if(master)master.gain.value=muted?0:0.55;syncMusic();toast(muted?'Sound off':'Sound on',1500);}
-  if(e.code==='KeyN'){toggleMusic();toast(musicOn?'Music on':'Music off',1500);}
   if(e.code==='KeyR')resetPlayer();
   if(e.code==='KeyT'){gameMin=(gameMin+60)%1440;updateDayNight();updateClocks();$('clock').textContent=gameTimeStr();toast('Time skips ahead to '+gameTimeStr(),1400);}
 });
@@ -2174,7 +2173,7 @@ function gameTimeStr(){const m=Math.floor(gameMin)%1440;return String(Math.floor
 
 /* ---------- camera & loop ---------- */
 const camTarget=new THREE.Vector3(),camPos=new THREE.Vector3(),tmp=new THREE.Vector3();
-let towerVisited=false,lastBell=-100,lastLoc='',lastPrompt='',secTimer=0,elapsed=0;
+let towerVisited=false,lastLoc='',lastPrompt='',secTimer=0,elapsed=0;
 function updateCamera(dt,t){
   if(!started){
     const a=t*0.06+0.6;
@@ -2270,8 +2269,7 @@ function frame(now){
   sun.target.position.copy(focus);sun.position.copy(focus).add(SUN_OFF);
   if(started){
     const dT=Math.hypot(px-TOWER.x,pz-TOWER.z);
-    if(!towerVisited&&dT<26){towerVisited=true;toast('<strong>Poldertoren</strong> (1959). 65 m of brick and concrete, with a carillon of 48 bells, one from each village of the polder.',7000);carillon(0.22);lastBell=t;}
-    if(dT<220&&t-lastBell>50){lastBell=t;carillon(0.22*(1-dT/220));}
+    if(!towerVisited&&dT<26){towerVisited=true;toast('<strong>Poldertoren</strong> (1959). 65 m of brick and concrete, with a carillon of 48 bells, one from each village of the polder.',7000);}
     const name=zoneName(px,pz);if(name!==lastLoc){lastLoc=name;$('locName').textContent=name;}
     updateJob(dt,px,pz,t);
     let pr='';

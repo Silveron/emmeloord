@@ -94,3 +94,10 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - Wet streets in rain: asphalt, klinkers and paving get darker and glossy.
 - Plinths, white fascia boards and gutters on the OpenStreetMap buildings; less neon grass.
 - Note: some views in town draw 2,000+ objects per frame (before this change too); merging street furniture and people would help phones.
+
+## 2026-11-20 — Graphics round 3 (Ron: "another step further")
+- Photographed skies (CC0 Poly Haven puresky HDRIs: partly cloudy, sunset, overcast) on the sky dome by day, blended by time of day and rain and turned so the sun lines up; image-based lighting and reflections use the same sky; fog takes the photo's horizon colour. Night still uses the gradient sky with stars.
+- Photo textures with normal maps (CC0 Poly Haven, in `assets/`, credits in `assets/CREDITS.md`): red, dark and buff brick on facades and gables (windows drawn on top), herringbone klinkers, asphalt, pavement tiles, grass, roof tiles. Loaded in the background on Medium and High; Low keeps the procedural textures. About 2.6 MB in total.
+- Draw calls: people 15 → 5 meshes, cars 24 → 11 meshes, night-only light pools and beams skipped by day. A busy street on a phone went from ~2,700 to ~1,500 draw calls.
+- Unreal Engine was asked about; the game stays in the browser (Three.js) so it keeps working on the GitHub Pages link and phones.
+- Ideas next: real CC0 glTF car and tree models, a few photo shop fronts, roughness maps for wet-road puddles.

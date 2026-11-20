@@ -1444,6 +1444,8 @@ function zoneName(x,z){
 
 /* ---------- input ---------- */
 const keys={};
+// Below PITCH_LOW the camera stays at ground level and the view tilts up instead, so you can look up at the sky.
+const PITCH_LOW=-0.05,PITCH_MIN=-1.45;
 let started=false,camYaw=START.h,camPitch=0.28,camZoom=1,lastMouse=-10,dragging=false,lx=0,ly=0;
 const K=(...c)=>c.some(k=>keys[k]);
 window.addEventListener('keydown',e=>{
@@ -1470,7 +1472,7 @@ window.addEventListener('mousemove',e=>{
   if(document.pointerLockElement===canvas){dx=e.movementX||0;dy=e.movementY||0;}
   else if(dragging){dx=e.clientX-lx;dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;}
   else return;
-  camYaw-=dx*0.0042;camPitch=clamp(camPitch+dy*0.003,-0.05,1.15);lastMouse=performance.now()/1000;
+  camYaw-=dx*0.0042;camPitch=clamp(camPitch+dy*0.003,PITCH_MIN,1.15);lastMouse=performance.now()/1000;
 });
 canvas.addEventListener('wheel',e=>{camZoom=clamp(camZoom*(e.deltaY>0?1.1:0.9),0.55,2.4);e.preventDefault();},{passive:false});
 const isTouchDevice=matchMedia('(pointer:coarse)').matches&&!matchMedia('(pointer:fine)').matches;
@@ -1499,7 +1501,7 @@ function enableTouch(){
       TOUCH.jx=dx/R;TOUCH.jy=dy/R;knob.style.transform=`translate(${dx}px,${dy}px)`;
     }else if(e.pointerId===TOUCH.lookId){
       const dx=e.clientX-TOUCH.lx,dy=e.clientY-TOUCH.ly;TOUCH.lx=e.clientX;TOUCH.ly=e.clientY;
-      camYaw-=dx*0.0075;camPitch=clamp(camPitch+dy*0.005,-0.05,1.15);lastMouse=performance.now()/1000;
+      camYaw-=dx*0.0075;camPitch=clamp(camPitch+dy*0.005,PITCH_MIN,1.15);lastMouse=performance.now()/1000;
     }
   });
   const end=e=>{
@@ -1847,13 +1849,19 @@ function updateCamera(dt,t){
     const c=P.car;camTarget.set(c.x,1.5,c.z);dist=9.5*camZoom;height=1.2;
     if(t-lastMouse>1.4){const want=c.speed<-2?c.h+Math.PI:c.h;camYaw=lerpA(camYaw,want,1-Math.exp(-3.2*dt));camPitch+=(0.2-camPitch)*(1-Math.exp(-2*dt));}
   }else{camTarget.set(P.x,1.55+P.y,P.z);dist=5.8*camZoom;height=0.4;}
-  const cp=Math.cos(camPitch),sp=Math.sin(camPitch);
+  const orbitP=Math.max(camPitch,PITCH_LOW),lookUp=orbitP-camPitch;
+  const cp=Math.cos(orbitP),sp=Math.sin(orbitP);
   tmp.set(camTarget.x-Math.sin(camYaw)*dist*cp,camTarget.y+height+dist*sp,camTarget.z-Math.cos(camYaw)*dist*cp);
   tmp.y=Math.max(tmp.y,0.6);
   if(camPos.lengthSq()===0)camPos.copy(tmp);
   camPos.lerp(tmp,1-Math.exp(-(P.mode==='drive'?9:18)*dt));
   camera.position.copy(camPos);
-  camera.lookAt(camTarget.x,camTarget.y+height*0.6,camTarget.z);
+  if(lookUp<=0)camera.lookAt(camTarget.x,camTarget.y+height*0.6,camTarget.z);
+  else{
+    const lx=camTarget.x-camPos.x,ly=camTarget.y+height*0.6-camPos.y,lz=camTarget.z-camPos.z,hz=Math.hypot(lx,lz)||1;
+    const el=Math.min(Math.atan2(ly,hz)+lookUp,1.5),ce=Math.cos(el);
+    camera.lookAt(camPos.x+lx/hz*ce,camPos.y+Math.sin(el),camPos.z+lz/hz*ce);
+  }
 }
 function drawMini(){
   const S=mini.width,R=130,px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z,h=P.mode==='drive'?P.car.h:P.h;
@@ -1952,7 +1960,7 @@ function frame(now){
   renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
-window.__game={setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click()};
+window.__game={setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click()};
 })();
 </script>
 </body>

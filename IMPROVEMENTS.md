@@ -146,3 +146,10 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - **Seasons** (pause menu, "Season: Auto" follows the calendar): spring has thinner, fresher crowns like the drone video, autumn turns the leaves yellow-brown and thins them a little, winter has bare trees, frosty grass, and showers fall as snow that settles on grass and roofs and melts afterwards.
 - **Churches from OSM**: Heilige Michaëlkerk, De Rank, Nieuw Jeruzalemkerk and De Hoeksteen now have church buildings on their real footprints (brick with tall narrow windows) and a bell tower with a copper spire and a golden cross on the corner nearest the street. Their names show when you are there. The tower heights and looks are approximations.
 - The harbour (1e Industriehaven) lies just outside the mapped area, so it is not in the game yet.
+
+## 2026-11-20: plan step "traffic that behaves"
+- **Buses drive their real lines** (routes from OpenStreetMap relations): one bus runs 71 and 77 in a loop (in from Zwolle, out to Lemmer, in from Lemmer, out to Zwolle), a second runs the 315 Qliner to and from Groningen, a third rides the 71/77 loop half a lap behind. They keep right, brake for corners, leave from and return to the platforms at the bus station, and stop at the real stops on their way (Kettingstraat, Lange Dreef, Begraafplaats) with the indicator on. The display shows the line and where the bus goes. Buses wait for traffic, people and red lights, and are solid. You can't borrow a bus.
+- **Bus stop signs** (blue H) at the real stops.
+- **Traffic lights** at the 24 signals OpenStreetMap marks on the town's roads (Korte Dreef, Lange Dreef/Nagelerstraat, Urkerweg, Kettingstraat, Boslaan and others). Each faces the traffic it controls and has a white stop line. Crossing streets take turns (green 14 s, amber 3 s, a short all-red). AI cars and buses roll up to the stop line on red, queue behind each other without honking, and go on amber only when they are too close to stop.
+- **Red-light camera**: drive through red and you are fined €90 (flash and sound, like the flitspaal).
+- Draw calls at the phone start view: 524 (was 518 to 538).

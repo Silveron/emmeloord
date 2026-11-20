@@ -1771,7 +1771,7 @@ function animPerson(m,phase,amt){if(m.rig){animRig(m,phase,amt);return;}const s=
    People share one skinned material; each colour combination gets its own merged geometry, so a pedestrian is a single draw call. */
 const PEOPLE=[];             // every makePerson() result, so rigs can be attached once the models arrive
 const RIG={people:null,hero:null,frame:0};
-let FRAME_DT=1/60;
+let FRAME_DT=1/60,SIM_OFF=0;
 const RIG_MAT=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.82,envMapIntensity:0.6,skinning:true});
 function loadScriptOnce(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
 // bind-pose height of a skinned model, measured on its skinned vertices
@@ -2019,12 +2019,19 @@ const BUS={};
   BUS.bodyMat=new THREE.MeshStandardMaterial({color:0xf2f2ee,metalness:0.25,roughness:0.35,envMapIntensity:1.0});
 }
 const BUSES=[];
-function makeBus(x,z,h,variant){
+// the bus model: a group with a body that can sway; the destination display is its own mesh so it can change per line
+function busModel(x,z,h,variant){
   const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=h;scene.add(g);
-  const M=(geo,mat,cast=true)=>{const m=new THREE.Mesh(geo,mat);m.castShadow=cast;m.receiveShadow=false;g.add(m);return m;};
+  const body=new THREE.Group();g.add(body);
+  const M=(geo,mat,cast=true)=>{const m=new THREE.Mesh(geo,mat);m.castShadow=cast;m.receiveShadow=false;body.add(m);return m;};
   M(BUS.body,BUS.bodyMat);M(BUS.stripe,BUS.stripeMats[variant%BUS.stripeMats.length],false);M(BUS.glass,GLASS_MAT,false);M(BUS.trim,TRIMMAT,false);
-  M(BUS.head,headMat,false);M(BUS.tail,tailMat,false);M(BUS.sign,BUS.signMat,false);M(BUS.wheels,WHEEL_MAT);
+  M(BUS.head,headMat,false);M(BUS.tail,tailMat,false);const sign=M(BUS.sign,BUS.signMat,false);
+  const wh=new THREE.Mesh(BUS.wheels,WHEEL_MAT);wh.castShadow=true;g.add(wh);
   const sh=new THREE.Mesh(BUS.shadow,CAR_SHADOW_MAT);sh.position.y=0.07;sh.renderOrder=1;g.add(sh);
+  return {g,body,sign};
+}
+function makeBus(x,z,h,variant){
+  const {g}=busModel(x,z,h,variant);
   rectCollider(x,z,h,1.3,6.1);
   BUSES.push({g,x,z,h});return g;
 }
@@ -2041,6 +2048,190 @@ function makeShelter(x,z,h){
   sign.position.set(-1.6,2.55,2.6);sign.rotation.y=-Math.PI/2;const s2=sign.clone();s2.rotation.y=Math.PI/2;s2.position.x=-1.6;g.add(sign,s2);
   sign.position.x=-1.63;s2.position.x=-1.57;
   rectCollider(x,z,h,0.8,2.0);
+}
+/* ---------- bus lines on their real OpenStreetMap routes: 71 (Zwolle) and 77 (Lemmer) share buses, 315 is the Qliner to Groningen ---------- */
+const BUS_LINES={'71o':'26.7,-12.4 30.6,-7.9 35.1,-1.4 41,-3.3 47.9,-5 55.7,-7.1 63,-6 68.1,-1.7 71.2,2.6 72.7,4.5 77,12.4 78.3,17.3 99.6,11.8 111.3,9 116.2,9.6 127,6.5 134.2,4.1 145.4,-0.1 156.1,-3.9 163.9,-6.2 171,-8 178.9,-9.7 181.8,-10.3 186.3,-11 190.8,-11.5 198.3,-12.1 219.6,-13.9 236.1,-15.6 260.2,-18.3 266.9,-21.8 288.7,-24.1 299.1,-25.1 441.3,-40.7 464.4,-42.9 505.2,-47.4 507.4,-47.7 522.3,-49.1 534.7,-50.3 571.5,-52 587.9,-53 769.3,-63.7 777.7,-64.3 790.2,-65 797.1,-65.3 803.2,-65.7 808.4,-66 813.5,-66.5 823.3,-67.6 826.3,-68.1 830.7,-66 843.7,-68.1 846.9,-68.7 850.4,-69.5 851.9,-69.8 854.2,-69.9 856.7,-70.1 859.9,-69.8 861.8,-67.6 864.1,-65.8 866.7,-64.5 869.6,-63.8 872.5,-63.8 875,-64.3 877.5,-65.2 879.6,-66.7 881.5,-68.5 882.9,-70.6 886.6,-71.3 890.9,-71.4 892.7,-71.3 896.2,-71 899,-70.8 901.7,-70.5','71i':'902.1,-77 900.1,-77.3 896.8,-77.6 893.5,-77.9 891.8,-78.2 887.4,-79.3 884.2,-80.5 883.5,-82.5 882.5,-84.3 881.2,-86 879.7,-87.4 877.9,-88.6 876,-89.5 874,-90.1 871.9,-90.4 869.6,-90.3 867.2,-89.8 865,-88.9 863,-87.6 861.3,-86.1 860,-84.3 858.9,-82.3 858.2,-80.2 855.5,-78.3 850.5,-76.5 849.1,-76.2 845.4,-75.4 843.1,-74.9 829.1,-71.1 826.3,-68.1 823.3,-67.6 813.5,-66.5 808.4,-66 803.2,-65.7 797.1,-65.3 790.2,-65 777.7,-64.3 769.3,-63.7 587.9,-53 571.5,-52 534.7,-50.3 522.3,-49.1 507.4,-47.7 505.2,-47.4 464.4,-42.9 441.3,-40.7 299.1,-25.1 288.7,-24.1 266.9,-21.8 259.6,-23.4 213.5,-21.1 203,-20 196.7,-18.9 180.7,-16.3 178.2,-15.8 173.6,-14.5 169.5,-13.3 164.1,-11.6 159.3,-9.9 154.9,-8.1 145.4,-4.3 140.2,-2.2 134.3,0.2 126.8,3 122.4,4.5 115.3,6.5 111.3,9 99.6,11.8 78.3,17.3 77,12.4 72.7,4.5 71.2,2.6 68.1,-1.7 63,-6 55.7,-7.1 50.7,-13 37.6,-28.7','77o':'37.6,-28.7 33.6,-33.5 26.8,-41.7 19.8,-39 13.6,-36.6 8.6,-34.6 -0.3,-30.9 -4.3,-29.5 -15.5,-25.3 -18.4,-24.3 -19.4,-23.9 -21.1,-23.2 -26.2,-21 -27.4,-26.1 -25.3,-30.9 -26.5,-35.5 -27.2,-37.7 -30.5,-50.8 -31.7,-55.2 -34.9,-68.3 -40.9,-91.7 -41.6,-94.6 -44.4,-96.4 -45.1,-98.8 -46.8,-105 -47.9,-108.9 -48.3,-110.4 -47.3,-114.2 -47.8,-116.1 -49.1,-120.6 -49.7,-123.1 -50.3,-125.6 -50.9,-127.9 -51.4,-130.2 -51.8,-134.6 -52,-138.4 -52.2,-141.3 -52.3,-142.3 -52.3,-145.1 -52.2,-147.6 -51.8,-150.8 -50.2,-152.3 -48.9,-154.3 -48,-156.8 -47.8,-159.4 -48.4,-162 -49.6,-164.4 -51.3,-166.2 -53.4,-167.6 -55.8,-168.4 -58.3,-168.5 -61.5,-171.4 -63.8,-174 -64.8,-175.6 -65.8,-177.1 -70.7,-185.6 -73.5,-187.3 -74.6,-190.9 -77,-198.5 -78.5,-203.8 -79.5,-207.2 -88.2,-235.8 -89.4,-239.9 -90.4,-243.6 -91.6,-247.8 -92.7,-251.8 -93.4,-255.1 -93.9,-258.4 -92,-261.8 -92,-271.3 -92.4,-274.2 -92.8,-275.9 -93.9,-279.8 -94.2,-280.5 -94.7,-282.4 -95.6,-285.2 -96.1,-286.9 -97.1,-291.4 -97.2,-295 -95.8,-296.5 -94.7,-298.3 -93.9,-300.2 -93.5,-302.2 -93.5,-304.3 -93.8,-306.3 -94.6,-308.2 -95.6,-310 -97,-311.5 -98.7,-312.8 -100.5,-313.7 -102.5,-314.3 -104.6,-317.1 -106,-321.2 -106.6,-322.8 -107.1,-324.4 -109.2,-331.5 -111.3,-337.4 -112.8,-340.8 -114.5,-343.7 -116.9,-346.7 -119.9,-348.5 -124.1,-357.5 -126.9,-365.6 -127.6,-367.7 -134.8,-391.6 -136.6,-397.5 -151.6,-448 -154.3,-457.1 -156.9,-466.5 -158.4,-472.7 -158.9,-478.4 -159,-482 -159.2,-488.9 -159.2,-497.8 -161.4,-508.5 -162.4,-512 -163.7,-515.3 -165.2,-518.1 -167.1,-521.3 -169.7,-524.7 -174.2,-530.6 -192.2,-553.9 -192.6,-557.7 -195.3,-561.6 -197.8,-565.4 -200.6,-570.3 -203.1,-574.4 -205.1,-578.2 -207,-581.6 -210.4,-583.6 -212,-587.6 -213.5,-591.3 -219.4,-607.9 -236.3,-654.1 -238.6,-660.3 -241,-666.7 -243.7,-674.2 -248.3,-686.8 -247.4,-689.4 -248.8,-694.5 -249.2,-697.3 -249.5,-700.4 -250.2,-706.8 -251.1,-709.5 -251.8,-711.6 -259.1,-722.3 -260.1,-724.8 -262.5,-726 -270.9,-749','77i':'-262.5,-726 -263.5,-723.5 -262.9,-721.1 -261.7,-712.5 -260.7,-708.1 -260,-706.2 -259.4,-704.6 -258,-701.5 -253.1,-692.9 -251.9,-690.8 -250.6,-688.4 -248.3,-686.8 -243.7,-674.2 -241,-666.7 -238.6,-660.3 -236.3,-654.1 -219.4,-607.9 -213.5,-591.3 -212,-587.6 -210.4,-583.6 -211,-579.7 -209.5,-576.2 -207.4,-572.2 -205,-568 -201.9,-563.1 -199.1,-559.1 -196,-555.3 -192.2,-553.9 -174.2,-530.6 -169.7,-524.7 -167.1,-521.3 -165.2,-518.1 -163.7,-515.3 -162.4,-512 -161.4,-508.5 -159.2,-497.8 -159.2,-488.9 -159,-482 -158.9,-478.4 -158.4,-472.7 -156.9,-466.5 -154.3,-457.1 -151.6,-448 -136.6,-397.5 -134.8,-391.6 -127.6,-367.7 -126.9,-365.6 -124.1,-357.5 -119.9,-348.5 -120.9,-345.5 -120.5,-344.5 -118,-336 -115.8,-329.6 -113.6,-322.4 -113.1,-321 -112.7,-319.9 -111.6,-315.1 -111.5,-312.2 -113.1,-310.8 -114.3,-309.1 -115.2,-307.2 -115.8,-305.2 -115.9,-302.9 -115.6,-300.6 -114.8,-298.4 -113.5,-296.4 -112.1,-294.9 -110.4,-293.7 -108.6,-292.9 -106.6,-292.3 -104.5,-289.4 -102.7,-285.3 -102.1,-283.3 -101.2,-280.5 -100.7,-278.7 -99,-272.3 -97.2,-265.2 -96.1,-261.4 -93.9,-258.4 -93.4,-255.1 -92.7,-251.8 -91.6,-247.8 -90.4,-243.6 -89.4,-239.9 -88.2,-235.8 -79.5,-207.2 -78.5,-203.8 -77,-198.5 -74.6,-190.9 -73.5,-187.3 -73.9,-184.7 -73.5,-183.3 -70.5,-175.3 -70.2,-174.5 -69.5,-172.8 -69,-171.5 -67.4,-167.8 -67.1,-166.9 -66.3,-163.7 -67.3,-161.2 -67.7,-158.6 -67.3,-156 -66.2,-153.5 -64.5,-151.5 -62.3,-149.9 -60.2,-146.4 -59.3,-144.3 -58.6,-141.8 -58.4,-140.5 -57.7,-137.5 -57.2,-134.8 -56.1,-129.3 -51.9,-115 -51.3,-113.1 -48.3,-110.4 -47.9,-108.9 -46.8,-105 -45.1,-98.8 -44.4,-96.4 -45.5,-93.5 -45,-90.6 -44.7,-87.9 -44.3,-85.2 -44,-82.9 -43.9,-80.4 -43.8,-77.8 -43.4,-75.7 -38,-53.6 -32.8,-33.7 -31.6,-29.5 -27.4,-26.1 -26.2,-21 -21.1,-23.2 -19.4,-23.9 -18.4,-24.3 -15.5,-25.3 -4.3,-29.5 -0.3,-30.9 8.6,-34.6 15.4,-26.3 26.7,-12.4','315o':'47.6,-32.7 43.7,-37.6 36.9,-45.7 31.8,-43.7 26.8,-41.7 19.8,-39 13.6,-36.6 8.6,-34.6 -0.3,-30.9 -4.3,-29.5 -15.5,-25.3 -18.4,-24.3 -19.4,-23.9 -21.1,-23.2 -26.2,-21 -27.4,-26.1 -25.3,-30.9 -26.5,-35.5 -27.2,-37.7 -30.5,-50.8 -31.7,-55.2 -34.9,-68.3 -40.9,-91.7 -41.6,-94.6 -44.4,-96.4 -45.1,-98.8 -46.8,-105 -47.9,-108.9 -48.3,-110.4 -47.3,-114.2 -47.8,-116.1 -49.1,-120.6 -49.7,-123.1 -50.3,-125.6 -50.9,-127.9 -51.4,-130.2 -51.8,-134.6 -52,-138.4 -52.2,-141.3 -52.3,-142.3 -52.3,-145.1 -52.2,-147.6 -51.8,-150.8 -50.2,-152.3 -48.9,-154.3 -48,-156.8 -47.8,-159.4 -48.4,-162 -49.6,-164.4 -51.3,-166.2 -53.4,-167.6 -55.8,-168.4 -58.3,-168.5 -61.5,-171.4 -63.8,-174 -64.8,-175.6 -65.8,-177.1 -70.7,-185.6 -73.5,-187.3 -74.6,-190.9 -77,-198.5 -78.5,-203.8 -79.5,-207.2 -88.2,-235.8 -89.4,-239.9 -90.4,-243.6 -91.6,-247.8 -92.7,-251.8 -93.4,-255.1 -93.9,-258.4 -92,-261.8 -92,-271.3 -92.4,-274.2 -92.8,-275.9 -93.9,-279.8 -94.2,-280.5 -94.7,-282.4 -95.6,-285.2 -96.1,-286.9 -97.1,-291.4 -97.2,-295 -95.8,-296.5 -94.7,-298.3 -93.9,-300.2 -93.5,-302.2 -93.5,-304.3 -93.8,-306.3 -94.6,-308.2 -95.6,-310 -97,-311.5 -98.7,-312.8 -100.5,-313.7 -102.5,-314.3 -104.6,-317.1 -106,-321.2 -106.6,-322.8 -107.1,-324.4 -109.2,-331.5 -111.3,-337.4 -112.8,-340.8 -114.5,-343.7 -116.9,-346.7 -119.9,-348.5 -124.1,-357.5 -126.9,-365.6 -127.6,-367.7 -134.8,-391.6 -136.6,-397.5 -151.6,-448 -154.3,-457.1 -156.9,-466.5 -158.4,-472.7 -158.9,-478.4 -159,-482 -159.2,-488.9 -159.2,-497.8 -161.4,-508.5 -162.4,-512 -163.7,-515.3 -165.2,-518.1 -167.1,-521.3 -169.7,-524.7 -174.2,-530.6 -192.2,-553.9 -192.6,-557.7 -195.3,-561.6 -197.8,-565.4 -200.6,-570.3 -203.1,-574.4 -205.1,-578.2 -207,-581.6 -210.4,-583.6 -212,-587.6 -213.5,-591.3 -219.4,-607.9 -236.3,-654.1 -238.6,-660.3 -241,-666.7 -243.7,-674.2 -248.3,-686.8 -247.4,-689.4 -248.8,-694.5 -249.2,-697.3 -249.5,-700.4 -250.2,-706.8 -251.1,-709.5 -251.8,-711.6 -259.1,-722.3 -260.1,-724.8 -262.5,-726 -270.9,-749','315i':'-262.5,-726 -263.5,-723.5 -262.9,-721.1 -261.7,-712.5 -260.7,-708.1 -260,-706.2 -259.4,-704.6 -258,-701.5 -253.1,-692.9 -251.9,-690.8 -250.6,-688.4 -248.3,-686.8 -243.7,-674.2 -241,-666.7 -238.6,-660.3 -236.3,-654.1 -219.4,-607.9 -213.5,-591.3 -212,-587.6 -210.4,-583.6 -211,-579.7 -209.5,-576.2 -207.4,-572.2 -205,-568 -201.9,-563.1 -199.1,-559.1 -196,-555.3 -192.2,-553.9 -174.2,-530.6 -169.7,-524.7 -167.1,-521.3 -165.2,-518.1 -163.7,-515.3 -162.4,-512 -161.4,-508.5 -159.2,-497.8 -159.2,-488.9 -159,-482 -158.9,-478.4 -158.4,-472.7 -156.9,-466.5 -154.3,-457.1 -151.6,-448 -136.6,-397.5 -134.8,-391.6 -127.6,-367.7 -126.9,-365.6 -124.1,-357.5 -119.9,-348.5 -120.9,-345.5 -120.5,-344.5 -118,-336 -115.8,-329.6 -113.6,-322.4 -113.1,-321 -112.7,-319.9 -111.6,-315.1 -111.5,-312.2 -113.1,-310.8 -114.3,-309.1 -115.2,-307.2 -115.8,-305.2 -115.9,-302.9 -115.6,-300.6 -114.8,-298.4 -113.5,-296.4 -112.1,-294.9 -110.4,-293.7 -108.6,-292.9 -106.6,-292.3 -104.5,-289.4 -102.7,-285.3 -102.1,-283.3 -101.2,-280.5 -100.7,-278.7 -99,-272.3 -97.2,-265.2 -96.1,-261.4 -93.9,-258.4 -93.4,-255.1 -92.7,-251.8 -91.6,-247.8 -90.4,-243.6 -89.4,-239.9 -88.2,-235.8 -79.5,-207.2 -78.5,-203.8 -77,-198.5 -74.6,-190.9 -73.5,-187.3 -73.9,-184.7 -73.5,-183.3 -70.5,-175.3 -70.2,-174.5 -69.5,-172.8 -69,-171.5 -67.4,-167.8 -67.1,-166.9 -66.3,-163.7 -67.3,-161.2 -67.7,-158.6 -67.3,-156 -66.2,-153.5 -64.5,-151.5 -62.3,-149.9 -60.2,-146.4 -59.3,-144.3 -58.6,-141.8 -58.4,-140.5 -57.7,-137.5 -57.2,-134.8 -56.1,-129.3 -51.9,-115 -51.3,-113.1 -48.3,-110.4 -47.9,-108.9 -46.8,-105 -45.1,-98.8 -44.4,-96.4 -45.5,-93.5 -45,-90.6 -44.7,-87.9 -44.3,-85.2 -44,-82.9 -43.9,-80.4 -43.8,-77.8 -43.4,-75.7 -38,-53.6 -32.8,-33.7 -31.6,-29.5 -27.4,-26.1 -26.2,-21 -22.2,-6 -13.6,25.6 -13.5,25.9 -10.9,35.3 -9.8,39.6 8.2,34.9 10.2,34.4 62.9,21.1 78.3,17.3 77,12.4 72.7,4.5 71.2,2.6 68.1,-1.7 67.5,-8.4 61.7,-15.8 47.6,-32.7'};
+const SIGNAL_DATA=[[-187,84.4,1.84],[-176.8,61.2,0.33],[-36.6,46.5,1.81],[-165.6,95.7,-2.87],[178.9,-9.7,1.78],[99.6,11.8,-1.32],[62.9,21.1,1.82],[10.2,34.4,-1.32],[-13.6,25.6,0.27],[-155.4,76.1,-1.32],[71.2,2.6,0.64],[216.4,27.1,-1.44],[207.1,42.2,-3.05],[505.2,-47.4,1.68],[534.7,-50.3,-1.51],[205.1,22.5,0.15],[213.5,-21.1,-1.51],[202.4,7.6,-2.94],[520.2,-69.7,0.09],[523.1,-35.9,-3.06],[205.3,-520.2,3.14],[194.3,-534.2,1.57],[205.2,-543.8,-0.0],[215.6,-534.1,-1.57]];
+const BUS_STOPS=[[-526.3,180.4,'Medisch Centrum'],[-422.3,166.8,'Medisch Centrum'],[-250.6,-672.9,'Begraafplaats'],[-243.7,-674.2,'Begraafplaats'],[320.5,561.1,'Zuyderzee College'],[334.2,534.4,'Zuyderzee College'],[485.6,-54.2,'Kettingstraat'],[563.2,-42.9,'Kettingstraat'],[221.9,153.2,'Smeden'],[239.6,180.3,'Smeden'],[792.7,-74.8,'Lange Dreef']];
+const BUS_SIGNS={};
+function busSign(num,dest){const k=num+dest;if(!BUS_SIGNS[k])BUS_SIGNS[k]=new THREE.MeshBasicMaterial({map:canvasTex(256,36,(g,w,h)=>{g.fillStyle='#0b0b0b';g.fillRect(0,0,w,h);g.fillStyle='#ffb21e';g.font='700 26px "JetBrains Mono",monospace';g.textBaseline='middle';g.textAlign='left';g.fillText(num,8,h/2+1);g.textAlign='right';g.font='700 '+(dest.length>9?20:26)+'px "JetBrains Mono",monospace';g.fillText(dest,w-8,h/2+1);})});return BUS_SIGNS[k];}
+const BUS_ROUTES={};
+{
+  const STATION=[38,-24];
+  for(const [id,str] of Object.entries(BUS_LINES)){
+    const raw=str.split(' ').map(q=>q.split(',').map(Number));
+    // keep right: shift the centre line of two-way streets by half a lane; the bus station lanes and one-way streets stay centred
+    const segOff=[];
+    for(let i=0;i<raw.length-1;i++){
+      const mx=(raw[i][0]+raw[i+1][0])/2,mz=(raw[i][1]+raw[i+1][1])/2;
+      let o=0;
+      if(Math.hypot(mx-STATION[0],mz-STATION[1])>45){const nr=nearestRoad(mx,mz,r=>r.c===0);o=nr&&nr.d<2?(nr.r.oneway?0:clamp(nr.r.w/4,1.35,2.1)):2.0;}
+      segOff.push(o);
+    }
+    const p=raw.map((a,i)=>{
+      const b0=raw[Math.max(0,i-1)],b1=raw[Math.min(raw.length-1,i+1)];
+      let dx=b1[0]-b0[0],dz=b1[1]-b0[1];const L=Math.hypot(dx,dz)||1;dx/=L;dz/=L;
+      const o=i===0?segOff[0]:i===raw.length-1?segOff[i-1]:(segOff[i-1]+segOff[i])/2;
+      return [a[0]-dz*o,a[1]+dx*o];
+    });
+    const s=[0];for(let i=1;i<p.length;i++)s.push(s[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]));
+    // the safe speed at every corner, so the bus brakes before it
+    const v=p.map((a,i)=>{if(i===0||i===p.length-1)return 99;const h0=Math.atan2(a[0]-p[i-1][0],a[1]-p[i-1][1]),h1=Math.atan2(p[i+1][0]-a[0],p[i+1][1]-a[1]),tn=Math.abs(wrapA(h1-h0));return tn<0.2?99:clamp(3.2/tn+1.5,3.5,99);});
+    // stops along the way: the real stop nodes that lie beside this route
+    const stops=[];
+    for(const [x,z,name] of BUS_STOPS){let bd=14,bs=-1;
+      for(let i=0;i<p.length-1;i++){const r=segDist(x,z,p[i][0],p[i][1],p[i+1][0],p[i+1][1]);if(r[0]<bd){bd=r[0];bs=s[i]+(s[i+1]-s[i])*r[3];}}
+      if(bs>60&&bs<s[s.length-1]-60&&!stops.some(o=>Math.abs(o.s-bs)<40))stops.push({s:bs,name,x,z});}
+    stops.sort((a,b)=>a.s-b.s);
+    const num=id.replace(/[oi]$/,''),out=id.endsWith('o');
+    BUS_ROUTES[id]={id,p,s,v,L:s[s.length-1],stops,num,out,sign:busSign(num,out?{71:'Zwolle',77:'Lemmer',315:'Groningen'}[num]:'Emmeloord')};
+  }
+}
+function routeAt(R,d){
+  d=clamp(d,0,R.L);let lo=0,hi=R.s.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(R.s[m]<=d)lo=m;else hi=m;}
+  const a=R.p[lo],b=R.p[hi],t=(d-R.s[lo])/((R.s[hi]-R.s[lo])||1);return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,lo];
+}
+// a bus keeps going round its loop of lines: back into town, out again on the next line
+const BUS_LOOPS=[['71i','77o','77i','71o'],['315o','315i']];
+const MOVING_BUSES=[];
+{
+  const start=[[0,0,0],[1,0,0],[0,2,0.45]];// loop, leg, how far along the leg
+  start.forEach(([li,leg,f],k)=>{
+    const R=BUS_ROUTES[BUS_LOOPS[li][leg]];if(!R)return;
+    const d=R.L*f,a=routeAt(R,d),b=routeAt(R,d+4),h=Math.atan2(b[0]-a[0],b[1]-a[1]);
+    const m=busModel(a[0],a[1],h,li===1?1:0);m.sign.material=R.sign;
+    const c={g:m.g,body:m.body,sign:m.sign,wheels:[],fronts:[],x:a[0],z:a[1],h,speed:0,steer:0,ai:null,bus:{loop:li,leg,R,d,i:a[2],next:R.stops.findIndex(o=>o.s>d+5),dwell:f===0&&R.out?12:0,blockedT:0,impatient:0},color:'#f2f2ee',blockedT:0,impatient:0,honked:0};
+    if(c.bus.next<0)c.bus.next=R.stops.length;
+    CARS.push(c);MOVING_BUSES.push(c);
+  });
+}
+// the bus stop signs along the routes, all poles in one mesh and all signs in another
+{
+  const poles=[],signs=[];
+  for(const [x,z] of BUS_STOPS){
+    const nr=nearestRoad(x,z,r=>r.c===0);let px=x,pz=z,ry=0;
+    if(nr){const s=nr.s,dx=s.bx-s.ax,dz=s.bz-s.az,L=Math.hypot(dx,dz)||1,q=segDist(x,z,s.ax,s.az,s.bx,s.bz);let nx=x-q[1],nz=z-q[2];const nl=Math.hypot(nx,nz);
+      if(nl<0.1){nx=-dz/L;nz=dx/L;}else{nx/=nl;nz/=nl;}const o=nr.r.w/2+1.2;px=q[1]+nx*o;pz=q[2]+nz*o;ry=Math.atan2(dx,dz);}
+    poles.push([UNIT,TM(px,1.4,pz,0.08,2.8,0.08)]);
+    signs.push([new THREE.PlaneGeometry(0.55,0.55),TM(px+Math.cos(ry)*0.05,2.55,pz-Math.sin(ry)*0.05,1,1,1,0,ry+Math.PI/2)]);
+    signs.push([new THREE.PlaneGeometry(0.55,0.55),TM(px-Math.cos(ry)*0.05,2.55,pz+Math.sin(ry)*0.05,1,1,1,0,ry-Math.PI/2)]);
+    addCollider({x:px,z:pz,r:0.15});
+  }
+  const pm=new THREE.Mesh(mergeGeo(poles),new THREE.MeshStandardMaterial({color:0x8c9196,metalness:0.6,roughness:0.4}));pm.castShadow=true;scene.add(pm);
+  scene.add(new THREE.Mesh(mergeGeo(signs),new THREE.MeshLambertMaterial({map:canvasTex(64,64,(c,w,hh)=>{c.fillStyle='#1d4f91';c.fillRect(0,0,w,hh);c.fillStyle='#fff';c.fillRect(6,6,w-12,hh-12);c.fillStyle='#1d4f91';c.font='700 34px system-ui';c.textAlign='center';c.textBaseline='middle';c.fillText('H',w/2,hh/2+2);})})));
+}
+
+/* ---------- traffic lights at the junctions OpenStreetMap marks with signals; each light faces the traffic it controls ---------- */
+const SIGNALS=[],SIG_CL=[];
+{
+  for(const [x,z,h] of SIGNAL_DATA){
+    let cl=SIG_CL.findIndex(c=>Math.hypot(c.x-x,c.z-z)<45);
+    if(cl<0){cl=SIG_CL.length;SIG_CL.push({x,z,n:0,h0:h,off:rng()*36,two:false});}
+    const C0=SIG_CL[cl];C0.x=(C0.x*C0.n+x)/(C0.n+1);C0.z=(C0.z*C0.n+z)/(C0.n+1);C0.n++;
+    const grp=Math.abs(Math.sin(h-C0.h0))>0.7?1:0;if(grp)C0.two=true;
+    SIGNALS.push({x,z,h,fx:Math.sin(h),fz:Math.cos(h),cl,grp,pal:null});
+  }
+}
+// 0 green, 1 amber, 2 red. Crossing streets take turns; a light on its own (a crossing) gives the road a long green
+function sigState(s,t){
+  const C0=SIG_CL[s.cl];
+  if(!C0.two){const u=(t+C0.off)%30;return u<19?0:u<22?1:2;}
+  let u=(t+C0.off)%36;if(s.grp)u=(u+18)%36;return u<14?0:u<17?1:2;
+}
+// how far a vehicle facing h can still roll before it must stop for a red light (Infinity when nothing stops it)
+function signalStop(x,z,h,front,t){
+  const fx=Math.sin(h),fz=Math.cos(h);let best=Infinity;
+  for(const s of SIGNALS){
+    const dx=s.x-x,dz=s.z-z;if(dx>48||dx<-48||dz>48||dz<-48)continue;
+    if(fx*s.fx+fz*s.fz<0.72)continue;
+    const al=dx*fx+dz*fz-front,lat=Math.abs(-dx*fz+dz*fx);
+    if(lat>6.5||al<-0.6||al>42)continue;
+    const st=sigState(s,t);if(st===0||(st===1&&al<9))continue;
+    if(al-1<best)best=al-1;
+  }
+  return best;
+}
+const SIGVIS=(()=>{
+  const parts=[],lines=new GB(),white=C('#f2efe6'),N=SIGNALS.length;
+  const lamp=new THREE.InstancedMesh(new THREE.CircleGeometry(0.105,14),new THREE.MeshBasicMaterial({}),N*3);
+  lamp.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(N*9),3);
+  const glow=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:glowTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}),N);
+  glow.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(N*3),3);glow.renderOrder=3;
+  const spots=[];
+  SIGNALS.forEach((s,i)=>{
+    const nr=nearestRoad(s.x,s.z,r=>r.c===0),hw=nr?nr.r.w/2:3.5,one=nr&&nr.r.oneway;
+    const rx=-s.fz,rz=s.fx;// right of the approaching traffic
+    const px=s.x+rx*(hw+0.7),pz=s.z+rz*(hw+0.7),ry=s.h+Math.PI;// the head faces the traffic
+    const W=(lx,lz)=>[px+Math.cos(ry)*lx+Math.sin(ry)*lz,pz-Math.sin(ry)*lx+Math.cos(ry)*lz];
+    const B=(lx,y,lz,sx,sy,sz)=>{const w=W(lx,lz);parts.push([UNIT,TM(w[0],y,w[1],sx,sy,sz,0,ry)]);};
+    B(0,1.6,0,0.13,3.2,0.13);B(0,2.78,0.04,0.36,1.08,0.26);B(0,2.78,-0.1,0.6,1.34,0.04);
+    for(const y of [3.13,2.78,2.43])B(0,y+0.1,0.24,0.3,0.03,0.18);
+    addCollider({x:px,z:pz,r:0.18});
+    // the stop line across the lanes that wait here
+    const a=one?[s.x-rx*hw,s.z-rz*hw]:[s.x,s.z],b=[s.x+rx*hw,s.z+rz*hw];
+    ribbon(lines,[[a[0]-s.fx*0.6,a[1]-s.fz*0.6],[b[0]-s.fx*0.6,b[1]-s.fz*0.6]],0.42,0.07,1,white,false);
+    const m4=new THREE.Matrix4();
+    [3.13,2.78,2.43].forEach((y,k)=>{const w=W(0,0.18);lamp.setMatrixAt(i*3+k,m4.compose(new THREE.Vector3(w[0],y,w[1]),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,ry,0)),new THREE.Vector3(1,1,1)));});
+    const wg=W(0,0.32);spots.push({x:wg[0],z:wg[1],q:new THREE.Quaternion().setFromEuler(new THREE.Euler(0,ry,0)),st:-1});
+  });
+  const pole=new THREE.Mesh(mergeGeo(parts),new THREE.MeshStandardMaterial({color:0x26292b,metalness:0.4,roughness:0.55}));pole.castShadow=true;scene.add(pole);
+  lines.mesh(overlay({vertexColors:true},7),false,true);
+  scene.add(lamp,glow);
+  return {lamp,glow,spots};
+})();
+const SIG_COL=[[0.15,1,0.45],[1,0.62,0.08],[1,0.1,0.06]],SIG_Y=[2.43,2.78,3.13];
+function updateSignals(t){
+  const V=SIGVIS,m4=new THREE.Matrix4(),v=new THREE.Vector3(),sc=new THREE.Vector3();let dirty=false;
+  SIGNALS.forEach((s,i)=>{const st=sigState(s,t),sp=V.spots[i];if(st===sp.st)return;sp.st=st;dirty=true;
+    for(let k=0;k<3;k++){const ci=2-k,on=ci===st,c=SIG_COL[ci];/* red on top, green at the bottom */V.lamp.instanceColor.setXYZ(i*3+k,on?c[0]:c[0]*0.12,on?c[1]:c[1]*0.12,on?c[2]:c[2]*0.12);}
+    V.glow.setMatrixAt(i,m4.compose(v.set(sp.x,SIG_Y[st],sp.z),sp.q,sc.set(0.9,0.9,0.9)));const c=SIG_COL[st];V.glow.instanceColor.setXYZ(i,c[0]*0.8,c[1]*0.8,c[2]*0.8);});
+  if(dirty){V.lamp.instanceColor.needsUpdate=true;V.glow.instanceMatrix.needsUpdate=true;V.glow.instanceColor.needsUpdate=true;}
+  V.glow.material.opacity=0.12+0.88*LIGHTS_K;
+}
+// drive a bus along its line: brake for corners, stops, red lights and anything in front; then the next line of its loop
+function updateBus(c,dt,t){
+  const B=c.bus;let R=B.R;
+  if(B.dwell>0){
+    B.dwell-=dt;c.speed=0;c._ind=B.dwell<3?1:-1;c._indT=0.3;
+    if(B.dwell<=0&&B.d>=R.L-1){// end of the line: take the next one in the loop
+      const cam=camera.position;
+      if(!R.out||Math.hypot(c.x-cam.x,c.z-cam.z)>160){
+        B.leg=(B.leg+1)%BUS_LOOPS[B.loop].length;R=B.R=BUS_ROUTES[BUS_LOOPS[B.loop][B.leg]];B.d=0;B.i=0;B.next=0;
+        const a=R.p[0],b=routeAt(R,4);c.x=a[0];c.z=a[1];c.h=Math.atan2(b[0]-a[0],b[1]-a[1]);c.sign.material=R.sign;
+        if(R.out)B.dwell=14;
+      }else B.dwell=2;
+    }
+    return;
+  }
+  // where along the line the bus is now
+  {let bi=B.i,bd=1e9,bs=B.d;for(let i=Math.max(0,B.i-1);i<Math.min(R.p.length-1,B.i+8);i++){const r=segDist(c.x,c.z,R.p[i][0],R.p[i][1],R.p[i+1][0],R.p[i+1][1]);if(r[0]<bd){bd=r[0];bi=i;bs=R.s[i]+(R.s[i+1]-R.s[i])*r[3];}}B.i=bi;B.d=Math.max(B.d,bs);}
+  const look=7+Math.abs(c.speed)*0.5,tp=routeAt(R,B.d+look);
+  const diff=wrapA(Math.atan2(tp[0]-c.x,tp[1]-c.z)-c.h);
+  let target=Math.hypot(c.x,c.z)>620?19:11.5;
+  // corners ahead
+  for(let i=B.i+1;i<R.p.length&&R.s[i]-B.d<45;i++){const dd=Math.max(0,R.s[i]-B.d-6);target=Math.min(target,Math.sqrt(R.v[i]*R.v[i]+2*1.6*dd));}
+  // the next stop, and the end of the line
+  const st=R.stops[B.next];
+  if(st){const dd=st.s-B.d;if(dd<1.2&&c.speed<0.6){B.dwell=rand(6,10);B.next++;c.speed=0;return;}target=Math.min(target,Math.sqrt(2*1.3*Math.max(0,dd-0.5)));if(dd<35)c._ind=-1,c._indT=0.3;}
+  const de=R.L-B.d;if(de<1.5&&c.speed<0.8){B.d=R.L;B.dwell=R.out?0.01:6;c.speed=0;return;}
+  target=Math.min(target,Math.sqrt(2*1.3*Math.max(0,de-0.8))+0.3);
+  // red lights
+  const rs=signalStop(c.x,c.z,c.h,6,t);c.waitRed=false;if(rs<Infinity){const lim=Math.sqrt(2*2.2*Math.max(0,rs));if(lim<target){target=lim;c.waitRed=lim<0.6;}}
+  // traffic and people in front
+  const fx=Math.sin(c.h),fz=Math.cos(c.h);let blockedBy=null;
+  if(B.impatient<=0){
+    const chk=(ox,oz,who,back)=>{const rx=ox-c.x,rz=oz-c.z,al=rx*fx+rz*fz-(back||0),lat=-rx*fz+rz*fx;if(al>0&&al<26&&Math.abs(lat)<2.8){const lim=Math.max(0,(al-9.5)*1.1);if(lim<target){target=lim;blockedBy=who;}}};
+    for(const o of CARS)if(o!==c)chk(o.x,o.z,o,o.bus?6:2);
+    if(P.mode==='walk')chk(P.x,P.z,P);
+    for(const n of NPCS)if(!n.stay)chk(n.x,n.z,n);
+    for(const b of CYCLISTS)chk(b.x,b.z,b);
+  }else B.impatient-=dt;
+  c.queued=c.waitRed||!!(blockedBy&&(blockedBy.waitRed||blockedBy.queued));
+  if(target<0.5&&c.speed<1&&!c.queued){B.blockedT+=dt;if(blockedBy&&(blockedBy===P||blockedBy===P.car)&&B.blockedT>1.5&&t-c.honked>5){c.honked=t;if(Math.hypot(P.x-c.x,P.z-c.z)<40)horn();}if(B.blockedT>9){B.impatient=2;B.blockedT=0;}}else B.blockedT=0;
+  c.speed+=clamp(target-c.speed,-3.2*dt,1.4*dt);if(c.speed<0)c.speed=0;
+  // follow the line like a driver steering towards a point ahead
+  const yaw=c.speed*2*Math.sin(diff)/look;c.h+=clamp(yaw,-0.9,0.9)*dt;c.steer=clamp(diff*2.4,-1,1);
+  c.x+=Math.sin(c.h)*c.speed*dt;c.z+=Math.cos(c.h)*c.speed*dt;
 }
 /* parked cars that only fill the bays: one instanced mesh per part for all of them */
 function staticCars(list){
@@ -2084,6 +2275,7 @@ for(const b of BAYS.slice(1).filter(()=>rng()<.22).slice(0,26))makeCar(b.x,b.z,b
     if(k%2===0||k>5)return;
     const nx=-uz,nz=ux,x=cx+nx*2.6,z=cz+nz*2.6;
     const h=Math.atan2(ux,uz)+((-uz)*(-nx)+ux*(-nz)>0?0:Math.PI);// the bus's right side (doors) faces the platform
+    {const fx=Math.sin(h),fz=Math.cos(h);for(const R of Object.values(BUS_ROUTES))for(const d of [0,3,6,9,12,15,R.L-15,R.L-12,R.L-9,R.L-6,R.L-3,R.L]){const q=routeAt(R,d),rx=q[0]-x,rz=q[1]-z;if(Math.abs(rx*fx+rz*fz)<8&&Math.abs(-rx*fz+rz*fx)<2.8)return;}}
     makeBus(x,z,h,k/2|0);
   });
   platGB.mesh(overlay({map:pavTex,vertexColors:true},2));
@@ -2245,6 +2437,25 @@ function checkSpeedCams(t){
   }
 }
 
+// red-light cameras: driving through red costs €90; when you stop at a red light other drivers queue behind you calmly
+let RLC_LAST=-99;
+function checkRedLights(t){
+  if(P.mode!=='drive'){return;}
+  const c=P.car,fx=Math.sin(c.h),fz=Math.cos(c.h);c.waitRed=false;
+  for(const s of SIGNALS){
+    const dx=s.x-c.x,dz=s.z-c.z;if(Math.abs(dx)>40||Math.abs(dz)>40){s.pal=null;continue;}
+    const al=dx*s.fx+dz*s.fz,lat=Math.abs(-dx*s.fz+dz*s.fx),st=sigState(s,t),same=fx*s.fx+fz*s.fz>0.6;
+    if(same&&st===2&&lat<6.5&&al>0&&al<12&&Math.abs(c.speed)<1)c.waitRed=true;
+    if(s.pal!==null&&s.pal>0&&al<=0&&lat<6.5&&same&&st===2&&c.speed>3&&t-RLC_LAST>8){
+      RLC_LAST=t;cash=Math.max(0,cash-90);$('cash').textContent='€'+cash;
+      const f=$('flash');f.classList.remove('go');void f.offsetWidth;f.classList.add('go');
+      if(AC&&!muted){const t0=AC.currentTime;noiseHit(t0,0.05,0.2,5000,'highpass');tone(1800,t0,0.08,0.05,'square');}
+      toast('<strong>Red light camera!</strong> You drove through red. Fine: €90.',3200);
+      saveGame();
+    }
+    s.pal=al;
+  }
+}
 /* ---------- cyclists ---------- */
 const CYCLISTS=[];
 {
@@ -2705,7 +2916,7 @@ $('play').addEventListener('click',()=>{
 /* ---------- gameplay ---------- */
 function nearestCar(){
   let best=null,bd=4.2;
-  for(const c of CARS){const d=Math.hypot(c.x-P.x,c.z-P.z);if(d<bd){bd=d;best=c;}}
+  for(const c of CARS){if(c.bus)continue;const d=Math.hypot(c.x-P.x,c.z-P.z);if(d<bd){bd=d;best=c;}}
   return best;
 }
 function action(){
@@ -2783,12 +2994,15 @@ function aiCar(c,dt,t){
   let blockedBy=null;
   if(c.impatient<=0){
     const check=(ox,oz,who)=>{const rx=ox-c.x,rz=oz-c.z,al=rx*fx+rz*fz,lat=-rx*fz+rz*fx;if(al>0&&al<15&&Math.abs(lat)<2.6){const lim=Math.max(0,(al-6.5)*1.3);if(lim<target){target=lim;blockedBy=who;}}};
-    for(const o of CARS)if(o!==c)check(o.x,o.z,o);
+    for(const o of CARS)if(o!==c){check(o.x,o.z,o);if(o.bus)check(o.x-Math.sin(o.h)*5,o.z-Math.cos(o.h)*5,o);}
     if(P.mode==='walk')check(P.x,P.z,P);
     for(const n of NPCS)check(n.x,n.z,n);
     for(const b of CYCLISTS)check(b.x,b.z,b);
   }else c.impatient-=dt;
-  if(target<0.5&&c.speed<1){c.blockedT+=dt;
+  // red lights: roll up to the stop line and wait; a queue behind a red light waits patiently too
+  c.waitRed=false;{const rs=signalStop(c.x,c.z,c.h,2.3,t);if(rs<Infinity){const lim=Math.sqrt(2*3*Math.max(0,rs));if(lim<target){target=lim;c.waitRed=lim<0.6;}}}
+  c.queued=c.waitRed||!!(blockedBy&&(blockedBy.waitRed||blockedBy.queued));
+  if(target<0.5&&c.speed<1&&!c.queued){c.blockedT+=dt;
     if(blockedBy&&(blockedBy===P||blockedBy===P.car)&&c.blockedT>1.2&&t-c.honked>4){c.honked=t;const d=Math.hypot(P.x-c.x,P.z-c.z);if(d<40)horn();}
     if(c.blockedT>5){c.impatient=3;c.blockedT=0;}
   }else c.blockedT=0;
@@ -2799,18 +3013,18 @@ function aiCar(c,dt,t){
   c.x+=fx*c.speed*dt;c.z+=fz*c.speed*dt;
   carCollideWorld(c,false);
 }
-function carCircles(c){const fx=Math.sin(c.h),fz=Math.cos(c.h);return [[c.x+fx*1.3,c.z+fz*1.3],[c.x,c.z],[c.x-fx*1.3,c.z-fz*1.3]];}
+function carCircles(c){const fx=Math.sin(c.h),fz=Math.cos(c.h);if(c.bus)return [-5,-2.5,0,2.5,5].map(k=>[c.x+fx*k,c.z+fz*k]);return [[c.x+fx*1.3,c.z+fz*1.3],[c.x,c.z],[c.x-fx*1.3,c.z-fz*1.3]];}
 function carVsCar(){
   for(let i=0;i<CARS.length;i++)for(let j=i+1;j<CARS.length;j++){
     const a=CARS[i],b=CARS[j];
-    if(Math.abs(a.x-b.x)>6||Math.abs(a.z-b.z)>6)continue;
+    const rr=a.bus||b.bus?13:6;if(Math.abs(a.x-b.x)>rr||Math.abs(a.z-b.z)>rr)continue;
     let px=0,pz=0,hit=false;
     for(const ca of carCircles(a))for(const cb of carCircles(b)){
       const dx=ca[0]-cb[0],dz=ca[1]-cb[1],d=Math.hypot(dx,dz);
       if(d<2.0&&d>1e-4){const k=(2.0-d)/d*0.5;px+=dx*k;pz+=dz*k;hit=true;}
     }
     if(hit){
-      const wa=a===P.car||a.ai?0.5:0.35,wb=1-wa;
+      let wa=a===P.car||a.ai?0.5:0.35,wb=1-wa;if(a.bus){wa=1;wb=0;}else if(b.bus){wa=0;wb=1;}
       a.x+=px*wb;a.z+=pz*wb;b.x-=px*wa;b.z-=pz*wa;
       const rel=Math.abs(a.speed-b.speed);
       if(rel>6&&(a===P.car||b===P.car))thud();
@@ -2895,6 +3109,7 @@ const CARGLOW=(()=>{
 })();
 // local spots: [x,y,z,kind] kind 0 head, 1 tail/brake, 2 indicator front, 3 indicator rear
 const GLOW_SPOTS=[[-0.6,0.8,2.3,0],[0.6,0.8,2.3,0],[-0.66,0.86,-2.27,1],[0.66,0.86,-2.27,1],[0,0.74,2.22,2],[0,0.8,-2.24,3]];
+const BUS_GLOW_SPOTS=[[-0.92,0.78,6.2,0],[0.92,0.78,6.2,0],[-1.08,1.0,-6.18,1],[1.08,1.0,-6.18,1],[0,0.8,6.05,2],[0,1.0,-6.05,3]];
 const _gm=new THREE.Matrix4(),_gp=new THREE.Vector3(),_gs=new THREE.Vector3(),_gc=new THREE.Color();
 function updateCarLights(t){
   const cam=camera.position,q=camera.quaternion,blink=(t*1.6)%1<0.5;let k=0;
@@ -2903,13 +3118,13 @@ function updateCarLights(t){
     const near=d<170,braking=(c._acc||0)<-2.5&&Math.abs(c.speed)>0.3||(c.ai&&Math.abs(c.speed)<0.4);
     // indicators: AI cars signal while turning at junctions, everyone while steering hard at low speed
     if(Math.abs(c.steer)>0.5&&Math.abs(c.speed)>0.5&&Math.abs(c.speed)<9){c._ind=Math.sign(c.steer);c._indT=1.2;}else if(c._indT>0)c._indT-=FRAME_DT||0.016;else c._ind=0;
-    const occupied=c.ai||c===P.car;
-    for(const [lx0,ly,lz,kind] of GLOW_SPOTS){
+    const occupied=c.ai||c===P.car||c.bus;
+    for(const [lx0,ly,lz,kind] of (c.bus?BUS_GLOW_SPOTS:GLOW_SPOTS)){
       let s=0,r=0,g=0,b=0,lx=lx0;
       if(near&&occupied){
         if(kind===0){s=0.72*LIGHTS_K*clamp(face*1.5+0.3,0,1);r=0.85;g=0.78;b=0.62;}
         else if(kind===1){const br=braking?1:0;s=(0.65*LIGHTS_K+br*(0.6+0.45*LIGHTS_K))*clamp(-face*1.5+0.3,0,1);r=1;g=0.08;b=0.05;if(!br){r*=0.8;}}
-        else if(c._ind&&blink){s=0.75;r=1;g=0.55;b=0.08;lx=c._ind>0?0.86:-0.86;}
+        else if(c._ind&&blink){s=0.75;r=1;g=0.55;b=0.08;lx=(c._ind>0?1:-1)*(c.bus?1.3:0.86);}
       }
       if(s<0.02){_gm.makeScale(0,0,0);}
       else{const wx=c.x+ch*lx+sh*lz,wz=c.z-sh*lx+ch*lz;_gm.compose(_gp.set(wx,ly,wz),q,_gs.set(s,s,s));}
@@ -3089,7 +3304,7 @@ function drawMini(){
   mctx.beginPath();mctx.arc(S/2,S/2,S/2,0,7);mctx.clip();
   mctx.drawImage(mapBase,px+MAPR-R,pz+MAPR-R,2*R,2*R,0,0,S,S);
   const W=(x,z)=>[(x-px)*k+S/2,(z-pz)*k+S/2];
-  for(const c of CARS){if(c===P.car)continue;const [x,y]=W(c.x,c.z);mctx.fillStyle=c.ai?'#2b2f33':'#ffffff';mctx.fillRect(x-4,y-4,8,8);}
+  for(const c of CARS){if(c===P.car)continue;const [x,y]=W(c.x,c.z);mctx.fillStyle=c.bus?'#1f7fa6':c.ai?'#2b2f33':'#ffffff';mctx.fillRect(x-4,y-4,8,8);}
   for(const c of COINS){if(c.got)continue;let [x,y]=W(c.x,c.z);const dx=x-S/2,dy=y-S/2,d=Math.hypot(dx,dy),lim=S/2-12;if(d>lim){x=S/2+dx/d*lim;y=S/2+dy/d*lim;}mctx.fillStyle='#ff7b1c';mctx.strokeStyle='#fff';mctx.lineWidth=2;mctx.beginPath();mctx.arc(x,y,7,0,7);mctx.fill();mctx.stroke();}
   const mark=(wx,wz,col,r)=>{let [x,y]=W(wx,wz);const dx=x-S/2,dy=y-S/2,d=Math.hypot(dx,dy),lim=S/2-12;if(d>lim){x=S/2+dx/d*lim;y=S/2+dy/d*lim;}mctx.fillStyle=col;mctx.strokeStyle='#fff';mctx.lineWidth=2;mctx.beginPath();mctx.arc(x,y,r,0,7);mctx.fill();mctx.stroke();};
   if(JOB){const s=JOB.steps[JOB.i];mark(s.x,s.z,'#'+JOB.j.col.toString(16).padStart(6,'0'),10);}
@@ -3273,17 +3488,18 @@ function frame(now){
   requestAnimationFrame(frame);
   if(paused){last=now;renderFrame();return;}
   const rawDt=(now-last)/1000;
-  const dt=Math.min(0.05,rawDt);last=now;elapsed+=dt;const t=now/1000;
+  const dt=Math.min(0.05,rawDt);last=now;elapsed+=dt;const t=now/1000+SIM_OFF;
   FRAME_DT=dt;RIG.frame++;
   if(started&&rawDt<1)adaptQuality(rawDt);
   if(started){
     if(P.mode==='drive')driveCar(P.car,dt);else walkPlayer(dt);
   }
-  for(const c of CARS)if(c.ai)aiCar(c,dt,t);
+  for(const c of CARS)if(c.ai)aiCar(c,dt,t);else if(c.bus)updateBus(c,dt,t);
   carVsCar();
-  for(const c of CARS){if(c!==P.car&&!c.ai){c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),6*dt);if(Math.abs(c.speed)>0.01){c.x+=Math.sin(c.h)*c.speed*dt;c.z+=Math.cos(c.h)*c.speed*dt;carCollideWorld(c,false);}}syncCar(c,dt);}
+  for(const c of CARS){if(c!==P.car&&!c.ai&&!c.bus){c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),6*dt);if(Math.abs(c.speed)>0.01){c.x+=Math.sin(c.h)*c.speed*dt;c.z+=Math.cos(c.h)*c.speed*dt;carCollideWorld(c,false);}}syncCar(c,dt);}
   updateNPCs(dt);updateCyclists(dt,t);
-  if(started)checkSpeedCams(t);
+  if(started){checkSpeedCams(t);checkRedLights(t);}
+  updateSignals(t);
   const px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
   for(const c of COINS){
     if(c.got)continue;c.m.rotation.y+=dt*2.4;c.m.position.y=1.3+Math.sin(t*2+c.x)*0.2;
@@ -3357,7 +3573,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={dbg:()=>({camera,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,i*0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);for(const c of CARS)syncCar(c,0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={dbg:()=>({camera,SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);for(const c of CARS)syncCar(c,0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

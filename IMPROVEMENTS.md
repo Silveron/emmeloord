@@ -30,3 +30,29 @@ No IMPROVEMENTS.md existed yet and no known bugs were logged, so this run starts
 - **Speed cameras** (gameplay/content): 80 km/h signs where the four polder roads leave the ring and a *flitspaal* on each road; speeding gives a white flash, a click and a €50 fine (€120 above 110 km/h). Finding all 12 polder coins now pays a €250 bonus (the old message also showed a wrong total time after a reload).
 - **Portrait phone layout** (mobile/bug): on a phone held upright the job panel covered the coins/cash/time panel. Narrow screens now get compact top panels and the job panel sits under them, between the minimap and the pause button.
 - **Horn reaction** (gameplay): pedestrians within 14 m jump out of the way when you sound your horn.
+
+### Report for Ron
+Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each tested in headless Chromium (no console errors, walking and driving checked, screenshots looked right) and pushed to `main` straight away:
+
+- The game now works on phones: joystick, look-drag and buttons, plus fixes so the Start button and HUD fit on small screens.
+- Day and night: sunsets, stars, lit windows, street lamps and headlights. Press T to skip an hour.
+- Three jobs: parcel delivery, polder taxi and a ring road time trial, with cash, a timer and a direction arrow.
+- Much better sound: a revving engine with gears, tyre squeal, wind, rain, footsteps, birds and crickets.
+- Progress is saved (coins, cash, best lap), with Continue / New game and a pause menu (P, Esc or the II button).
+- More life in town: traffic on the four polder roads, 10 cyclists who ring their bell, pedestrians who jump aside when you honk.
+- Rain showers now and then, and speed cameras (flitspalen) with 80 km/h signs on the polder roads.
+- Automatic quality drop on slow devices.
+
+**Screenshot:** dusk at 19:36 on the street north of De Deel, driving the orange car on a taxi job. Windows glow warm, the headlights light the road, the sky is orange-pink behind the Poldertoren, and the job panel at the top shows "Pick up the passenger…", a 1:20 countdown and an arrow with 110 m.
+
+**Problems:** none open. Testing runs in a software renderer at only a few frames per second, so driving feel and real frame rate on a phone still need a check by hand. Audio was checked for errors, but I could not listen to it.
+
+### Next ideas (for the next run)
+1. Play-test the jobs on a real phone and tune times/pay; add a job "level" that gets harder.
+2. Traffic lights or give-way behaviour at the ring road junctions; AI cars sometimes bunch up at corners.
+3. Real wet-road look in rain (darker, shinier asphalt, spray behind cars).
+4. More Emmeloord landmarks: the water tower, a church, the Smeding / bus station area, a harbour on the vaart.
+5. Simple car damage (dents/smoke) and a garage to repair for cash.
+6. More collectibles or achievements (e.g. visit every street, top of the Poldertoren via a lift).
+7. Spot the Dutch bike lanes: red fietspad strips along the ring road for the cyclists.
+8. Performance: merge the people/car parts into fewer meshes; check draw calls on phones.

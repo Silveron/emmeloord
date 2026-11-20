@@ -56,3 +56,14 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 6. More collectibles or achievements (e.g. visit every street, top of the Poldertoren via a lift).
 7. Spot the Dutch bike lanes: red fietspad strips along the ring road for the cyclists.
 8. Performance: merge the people/car parts into fewer meshes; check draw calls on phones.
+
+## 2026-11-20 — Graphics upgrade (Ron: "less blocky, more realistic")
+- PBR materials everywhere, ACES tone mapping, sky dome with sun disc and halo, image-based lighting from the sky (cars and glass reflect it).
+- Facades: 2x2 atlases per style so neighbouring windows differ; Dutch brick bond, rollaag lintels, framed windows with transoms, sills, curtains/blinds; normal maps for relief. Separate plain-brick gables. Night glow follows the same layout.
+- Roofs: pantile texture with relief, white fascia boards and gutters, ridge caps, chimneys; dark plinths along walls.
+- Ground: herringbone klinkers, 30 cm pavement tiles, asphalt with patches and cracks, finer grass.
+- Cars: rounded extruded bodies (car and van), glass cabin, metallic paint, spoked rims, bumpers, mirrors, yellow Dutch plates, soft contact shadow.
+- People: rounded heads, torsos and limbs; trees: lumpy clustered crowns with fake ambient occlusion.
+- Performance: trees split into 150 m chunks (hidden out of view, shadows only nearby, simpler crowns beyond 320 m).
+- Lantern street lamps, tapered turbine blades.
+- Not touched: road layout and the Poldertoren (another thread is rebuilding those).

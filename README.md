@@ -58,5 +58,6 @@ Finishing faster pays more cash. **R** cancels a job.
 - Polder weather: rain showers roll in now and then, with grey skies, falling rain and the sound of it.
 - A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights.
 - A canal with a bridge, a park with a pond, and 12 orange polder coins to find.
+- Background music: "Emmeloord, Vrijbaan" (made by Ron with Suno, `music.mp3`), looping quietly under the game sounds. **N** or the pause menu turns it off; the choice is saved.
 
 The street layout is a simplified approximation of the real town; side streets, buildings and shop names are invented.

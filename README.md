@@ -22,6 +22,7 @@ python3 -m http.server 8000
 | Mouse | Click or drag to look around, scroll to zoom |
 | H | Horn |
 | R | Back to De Deel |
+| T | Skip one hour (day/night) |
 | M | Sound on/off |
 
 ### Phone and tablet
@@ -30,9 +31,10 @@ Turn the phone sideways. Put your left thumb anywhere on the left side for a joy
 
 ## What's in town
 
-- The Poldertoren (1959): brick shaft, visitor platform, open carillon crown with bells, clocks that show your local time, and a carillon tune when you are nearby.
+- The Poldertoren (1959): brick shaft, visitor platform, open carillon crown with bells, clocks that show the game time, and a carillon tune when you are nearby.
 - De Deel with market stalls, bikes and benches; shops along Lange Nering and Korte Nering; Lange and Korte Achterzijde.
 - A ring road with traffic, and Lemsterweg, Urkerweg, Marknesserweg and Espelerlaan leading out to tulip fields, farms and wind turbines.
+- A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights.
 - A canal with a bridge, a park with a pond, and 12 orange polder coins to find.
 
 The street layout is a simplified approximation of the real town; side streets, buildings and shop names are invented.

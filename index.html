@@ -46,6 +46,9 @@ kbd{font:600 .82em var(--mono);background:rgba(255,255,255,.12);border:1px solid
 body.touch #mission:not([hidden]) ~ #toasts{top:calc(118px + env(safe-area-inset-top,0px))}
 @media (max-width:900px){#mission{top:auto;bottom:calc(64px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 32px)}}
 body.touch #mission{top:calc(14px + env(safe-area-inset-top,0px));bottom:auto;max-width:calc(100% - 460px);min-width:200px}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none}
+#flash.go{animation:flash .5s ease-out}
+@keyframes flash{from{opacity:.85}to{opacity:0}}
 #toasts{position:fixed;top:calc(88px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(520px,calc(100% - 32px))}
 .toast{padding:10px 16px;font-size:14px;line-height:1.4;text-align:center;animation:pop .35s ease-out}
 .toast strong{color:var(--orange)}
@@ -122,6 +125,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
 <div id="hint" hidden><kbd>E</kbd> car &nbsp;·&nbsp; <kbd>H</kbd> horn &nbsp;·&nbsp; <kbd>R</kbd> back to De Deel &nbsp;·&nbsp; <kbd>T</kbd> time &nbsp;·&nbsp; <kbd>M</kbd> sound &nbsp;·&nbsp; <kbd>P</kbd> pause &nbsp;·&nbsp; drag or click to look</div>
 <div id="mission" class="panel" hidden><div class="eyebrow" id="mTitle">Job</div><div id="mText"></div><b id="mTime"></b><div id="mDir"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2 L20 20 L12 15 L4 20 Z" fill="currentColor"/></svg><span id="mDist"></span></div></div>
 <div id="toasts" aria-live="polite"></div>
+<div id="flash"></div>
 <div id="touch" hidden>
   <div id="joy" hidden><i></i></div>
   <div id="tbtns">
@@ -1079,6 +1083,45 @@ for(let i=0;i<30;i++){
   NPCS.push({m,x:p[0],z:p[1],h:0,tx:t[0],tz:t[1],spd:rand(1.1,1.6),phase:rng()*6,stuck:0,lx:p[0],lz:p[1],dodge:0,dvx:0,dvz:0,wait:rand(0,3)});
 }
 
+/* ---------- speed cameras on the polder roads (limit 80 km/h) ---------- */
+const SPEEDCAMS=[];
+{
+  const signT=canvasTex(128,128,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#fff';g.beginPath();g.arc(64,64,60,0,7);g.fill();g.lineWidth=16;g.strokeStyle='#d0201a';g.beginPath();g.arc(64,64,52,0,7);g.stroke();g.fillStyle='#111';g.font='800 54px system-ui,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('80',64,68);});
+  const signM=new THREE.MeshLambertMaterial({map:signT,transparent:true,side:THREE.DoubleSide});
+  const signG=new THREE.CircleGeometry(0.55,24);
+  const pole=lm('#8c9196'),box=lm('#5d6368'),lens=lm('#1b1f22');
+  // x,z of the camera, heading of the traffic it watches doesn't matter: it checks both directions
+  for(const [x,z,rot] of [[8.6,-520,0],[-8.6,560,Math.PI],[-560,-8.6,Math.PI/2],[620,8.6,-Math.PI/2]]){
+    const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot;scene.add(g);
+    const p=new THREE.Mesh(UNIT,pole);p.scale.set(0.22,3.2,0.22);p.position.y=1.6;p.castShadow=true;g.add(p);
+    const b=new THREE.Mesh(UNIT,box);b.scale.set(0.7,0.9,0.7);b.position.y=3.5;b.castShadow=true;g.add(b);
+    const l=new THREE.Mesh(UNIT,lens);l.scale.set(0.36,0.36,0.1);l.position.set(0,3.55,0.36);g.add(l);
+    l.rotation.y=0;
+    addCollider({x,z,r:0.3});
+    SPEEDCAMS.push({x,z,last:-99});
+  }
+  // 80 signs where each polder road leaves the ring
+  for(const [x,z,ry] of [[8.2,-205,0],[-8.2,205,Math.PI],[-325,-8.2,-Math.PI/2],[345,8.2,Math.PI/2]]){
+    const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);
+    const p=new THREE.Mesh(UNIT,pole);p.scale.set(0.08,2.4,0.08);p.position.y=1.2;g.add(p);
+    const s=new THREE.Mesh(signG,signM);s.position.set(0,2.55,0.06);g.add(s);
+    addCollider({x,z,r:0.15});
+  }
+}
+function checkSpeedCams(t){
+  if(P.mode!=='drive')return;
+  const c=P.car,kmh=Math.abs(c.speed)*3.6;
+  for(const sc of SPEEDCAMS){
+    if(Math.hypot(sc.x-c.x,sc.z-c.z)<14&&kmh>84&&t-sc.last>6){
+      sc.last=t;const fine=kmh>110?120:50;cash=Math.max(0,cash-fine);$('cash').textContent='€'+cash;
+      const f=$('flash');f.classList.remove('go');void f.offsetWidth;f.classList.add('go');
+      if(AC&&!muted){const t0=AC.currentTime;noiseHit(t0,0.05,0.2,5000,'highpass');tone(1800,t0,0.08,0.05,'square');}
+      toast(`<strong>Flitspaal!</strong> ${Math.round(kmh)} km/h where 80 is the limit. Fine: €${fine}.`,3200);
+      saveGame();
+    }
+  }
+}
+
 /* ---------- cyclists ---------- */
 const CYCLISTS=[];
 {
@@ -1846,13 +1889,14 @@ function frame(now){
   carVsCar();
   for(const c of CARS){if(c!==P.car&&!c.ai){c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),6*dt);if(Math.abs(c.speed)>0.01){c.x+=Math.sin(c.h)*c.speed*dt;c.z+=Math.cos(c.h)*c.speed*dt;carCollideWorld(c,false);}}syncCar(c,dt);}
   updateNPCs(dt);updateCyclists(dt,t);
+  if(started)checkSpeedCams(t);
   const px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
   for(const c of COINS){
     if(c.got)continue;c.m.rotation.y+=dt*2.4;c.m.position.y=1.3+Math.sin(t*2+c.x)*0.2;
     if(started&&Math.hypot(c.x-px,c.z-pz)<2.6){
       c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;coinSound();saveGame();
       $('coins').textContent=coinCount+'/'+COINS.length;
-      if(coinCount===COINS.length)toast(`<strong>All 12 polder coins!</strong> You found them in ${Math.floor(elapsed/60)} min ${Math.floor(elapsed%60)} s.`,7000);
+      if(coinCount===COINS.length){cash+=250;$('cash').textContent='€'+cash;saveGame();toast(`<strong>All 12 polder coins!</strong> Bonus <strong>+€250</strong>.`,7000);}
       else toast(`Polder coin <strong>${coinCount}/${COINS.length}</strong>`,1800);
     }
   }

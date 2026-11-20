@@ -30,6 +30,10 @@ python3 -m http.server 8000
 
 Turn the phone sideways. Put your left thumb anywhere on the left side for a joystick (walk, or steer and accelerate in a car; push it all the way to run). Drag with your right thumb to look around. Buttons: **CAR** (get in/out), **JUMP/BRAKE** and **HORN**. You can also tap the "Get in" prompt.
 
+## Speed cameras
+
+The four polder roads have an 80 km/h limit (red-ringed signs where they leave the ring road). Speed cameras (*flitspalen*) on each of them flash and fine you €50, or €120 above 110 km/h.
+
 ## Saving
 
 Coins, cash, your best lap and the time of day are saved in your browser automatically. The start screen then offers **Continue** or **New game**.
@@ -48,7 +52,8 @@ Finishing faster pays more cash. **R** cancels a job.
 
 - The Poldertoren (1959): brick shaft, visitor platform, open carillon crown with bells, clocks that show the game time, and a carillon tune when you are nearby.
 - De Deel with market stalls, bikes and benches; shops along Lange Nering and Korte Nering; Lange and Korte Achterzijde.
-- Cyclists riding the ring roads (they ring their bell if you block the way), and a ring road with traffic, and Lemsterweg, Urkerweg, Marknesserweg and Espelerlaan leading out to tulip fields, farms and wind turbines.
+- Cyclists riding the ring roads (they ring their bell if you block the way).
+- A ring road with traffic, and Lemsterweg, Urkerweg, Marknesserweg and Espelerlaan leading out to tulip fields, farms and wind turbines.
 - Polder weather: rain showers roll in now and then, with grey skies, falling rain and the sound of it.
 - A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights.
 - A canal with a bridge, a park with a pond, and 12 orange polder coins to find.

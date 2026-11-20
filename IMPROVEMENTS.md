@@ -128,7 +128,7 @@ Today's run (the first one) added 13 improvements to Emmeloord Vrijbaan, each te
 - The player leans into turns and holds a mid-stride pose while jumping.
 
 ## 2026-11-20: De Deel, buses, 't Voorhuys and the fountain (Ron's photos)
-- **Brown klinkers** on both car parks beside the Poldertoren, aisles included (no centre lines there); the bays are filled with parked cars, drawn as instanced meshes so they cost a few draw calls in total.
-- **Buses**: two 12 m low-floor city buses (white with a coloured stripe, line 141 "Centrum" display) wait at a stop on the car park aisle next to the tower, with a glass bus shelter and an "H" sign. They are solid, but do not drive yet.
-- **Hotel 't Voorhuys** replaces a small OSM footprint on De Deel north of the tower (location is a best guess, OSM gives no name there): buff brick, hipped dark roof, curved glass conservatory with an orange canopy and white slanted posts, lighter annex with three flags, terrace with parasols and box-ball planters, lit "'t Voorhuys" lettering, warm uplights and lit windows at night.
+- **Brown klinkers** on the big car park beside the Poldertoren, aisles included (no centre lines there); the bays are filled with parked cars, drawn as instanced meshes so they cost a few draw calls in total.
+- **Bus station** (the lot right beside the tower, platforms A to G): asphalt, raised platforms with kerbs, three 12 m city buses parked at platforms with doors to the platform, a glass shelter on platform B. Buses are solid but do not drive yet.
+- **Hotel 't Voorhuys** stands on the east side of the square De Deel, past the car park and before the Lange Nering (placed where Ron showed it; it replaces that OSM footprint): buff brick, hipped dark roof, curved glass conservatory with an orange canopy and white slanted posts, lighter annex with three flags, terrace with parasols and box-ball planters, lit "'t Voorhuys" lettering, warm uplights and lit windows at night.
 - **Splash fountain** in front of the hotel: octagon of wet stone in herringbone klinkers with 22 jets that pulse and take turns in three groups.

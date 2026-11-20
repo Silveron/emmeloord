@@ -707,8 +707,8 @@ const polyArea=p=>{let s=0;for(let i=0;i<p.length;i++){const a=p[i],b=p[(i+1)%p.
 function inPoly(x,z,p){let c=false;for(let i=0,j=p.length-1;i<p.length;j=i++){const a=p[i],b=p[j];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
 function segDist(x,z,ax,az,bx,bz){const dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz;let t=l2>0?((x-ax)*dx+(z-az)*dz)/l2:0;t=t<0?0:t>1?1:t;const qx=ax+dx*t,qz=az+dz*t;return [Math.hypot(x-qx,z-qz),qx,qz,t];}
 for(const b of BLDS)Object.assign(b,polyBox(b.p));
-// Hotel 't Voorhuys gets its own model further down, so its OSM footprint is taken out here
-const VOORHUYS_FP=(()=>{const i=BLDS.findIndex(b=>{let cx=0,cz=0;for(const q of b.p){cx+=q[0];cz+=q[1];}cx/=b.p.length;cz/=b.p.length;return Math.hypot(cx+4,cz+49)<5;});return i<0?null:BLDS.splice(i,1)[0];})();
+// Hotel 't Voorhuys (east side of the square De Deel, past the car park, before the Lange Nering) gets its own model further down, so its OSM footprint is taken out here
+const VOORHUYS_FP=(()=>{const i=BLDS.findIndex(b=>{let cx=0,cz=0;for(const q of b.p){cx+=q[0];cz+=q[1];}cx/=b.p.length;cz/=b.p.length;return Math.hypot(cx-231,cz+44)<6;});return i<0?null:BLDS.splice(i,1)[0];})();
 
 /* roads leaving the town get extended straight out into the polder */
 const POLDER_ROADS=[];
@@ -793,18 +793,21 @@ const waterNormal=(()=>{const N=128,c=document.createElement('canvas');c.width=c
   const H=(x,y)=>{let v=0;for(const [f,a,p] of [[1,1,0.3],[2,0.5,1.7],[3,0.35,4.1],[5,0.2,2.2]])v+=a*Math.sin((x*f+y*(f%2?1:-1)*0.7)*Math.PI*2/N+p)*Math.cos((y*f*1.3-x*0.4)*Math.PI*2/N+p*2);return v;};
   for(let y=0;y<N;y++)for(let x=0;x<N;x++){const dx=H(x+1,y)-H(x-1,y),dy=H(x,y+1)-H(x,y-1);const n=new THREE.Vector3(-dx*4,-dy*4,1).normalize();const i=(y*N+x)*4;im.data[i]=(n.x*0.5+0.5)*255;im.data[i+1]=(n.y*0.5+0.5)*255;im.data[i+2]=(n.z*0.5+0.5)*255;im.data[i+3]=255;}
   g.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1/7,1/7);return t;})();
-let DEEL_PARKS=[],inDeelPark=()=>false;
+let DEEL_PARKS=[],STATION=null,inDeelPark=()=>false;
 const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:new THREE.Vector2(0.35,0.35),color:0x26383d,shininess:90,specular:0x55656c,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
 {
-  const gGreen=new GB(),gFlower=new GB(),gWater=new GB(),gBank=new GB(),gPed=new GB(),gPark=new GB(),gPlat=new GB(),gFoot=new GB(),gCycle=new GB(),gTrack=new GB(),gRoad=new GB(),gKlink=new GB(),gMark=new GB(),gRail=new GB();
+  const gStation=new GB(),gGreen=new GB(),gFlower=new GB(),gWater=new GB(),gBank=new GB(),gPed=new GB(),gPark=new GB(),gPlat=new GB(),gFoot=new GB(),gCycle=new GB(),gTrack=new GB(),gRoad=new GB(),gKlink=new GB(),gMark=new GB(),gRail=new GB();
   const GCOL=[C('#a9cf86'),C('#6f9a52'),C('#ffffff'),C('#7fc25e'),C('#c9c46a')].map(c=>c.multiplyScalar(0.8));
   for(const g of GREEN){if(g.k===2)fillPoly(gFlower,g.p,0.012,6);else fillPoly(gGreen,g.p,0.012,6,GCOL[g.k]);}
   for(const w of WATER){fillPoly(gWater,w,0.02,1);ribbon(gBank,w.concat([w[0]]),1.0,0.026,2.4,C('#a8a49b'),false);}
   // the car parks beside the Poldertoren on De Deel are paved with brown klinkers, aisles included
-  DEEL_PARKS=PAVED.filter(a=>a.k===1&&a.p.some(q=>Math.hypot(q[0]-TOWER.x,q[1]-TOWER.z)<140)&&Math.abs(polyArea(a.p))>1000);
+  // the smaller one right beside the tower is the bus station (platforms A to G): asphalt, buses instead of cars
+  STATION=PAVED.find(a=>a.k===1&&Math.abs(polyArea(a.p))>1500&&Math.abs(polyArea(a.p))<4000&&a.p.some(q=>Math.hypot(q[0]-TOWER.x,q[1]-TOWER.z)<40))||null;
+  DEEL_PARKS=PAVED.filter(a=>a!==STATION&&a.k===1&&a.p.some(q=>Math.hypot(q[0]-TOWER.x,q[1]-TOWER.z)<140)&&Math.abs(polyArea(a.p))>1000);
   inDeelPark=(x,z)=>DEEL_PARKS.some(a=>inPoly(x,z,a.p));
   for(const r of ROADS)r.deel=r.c===0&&!r.n&&r.p.every((q,i)=>i===0||inDeelPark((q[0]+r.p[i-1][0])/2,(q[1]+r.p[i-1][1])/2));
-  for(const a of PAVED){if(a.k===0||DEEL_PARKS.includes(a))fillPoly(gPed,a.p,0.03,4);else if(a.k===1)fillPoly(gPark,a.p,0.03,6);else fillPoly(gPlat,a.p,0.034,2.4);}
+  for(const r of ROADS)r.station=!!STATION&&r.c===0&&!r.n&&r.p.every((q,i)=>i===0||inPoly((q[0]+r.p[i-1][0])/2,(q[1]+r.p[i-1][1])/2,STATION.p));
+  for(const a of PAVED){if(a===STATION)fillPoly(gStation,a.p,0.03,8);else if(a.k===0||DEEL_PARKS.includes(a))fillPoly(gPed,a.p,0.03,4);else if(a.k===1)fillPoly(gPark,a.p,0.03,6);else fillPoly(gPlat,a.p,0.034,2.4);}
   const cyc=C('#c96a5a'),trk=C('#b49a78');
   for(const r of ROADS){
     if(r.c===2)ribbon(gFoot,r.p,r.w,0.04,2.4,null,true);
@@ -816,7 +819,7 @@ const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:ne
   // dashed centre lines on two-way main roads
   const white=C('#f2efe6');
   for(const r of ROADS){
-    if(r.c!==0||r.w<6||r.oneway||r.rb||r.deel)continue;
+    if(r.c!==0||r.w<6||r.oneway||r.rb||r.deel||r.station)continue;
     let carry=0;
     for(let i=0;i<r.p.length-1;i++){
       const a=r.p[i],b=r.p[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<0.01)continue;
@@ -841,6 +844,7 @@ const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:ne
   gFlower.mesh(overlay({map:tulipTex},1),false,true);
   gWater.mesh(waterMat,false,true);
   gBank.mesh(overlay({map:pavTex,vertexColors:true},3),false,true);
+  gStation.mesh(overlay({map:asphaltTex,normalMap:asphaltSet.normalMap,roughness:0.92},3),false,true);if(gStation.__mesh)PHOTO_SLOTS.push([gStation.__mesh.material,'asphalt',8]);
   gPark.mesh(overlay({map:baseTex,normalMap:pavSet.normalMap,roughness:0.88},3),false,true);
   gPed.mesh(overlay({map:klinkerTex,normalMap:klinkerSet.normalMap,roughness:0.8},3),false,true);
   gPlat.mesh(overlay({map:pavTex},4),false,true);
@@ -1194,12 +1198,12 @@ const TM=(x,y,z,sx=1,sy=1,sz=1,rx=0,ry=0)=>new THREE.Matrix4().compose(new THREE
 const LIGHT_HOOKS=[];
 let VOORHUYS=null;
 if(VOORHUYS_FP){
-  // frame from the OSM footprint: long side along x, the front (+z) faces the Poldertoren
-  const fp=VOORHUYS_FP.p;let cx=0,cz=0;for(const q of fp){cx+=q[0];cz+=q[1];}cx/=fp.length;cz/=fp.length;
-  let ux=1,uz=0,bl=0;for(let i=0;i<fp.length;i++){const a=fp[i],b=fp[(i+1)%fp.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L>bl){bl=L;ux=(b[0]-a[0])/L;uz=(b[1]-a[1])/L;}}
-  let nx=-uz,nz=ux;if((TOWER.x-cx)*nx+(TOWER.z-cz)*nz<0){nx=-nx;nz=-nz;}
-  let back=1e9;for(const q of fp)back=Math.min(back,(q[0]-cx)*nx+(q[1]-cz)*nz);
-  const ox=cx+nx*(back+12.5)+nz*4,oz=cz+nz*(back+12.5)-nx*4,th=Math.atan2(nx,nz);// shifted 4 m along the front, away from Onder de Toren
+  // frame from the OSM footprint: its west wall faces the square of De Deel; local +x runs along it, +z looks out over the square
+  const fp=VOORHUYS_FP.p,SQ=[170,-50];let best=null;
+  for(let i=0;i<fp.length;i++){const a=fp[i],b=fp[(i+1)%fp.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<12)continue;
+    let nx=-(b[1]-a[1])/L,nz=(b[0]-a[0])/L;const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;if((SQ[0]-mx)*nx+(SQ[1]-mz)*nz<0){nx=-nx;nz=-nz;}
+    const sc=((SQ[0]-mx)*nx+(SQ[1]-mz)*nz)/Math.hypot(SQ[0]-mx,SQ[1]-mz)*L;if(!best||sc>best.sc)best={sc,mx,mz,nx,nz};}
+  const {nx,nz}=best,ox=best.mx+nz*6,oz=best.mz-nx*6,th=Math.atan2(nx,nz);
   const G=new THREE.Group();G.position.set(ox,0,oz);G.rotation.y=th;scene.add(G);
   const toW=(x,z)=>[ox+Math.cos(th)*x+Math.sin(th)*z,oz-Math.sin(th)*x+Math.cos(th)*z];
   VOORHUYS={x:ox,z:oz,th,toW,nx,nz};
@@ -1327,6 +1331,7 @@ if(VOORHUYS){
   const splG=new THREE.CircleGeometry(0.32,10).rotateX(-Math.PI/2),splM=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.32,depthWrite:false});
   FOUNTAIN.jets=new THREE.InstancedMesh(jetG,jetM,pos.length);FOUNTAIN.spl=new THREE.InstancedMesh(splG,splM,pos.length);
   FOUNTAIN.jets.frustumCulled=FOUNTAIN.spl.frustumCulled=false;scene.add(FOUNTAIN.jets,FOUNTAIN.spl);
+  OSM_TREES=OSM_TREES.filter(([x,z])=>Math.hypot(x-fx,z-fz)>RK+1.5);
   FOUNTAIN.data=pos.map(([x,z],i)=>({x,z,h:1.0+rng()*1.6,ph:rng()*6.28,gr:(Math.floor((x-fx)/2.2+10)+Math.floor((z-fz)/2.2+10))%3}));
 }
 const _fm=new THREE.Matrix4(),_fq=new THREE.Quaternion(),_fs=new THREE.Vector3(),_fp=new THREE.Vector3();
@@ -1959,19 +1964,22 @@ const BAYS=PARKSPOTS.filter(b=>Math.hypot(b.x,b.z)<420&&!blocked(b.x,b.z,1.2)).s
 const starterBay=BAYS[0]||{x:START_CAR[0],z:START_CAR[1],h:0};
 const starter=makeCar(starterBay.x,starterBay.z,starterBay.h,'#ff7b1c');
 for(const b of BAYS.slice(1).filter(()=>rng()<.22).slice(0,26))makeCar(b.x,b.z,b.h+(rng()<.5?Math.PI:0),pick(CARCOLS),rng()<.2?'van':'car');
-// two buses wait at a stop on the aisle of the car park next to the Poldertoren
+// buses wait along the platforms of the bus station beside the Poldertoren, doors towards the platform
 {
-  let best=null,bd=1e9;
-  for(const r of ROADS)if(r.deel)for(let i=0;i<r.p.length-1;i++){const a=r.p[i],b=r.p[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<30)continue;const d=Math.hypot((a[0]+b[0])/2-TOWER.x,(a[1]+b[1])/2-TOWER.z);if(d<bd){bd=d;best={a,b,L,w:r.w};}}
-  if(best){
-    const {a,b,L}=best,dx=(b[0]-a[0])/L,dz=(b[1]-a[1])/L;
-    // the side of the aisle that faces the tower
-    let nx=-dz,nz=dx;const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;if((TOWER.x-mx)*nx+(TOWER.z-mz)*nz<0){nx=-nx;nz=-nz;}
-    const off=best.w/2-1.35;
-    const h=Math.atan2(dx,dz)+(-nx*dz+nz*dx>0?0:Math.PI);// drive on the right: kerb (doors) towards the tower
-    for(const [t,v] of [[0.56,0],[0.88,1]])makeBus(a[0]+dx*L*t+nx*off,a[1]+dz*L*t+nz*off,h,v);
-    makeShelter(a[0]+dx*L*0.72+nx*(best.w/2+1.6),a[1]+dz*L*0.72+nz*(best.w/2+1.6),Math.atan2(dx,dz));
-  }
+  const isl=ROADS.filter(r=>r.c===2&&/^[A-G]$/.test(r.n)&&r.p.length>=4).sort((a,b)=>a.n<b.n?-1:1);
+  const platGB=new GB();
+  isl.forEach((r,k)=>{
+    const q=r.p.slice(0,4);let cx=0,cz=0;for(const p of q){cx+=p[0];cz+=p[1];}cx/=4;cz/=4;
+    let ux=0,uz=0,bl=0;for(let i=0;i<4;i++){const a=q[i],b=q[(i+1)%4],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L>bl){bl=L;ux=(b[0]-a[0])/L;uz=(b[1]-a[1])/L;}}
+    // raised platform with a kerb
+    {const gb=platGB,y=0.2,col=C('#bdb8ae');fillPoly(gb,q,y,2.4,col);for(let i=0;i<4;i++){const a=q[i],b=q[(i+1)%4],L=Math.hypot(b[0]-a[0],b[1]-a[1])||1;gb.quad([[a[0],0,a[1]],[b[0],0,b[1]],[b[0],y,b[1]],[a[0],y,a[1]]],U4,[(b[1]-a[1])/L,0,-(b[0]-a[0])/L],C('#d8d4cc'));gb.quad([[a[0],0,a[1]],[b[0],0,b[1]],[b[0],y,b[1]],[a[0],y,a[1]]],U4,[-(b[1]-a[1])/L,0,(b[0]-a[0])/L],C('#d8d4cc'));}}
+    if(k===1)makeShelter(cx-ux*5,cz-uz*5,Math.atan2(ux,uz));
+    if(k%2===0||k>5)return;
+    const nx=-uz,nz=ux,x=cx+nx*2.6,z=cz+nz*2.6;
+    const h=Math.atan2(ux,uz)+((-uz)*(-nx)+ux*(-nz)>0?0:Math.PI);// the bus's right side (doors) faces the platform
+    makeBus(x,z,h,k/2|0);
+  });
+  platGB.mesh(overlay({map:pavTex,vertexColors:true},2));
 }
 // the car parks on De Deel are busy: fill most of their bays
 {

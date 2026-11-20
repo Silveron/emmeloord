@@ -1177,11 +1177,78 @@ function initAudio(){
   try{
     AC=new (window.AudioContext||window.webkitAudioContext)();
     master=AC.createGain();master.gain.value=0.55;master.connect(AC.destination);
-    const o=AC.createOscillator();o.type='sawtooth';o.frequency.value=50;
-    const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=420;
+    // white noise buffer shared by wind, tyres, footsteps and crashes
+    const nb=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate),d=nb.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    NOISE=nb;
+    const loopNoise=()=>{const n=AC.createBufferSource();n.buffer=NOISE;n.loop=true;n.start();return n;};
+    // engine: two detuned saws + a square sub, through a lowpass that opens with revs
+    const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=420;f.Q.value=2;
     const g=AC.createGain();g.gain.value=0;
-    o.connect(f);f.connect(g);g.connect(master);o.start();engine={o,f,g};
+    const o=AC.createOscillator();o.type='sawtooth';
+    const o2=AC.createOscillator();o2.type='sawtooth';o2.detune.value=14;
+    const sub=AC.createOscillator();sub.type='square';
+    const subG=AC.createGain();subG.gain.value=0.5;
+    for(const x of [o,o2])x.connect(f);sub.connect(subG);subG.connect(f);
+    const rn=loopNoise(),rf=AC.createBiquadFilter();rf.type='lowpass';rf.frequency.value=180;const rg=AC.createGain();rg.gain.value=0.5;
+    rn.connect(rf);rf.connect(rg);rg.connect(f);
+    f.connect(g);g.connect(master);for(const x of [o,o2,sub])x.start();
+    engine={o,o2,sub,f,g,rpm:0.2};
+    // tyre squeal: narrow band noise
+    const tn=loopNoise(),tf=AC.createBiquadFilter();tf.type='bandpass';tf.frequency.value=1900;tf.Q.value=9;
+    const tg=AC.createGain();tg.gain.value=0;tn.connect(tf);tf.connect(tg);tg.connect(master);
+    tyre={f:tf,g:tg};
+    // wind: soft low noise, louder in the open polder and at speed
+    const wn=loopNoise(),wf=AC.createBiquadFilter();wf.type='lowpass';wf.frequency.value=380;
+    const wg=AC.createGain();wg.gain.value=0;wn.connect(wf);wf.connect(wg);wg.connect(master);
+    wind={f:wf,g:wg};
   }catch(e){AC=null;}
+}
+let NOISE=null,tyre=null,wind=null,birdT=2,cricketT=1,stepPhase=0;
+function noiseHit(t,dur,vol,freq,type,q){
+  const n=AC.createBufferSource();n.buffer=NOISE;
+  const f=AC.createBiquadFilter();f.type=type||'lowpass';f.frequency.value=freq||800;if(q)f.Q.value=q;
+  const g=AC.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  n.connect(f);f.connect(g);g.connect(master);n.start(t,Math.random()*1.5);n.stop(t+dur+0.05);
+}
+function chirp(t,f0,f1,dur,vol){
+  const o=AC.createOscillator(),g=AC.createGain();o.type='sine';
+  o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+dur*0.3);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g);g.connect(master);o.start(t);o.stop(t+dur+0.02);
+}
+const GEARS=[0,6,11,17,24,32];
+function updateAudio(dt,px,pz){
+  if(!AC||muted)return;
+  const t=AC.currentTime,drv=P.mode==='drive',c=P.car;
+  const sp=drv?Math.abs(c.speed):0;
+  // engine
+  if(drv){
+    let gi=0;while(gi<GEARS.length-1&&sp>GEARS[gi+1])gi++;
+    const lo=GEARS[gi],hi=GEARS[gi+1]||lo+10;
+    const want=0.22+0.78*clamp((sp-lo)/(hi-lo),0,1)*(gi===0?1:0.75)+(gi>0?0.25:0);
+    const thr=K('KeyW','ArrowUp')||TOUCH.jy<-0.3;
+    engine.rpm+=(want+(thr?0.06:0)-engine.rpm)*Math.min(1,dt*6);
+    const fq=32+engine.rpm*70;
+    engine.o.frequency.setTargetAtTime(fq,t,0.03);engine.o2.frequency.setTargetAtTime(fq,t,0.03);engine.sub.frequency.setTargetAtTime(fq/2,t,0.03);
+    engine.f.frequency.setTargetAtTime(260+engine.rpm*(thr?1500:700),t,0.05);
+    engine.g.gain.setTargetAtTime(0.03+engine.rpm*(thr?0.035:0.018),t,0.05);
+  }else engine.g.gain.setTargetAtTime(0,t,0.08);
+  // tyre squeal when sliding: handbrake at speed or hard steering fast
+  let slip=0;
+  if(drv){const hb=K('Space');slip=Math.max(hb&&sp>6?Math.min(1,sp/18):0,Math.abs(c.steer)>0.7&&sp>17?(sp-17)/12:0);}
+  tyre.g.gain.setTargetAtTime(clamp(slip,0,1)*0.07,t,0.06);
+  tyre.f.frequency.setTargetAtTime(1700+Math.random()*500,t,0.02);
+  // wind
+  const inTown=px>-310&&px<330&&pz>-190&&pz<190;
+  wind.g.gain.setTargetAtTime((inTown?0.012:0.035)+Math.min(0.05,sp*0.0016),t,0.4);
+  wind.f.frequency.setTargetAtTime(300+sp*14,t,0.3);
+  // footsteps
+  if(!drv&&P.y<=0.001){const ph=Math.floor(P.phase/Math.PI);if(ph!==stepPhase){stepPhase=ph;noiseHit(t,0.07,0.05,onPed(px,pz,0)||onRoad(px,pz,0)?1400:600,'lowpass');}}
+  // birds by day (not on the ring road), crickets at night outside the centre
+  birdT-=dt;cricketT-=dt;
+  if(NIGHT<0.4&&birdT<0){birdT=rand(1.5,6);const f=rand(2200,3600),n=randInt(2,5);for(let i=0;i<n;i++)chirp(t+i*0.11,f,f*rand(1.15,1.4),0.08,0.025);}
+  if(NIGHT>0.6&&cricketT<0){cricketT=rand(0.4,1.6);const n=randInt(3,6),f=rand(4300,4900);for(let i=0;i<n;i++)chirp(t+i*0.06,f,f*1.02,0.035,inTown?0.006:0.014);}
 }
 function tone(freq,t,dur,vol,type){
   const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=freq;
@@ -1196,7 +1263,7 @@ function carillon(vol){
 }
 function horn(){if(!AC||muted)return;const t=AC.currentTime;tone(392,t,0.35,0.18,'square');tone(494,t,0.35,0.12,'square');}
 function coinSound(){if(!AC||muted)return;const t=AC.currentTime;tone(988,t,0.12,0.2,'triangle');tone(1319,t+0.09,0.3,0.2,'triangle');}
-function thud(){if(!AC||muted)return;const t=AC.currentTime;tone(90,t,0.25,0.3,'triangle');}
+function thud(){if(!AC||muted)return;const t=AC.currentTime;tone(90,t,0.25,0.3,'triangle');noiseHit(t,0.35,0.35,700,'lowpass');noiseHit(t+0.02,0.25,0.08,3200,'bandpass',2);}
 
 /* ---------- HUD ---------- */
 function toast(html,ms){
@@ -1226,7 +1293,7 @@ window.addEventListener('keydown',e=>{
   if(!started||e.repeat)return;
   if(e.code==='KeyE'||e.code==='KeyF')action();
   if(e.code==='KeyH')horn();
-  if(e.code==='KeyM'){muted=!muted;if(engine)engine.g.gain.value=0;toast(muted?'Sound off':'Sound on',1500);}
+  if(e.code==='KeyM'){muted=!muted;if(master)master.gain.value=muted?0:0.55;toast(muted?'Sound off':'Sound on',1500);}
   if(e.code==='KeyR')resetPlayer();
   if(e.code==='KeyT'){gameMin=(gameMin+60)%1440;updateDayNight();updateClocks();$('clock').textContent=gameTimeStr();toast('Time skips ahead to '+gameTimeStr(),1400);}
 });
@@ -1323,7 +1390,6 @@ function toggleCar(){
     if(blocked(x,z,0.4)){x=c.x-lx_*2.3;z=c.z-lz_*2.3;}
     const r=collide(x,z,0.4);
     P.x=r.x;P.z=r.z;P.y=0;P.vy=0;P.h=c.h;P.mode='walk';P.car=null;P.m.g.visible=true;c.speed*=0.3;
-    if(engine)engine.g.gain.value=0;
   }
 }
 function resetPlayer(){
@@ -1616,7 +1682,7 @@ function frame(now){
     const drv=P.mode==='drive';$('speedo').hidden=!drv;
     if(TOUCH.on&&drv!==TOUCH.drv){TOUCH.drv=drv;$('bJump').textContent=drv?'BRAKE':'JUMP';}
     if(drv)$('spd').textContent=Math.round(Math.abs(P.car.speed)*3.6);
-    if(engine&&!muted){const s=drv?Math.abs(P.car.speed):0;const gear=s%9;engine.o.frequency.value=drv?42+s*2.2+gear*4:40;engine.g.gain.value=drv?0.035+Math.min(0.05,s*0.002):0;}
+    updateAudio(dt,px,pz);
     drawMini();
   }
   gameMin=(gameMin+dt)%1440;
@@ -1629,7 +1695,7 @@ function frame(now){
   renderer.render(scene,camera);
 }
 requestAnimationFrame(frame);
-window.__game={renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},start:()=>$('play').click()};
+window.__game={audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},start:()=>$('play').click()};
 })();
 </script>
 </body>

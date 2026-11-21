@@ -20,6 +20,8 @@ const SPOTS = [
   { id: 'deel-dusk', start: true, look: [0, 0], time: 19.6 },
   { id: 'deel-night', start: true, look: [0, 0], time: 22.5 },
   { id: 'deel-rain', start: true, look: [0, 0], time: 14, rain: 1 },
+  { id: 'a6-marknesserweg', at: [1360, -80], look: [1428, -96], time: 15, pitch: 0.05 },
+  { id: 'a6-muntweg', at: [1230, -1660], look: [1343, -1720], time: 15, pitch: 0.05 },
   { id: 'kerb-close', place: 'Emmelhage', time: 12, side: 2.2, pitch: 0.08, zoom: 0.45 },
 ];
 

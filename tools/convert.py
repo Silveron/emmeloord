@@ -280,6 +280,84 @@ def name_i(n):
     if n not in nidx: nidx[n] = len(names); names.append(n)
     return nidx[n]
 
+# ---------------------------------------------------------------- road heights (graphics plan phase 4)
+# bridges (bridge=*, layer>=1) get a deck height: 6.5 m where they cross over a street (viaducts like the A6 over the Marknesserweg),
+# 1.5 m for the movable Kamperbrug style crossings of the big canals by main roads, 0.8 m for small town bridges over water;
+# the height then runs down along every connected road or path at a fixed grade (3.5 % main roads, 5 % streets, 6 % paths)
+def _lay(t):
+    try: return int(t.get('layer', '1' if t.get('bridge') else '0'))
+    except: return 1 if t.get('bridge') else 0
+HWAYS = {}
+for wid, (nds, t) in W.items():
+    hw = t.get('highway')
+    if (hw in CAR or hw in CLS) and t.get('area') != 'yes' and not t.get('tunnel') and _lay(t) >= 0: HWAYS[wid] = ([n for n in nds if n in N], t)
+nways = collections.defaultdict(list)
+for wid, (nds, t) in HWAYS.items():
+    for n in nds: nways[n].append(wid)
+SEGG = collections.defaultdict(list)
+for wid, (nds, t) in HWAYS.items():
+    if t.get('highway') in CAR and _lay(t) == 0 and not t.get('bridge'):
+        for a, b in zip(nds, nds[1:]):
+            pa, pb = xy(a), xy(b)
+            for gx in range(int(min(pa[0], pb[0]) // 50), int(max(pa[0], pb[0]) // 50) + 1):
+                for gz in range(int(min(pa[1], pb[1]) // 50), int(max(pa[1], pb[1]) // 50) + 1): SEGG[(gx, gz)].append((pa, pb))
+def _cross(p1, p2, p3, p4):
+    d = lambda a, b, c: (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+    return d(p1, p2, p3) * d(p1, p2, p4) < 0 and d(p3, p4, p1) * d(p3, p4, p2) < 0
+def over_road(nds):
+    for a, b in zip(nds, nds[1:]):
+        pa, pb = xy(a), xy(b)
+        for gx in range(int(min(pa[0], pb[0]) // 50), int(max(pa[0], pb[0]) // 50) + 1):
+            for gz in range(int(min(pa[1], pb[1]) // 50), int(max(pa[1], pb[1]) // 50) + 1):
+                for q1, q2 in SEGG.get((gx, gz), ()):
+                    if _cross(pa, pb, q1, q2): return True
+    return False
+MAJOR = {'motorway', 'trunk', 'primary', 'secondary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link'}
+def grade(t):
+    hw = t.get('highway'); return 0.035 if hw in MAJOR else 0.05 if hw in CAR else 0.06
+NH = {}
+heap = []
+for wid, (nds, t) in HWAYS.items():
+    if not t.get('bridge') or t.get('bridge') == 'no' or _lay(t) < 1 or len(nds) < 2: continue
+    # a motorway bridge over a canal must clear shipping (the Kamperbrug next to it is movable), so it is as high as a viaduct
+    H = 6.5 if over_road(nds) or t.get('highway') in ('motorway', 'motorway_link', 'trunk') else (1.5 if t.get('highway') in MAJOR else 0.8)
+    for n in nds:
+        if NH.get(n, 0) < H: NH[n] = H; heapq.heappush(heap, (-H, n))
+while heap:
+    h, n = heapq.heappop(heap); h = -h
+    if NH.get(n, 0) > h + 1e-9: continue
+    for wid in nways[n]:
+        nds, t = HWAYS[wid]; g = grade(t)
+        i = nds.index(n)
+        for j in (i - 1, i + 1):
+            if 0 <= j < len(nds):
+                m = nds[j]; hh = h - math.dist(xy(n), xy(m)) * g
+                if t.get('bridge') and t.get('bridge') != 'no' and _lay(t) >= 1: hh = max(hh, NH.get(m, 0))
+                if hh > NH.get(m, 0) + 1e-6: NH[m] = hh; heapq.heappush(heap, (-hh, m))
+print('raised nodes', sum(1 for v in NH.values() if v > 0.05))
+def clip_line_h(pts):
+    """clip a list of (x, z, h) to the region, interpolating h"""
+    out = []; cur = []
+    for a, b in zip(pts, pts[1:]):
+        c = clip_seg(a[:2], b[:2])
+        if not c:
+            if cur: out.append(cur); cur = []
+            continue
+        ca, cb = c; L = math.dist(a[:2], b[:2]) or 1e-9
+        ha = a[2] + (b[2] - a[2]) * math.dist(a[:2], ca) / L; hb = a[2] + (b[2] - a[2]) * math.dist(a[:2], cb) / L
+        if not cur: cur = [(ca[0], ca[1], ha)]
+        elif math.dist(cur[-1][:2], ca) > 1e-6: out.append(cur); cur = [(ca[0], ca[1], ha)]
+        cur.append((cb[0], cb[1], hb))
+        if math.dist(cb, b[:2]) > 1e-6: out.append(cur); cur = []
+    if cur: out.append(cur)
+    return [l for l in out if len(l) >= 2]
+def densify(pts, step=8.0):
+    o = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        L = math.dist(a[:2], b[:2]); k = max(1, int(math.ceil(L / step)))
+        for i in range(1, k + 1): f = i / k; o.append((a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f))
+    return o
+road_h = {}
 roads = []   # [cls, width, nameIdx, flags, enc]
 KLINKER_SURF = {'paving_stones', 'sett', 'bricks', 'cobblestone', 'unhewn_cobblestone', 'paving_stones:30'}
 CLASSCODE = {**{k: 0 for k in CAR}, 'cycleway': 1, 'footway': 2, 'path': 2, 'pedestrian': 3, 'track': 4, 'platform': 2, 'bridleway': 2}
@@ -306,6 +384,12 @@ for wid, (nds, t) in W.items():
             w = ped_width(pts)
     flags = (1 if t.get('bridge') else 0) | (2 if t.get('oneway') == 'yes' else 0) | (4 if t.get('junction') == 'roundabout' else 0)
     if hw in CAR and t.get('surface') in KLINKER_SURF: flags |= 8   # klinker street (graphics plan phase 3)
+    hn = [NH.get(n, 0.0) for n in nds if n in N]
+    if max(hn) > 0.05:
+        for seg in clip_line_h(densify([(p[0], p[1], h) for p, h in zip(pts, hn)])):
+            road_h[len(roads)] = [q[2] for q in seg]
+            roads.append([CLASSCODE[hw], round(w, 1), name_i(t.get('name') or t.get('ref', '')), flags | 16, enc([q[:2] for q in seg]), hw])
+        continue
     for seg in clip_line(pts):
         s = dp(seg, 0.15)
         roads.append([CLASSCODE[hw], round(w, 1), name_i(t.get('name', '')), flags, enc(s), hw])
@@ -463,8 +547,10 @@ def dec(e, s=5):
     return o
 # section order is mirrored by the decoder in index.html
 vu(len(roads))
-for c,w,ni,fl,e,hw in roads:
+for ri,(c,w,ni,fl,e,hw) in enumerate(roads):
     vu(c); vu(round(w*10)); vs(ni); vu(fl); pts_out(dec(e), 2 if c==2 else 5)
+    if fl & 16:
+        for h in road_h[ri]: vu(max(0, round(h * 20)))
 vu(len(water))
 for e in water: pts_out(dec(e),2)
 vu(len(green))

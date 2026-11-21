@@ -2,6 +2,20 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-21 (run 01:17)
+
+### Plan (prioritized)
+No open bugs were logged. Left over from yesterday's plan: achievements and a Poldertoren lift ride. Playing found the concrete lions next to the tower look like glowing white blocks.
+
+1. **Achievements** (gameplay): about 20 goals (first job, every vehicle, all polder coins, top of the tower, a kermis ride, escape the police, ...), a toast with a sound when one unlocks, a list in the pause menu, saved.
+2. **Poldertoren lift ride** (content): walk to the door, press E, ride the lift up to the viewing platform at 43.4 m and look out over Emmeloord and the polder.
+3. **Carillon** (sound): the tower's 48 bells play a short original tune every game hour, louder near the tower.
+4. **Concrete lions** (graphics/bug): rounder, sculpted lions in matt concrete instead of bright white boxes.
+5. **Car damage** (gameplay/graphics): crashes dent the car's health, smoke from the bonnet when it is badly hurt, slower when wrecked, repair at the garage for cash.
+6. **Performance** (phones): look at draw calls and merge static street furniture where it is cheap to do.
+
+### Done
+
 ## 2026-11-20 (real map + Poldertoren)
 
 Ron asked for the roads and squares to match the real town and for a more accurate Poldertoren.

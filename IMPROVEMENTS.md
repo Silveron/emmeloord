@@ -2,6 +2,22 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-21 (whole town)
+
+Ron asked to build all of Emmeloord, not only the centre.
+
+### Done
+- **Whole town from OpenStreetMap** (content): the map region grew from 1.8 x 1.5 km to 5.1 x 5.3 km (x -2150..2950, z -2400..2950): all residential neighbourhoods, the Havens te Emmeloord / 1e and 2e Industriehaven, De Munt and De Gilden, the zonnepark. 12,700 buildings (was 4,500), 22,000 road pieces, 13,000 OSM trees, 7,400 street lamps. Converter: `tools/convert.py` with `REGION=-2150,2950,-2400,2950`; it now also writes built-up landuse (minimap), neighbourhood names (OSM place nodes) and named business parks.
+- **Real addresses for the whole town** (`tools/gen_addr.py`): 15,000 OSM addresses, every second number in the centre and every third elsewhere (6,177 kept). Taxi rides now often go across town and pay by distance.
+- **Neighbourhood names** (gameplay): the location box shows Emmelhage, Revelsant-Zuid, Bos en Gaard, De Munt etc. (nearest OSM place, or inside the named business park polygon).
+- **Performance** (phones): ground layers and polder fields are split into 500-600 m tiles, buildings keep their 300 m tiles; every tile is distance-culled (`DCULL`/`VIEWD`, per quality level and the fog). Buildings beyond 260/400/560 m (Low/Medium/High) switch to a one-colour version without textures (one draw call per tile). Lamps are in 500 m chunks. The camera far plane follows the fog (sky dome and stars scale with it) so cars, people and signs across town aren't drawn. Minimap is drawn in 512 m tiles on demand (a single 7 km canvas is too big for phones). Start view on Medium: 463 draw calls / 0.90 M triangles (was 440 / 0.92 M).
+- **Traffic follows the player** (gameplay): AI cars and cyclists that end up more than 700/500 m away come back on a street near the player, out of sight; route choices stay around the player instead of the tower.
+- Wind turbines moved to rows just outside the new town edge; clouds drift around the camera.
+
+### Problems / notes
+- JS heap after loading is about 290 MB (was 200 MB); load takes about 10% longer.
+- The A6 and its interchanges are flat (no bridges/height), like all roads; the motorway ends at the region edge.
+
 ## 2026-11-21 (run 06:45)
 
 ### Plan (prioritized)

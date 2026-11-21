@@ -618,6 +618,16 @@ const stripeTex=canvasTex(64,16,(g,w,h)=>{for(let x=0;x<w;x+=16){g.fillStyle='#f
 
 /* ---------- geometry batching ---------- */
 const WET_MATS=[],PHOTO_SLOTS=[];
+/* wet streets with puddles (graphics plan phase 8): WET follows the rain and dries slowly afterwards; low spots (a noise mask,
+   strongest along the kerbs where water collects) turn into flat, mirror-like puddles that shrink again while the street dries */
+const WET_U={value:0};
+function puddles(m){const prev=m.onBeforeCompile;m.onBeforeCompile=(sh,r)=>{if(prev)prev(sh,r);sh.uniforms.uWet=WET_U;
+  sh.vertexShader='varying vec3 vWPos;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vWPos=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  sh.fragmentShader='uniform float uWet;varying vec3 vWPos;float vpud;\nfloat pn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);float a=fract(sin(dot(i,vec2(127.1,311.7)))*43758.5453),b=fract(sin(dot(i+vec2(1,0),vec2(127.1,311.7)))*43758.5453),c=fract(sin(dot(i+vec2(0,1),vec2(127.1,311.7)))*43758.5453),d=fract(sin(dot(i+vec2(1,1),vec2(127.1,311.7)))*43758.5453);return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}\n'+sh.fragmentShader
+    .replace('#include <map_fragment>',`#include <map_fragment>
+  { float n=pn(vWPos.xz*0.32)*0.65+pn(vWPos.xz*1.1+7.0)*0.35; vpud=smoothstep(1.0-uWet*0.55,1.06-uWet*0.55,n)*step(0.02,uWet); diffuseColor.rgb*=1.0-0.35*vpud; }`)
+    .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\n  roughnessFactor=mix(roughnessFactor,0.03,vpud);')
+    .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\n  normal=normalize(mix(normal,nonPerturbedNormal,vpud));');};m.needsUpdate=true;}
 class GB{
   constructor(){this.p=[];this.n=[];this.uv=[];this.c=[];this.idx=[];}
   quad(v,uv,n,col){
@@ -912,7 +922,27 @@ const waterNormal=(()=>{const N=128,c=document.createElement('canvas');c.width=c
   for(let y=0;y<N;y++)for(let x=0;x<N;x++){const dx=H(x+1,y)-H(x-1,y),dy=H(x,y+1)-H(x,y-1);const n=new THREE.Vector3(-dx*4,-dy*4,1).normalize();const i=(y*N+x)*4;im.data[i]=(n.x*0.5+0.5)*255;im.data[i+1]=(n.y*0.5+0.5)*255;im.data[i+2]=(n.z*0.5+0.5)*255;im.data[i+3]=255;}
   g.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(1/7,1/7);return t;})();
 let DEEL_PARKS=[],STATION=null,inDeelPark=()=>false;
-const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:new THREE.Vector2(0.35,0.35),color:0x26383d,shininess:90,specular:0x55656c,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
+/* water (graphics plan phase 8): a smooth PBR surface, so the sky and the light reflect with a real Fresnel falloff (dark when
+   you look down into it, mirror-like at a low angle), two layers of wind ripples crossing each other, and rain rings while it rains.
+   On High the canal also mirrors the town (planar reflection, WATER_REFL below). */
+const WATER_U={uWT:{value:0},uRain:{value:0},uRefl:{value:null},uReflOn:{value:0},uReflM:{value:new THREE.Matrix4()}};
+const waterMat=new THREE.MeshStandardMaterial({normalMap:waterNormal,normalScale:new THREE.Vector2(0.14,0.14),color:0x1a2729,roughness:0.06,metalness:0,envMapIntensity:0.72,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4});
+waterMat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,WATER_U);
+  sh.vertexShader='varying vec3 vWPos;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vWPos=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  sh.fragmentShader='uniform float uWT,uRain,uReflOn;uniform sampler2D uRefl;uniform mat4 uReflM;varying vec3 vWPos;\nfloat wh(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\n'+sh.fragmentShader
+    .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+  { vec2 q=vWPos.xz; vec3 n2=texture2D(normalMap,q*0.37+vec2(-uWT*0.021,uWT*0.017)).xyz*2.0-1.0; vec3 d=vec3(n2.x,0.0,n2.y)*0.12;
+    // rain rings: one drop per 0.5 m cell at a random time, a ring growing to 25 cm and fading
+    if(uRain>0.01){ for(int k=0;k<2;k++){ vec2 c=floor(q*2.0+float(k)*0.5); float h=wh(c+float(k)*7.1); vec2 o=(c+0.2+0.6*vec2(h,wh(c+3.3)))/2.0;
+        float ph=fract(uWT*0.9+h); vec2 v=q-o; float r=length(v); float ring=exp(-pow((r-ph*0.25)*38.0,2.0))*(1.0-ph)*step(h,uRain*0.85);
+        d.xz+=v/max(r,1e-3)*ring*0.9; } }
+    normal=normalize(normal+(viewMatrix*vec4(d,0.0)).xyz); }`)
+    .replace('#include <opaque_fragment>',`if(uReflOn>0.5){ vec4 rp=uReflM*vec4(vWPos,1.0); vec2 ruv=rp.xy/rp.w*0.5+0.5; vec3 vn=normalize(vViewPosition);
+      ruv+=normal.xy*0.012; vec3 rc=texture2D(uRefl,ruv).rgb;
+      float fr=0.02+0.98*pow(1.0-clamp(dot(normal,vn),0.0,1.0),5.0); fr=clamp(fr+0.06,0.0,0.8);
+      outgoingLight=mix(outgoingLight,rc,fr); }
+#include <opaque_fragment>`);};
+const WATER_MATS=[waterMat];
 {
   const T=(h)=>new TGB(500,h||'far');
   const gStation=T(),gGreen=T(),gFlower=T('mid'),gWater=T(),gBank=T('mid'),gPed=T(),gPark=T(),gPlat=T('mid'),gFoot=T('mid'),gCycle=T(),gTrack=T('mid'),gRoad=T(),gKlink=T(),gMark=T('near'),gRail=T('mid');
@@ -1073,7 +1103,8 @@ const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:ne
   gCycle.mesh(overlay({map:asphaltTex,normalMap:asphaltSet.normalMap,roughness:0.9,vertexColors:true},5),false,true);
   gRoad.mesh(overlay({map:asphaltTex,normalMap:asphaltSet.normalMap,roughness:0.92},6),false,true);
   gKlink.mesh(overlay({map:klinkerTex,normalMap:klinkerSet.normalMap,roughness:0.8,vertexColors:true},6),false,true);
-  for(const g of [gRoad,gKlink,gPed,gFoot,gCycle]){const m=g.__mesh;if(m)WET_MATS.push([m.material,m.material.roughness]);}
+  for(const g of [gRoad,gKlink,gPed,gFoot,gCycle,gStation,gPark,gPlat]){const m=g.__mesh;if(m)WET_MATS.push([m.material,m.material.roughness]);}
+  for(const [m] of WET_MATS)puddles(m);
   for(const [g,k,sc] of [[gGreen,'grass',6],[gBank,'pavement',2.4],[gPed,'klinker',4],[gPlat,'pavement',2.4],[gFoot,'pavement',2.4],[gCycle,'asphalt',8],[gRoad,'asphalt',8],[gKlink,'klinker',4]])if(g.__mesh)PHOTO_SLOTS.push([g.__mesh.material,k,sc]);
   // haaientanden at OSM give-way and stop points: 0.5 m wide, 0.6 m long, 0.25 m apart, pointing at the drivers who must give way
   for(const g of GIVE){const hx=Math.sin(g.a),hz=Math.cos(g.a),rx=-hz,rz=hx;const u0=g.w>=5?0.15:-g.w/2+0.15,u1=g.w/2-0.15;
@@ -4471,7 +4502,7 @@ const DN={
   glow:CL('#ffcf86'),rainTop:CL('#6f7c88'),rainBot:CL('#a3adb4'),cloudDay:CL('#8a99a8'),cloudNight:CL('#141a26'),
   c1:new THREE.Color(),c2:new THREE.Color()
 };
-let NIGHT=0,RAIN=0,rainTarget=0,weatherT=150,FOGK=0,FOG_DAY=Math.random()<0.35,FOG_ROLLED=false,SNOW=0,SNOWING=false;
+let WET=0,NIGHT=0,RAIN=0,rainTarget=0,weatherT=150,FOGK=0,FOG_DAY=Math.random()<0.35,FOG_ROLLED=false,SNOW=0,SNOWING=false;
 /* rain: a box of falling streaks that follows the camera */
 const RAIN_N=2200,RAIN_BOX=45;
 const rainGeo=new THREE.BufferGeometry(),rainPos=new Float32Array(RAIN_N*6),rainSeed=new Float32Array(RAIN_N*3);
@@ -4488,6 +4519,8 @@ function updateWeather(dt){
     else weatherT=rand(90,240);
   }
   RAIN+=clamp(rainTarget-RAIN,-dt/12,dt/12);
+  // streets get wet within a few seconds of rain and dry over a few minutes after it
+  WET=RAIN>WET?Math.min(RAIN,WET+dt/6):Math.max(RAIN,WET-dt/200);WET_U.value=SEASON_NOW==='winter'&&SNOW>0.3?0:WET;WATER_U.uRain.value=RAIN*(SEASON_NOW==='winter'?0:1);
   // snow settles while it snows and melts slowly afterwards
   const sn=SEASON_NOW==='winter'?(RAIN>0.3?SNOW+dt/45:SNOW-dt/600):SNOW-dt/20;SNOW=clamp(sn,0,1);SNOW_U.value=SNOW;
   rainLines.visible=RAIN>0.02;
@@ -4560,7 +4593,7 @@ function updateDayNight(){
   c1.copy(DN.cloudNight).multiplyScalar(1.6).lerp(WHITE,day).lerp(DN.sunDusk,dusk*0.35).multiplyScalar(1-0.42*RAIN);
   for(const m of CLOUD_MATS){m.color.copy(c1);m.opacity=0.92+0.08*RAIN;}
   // wet streets: darker and glossier while it rains
-  for(const [m,r0] of WET_MATS){m.roughness=r0*(1-0.72*RAIN);m.color.setScalar(1-0.38*RAIN);}
+  for(const [m,r0] of WET_MATS){m.roughness=r0*(1-0.6*WET);m.color.setScalar(1-0.34*WET);}
   headSpot.intensity=lights*1.6;
   for(const f of LIGHT_HOOKS)f(lights);
   skyMat.uniforms.sunDir.value.copy(SUN_OFF).normalize();
@@ -4861,7 +4894,26 @@ void main(){
     pass(POST.fxaaMat,null);
   };
 }
-function renderFrame(){if(POST.on)POST.render();else{renderer.setRenderTarget(null);renderer.render(scene,camera);}}
+/* planar reflection of the town in the canals (High only, graphics plan phase 8): when water is within 160 m, the scene is
+   drawn once more from a camera mirrored in the water plane, at half resolution, clipped at the water line, into a texture the
+   water shader blends in by Fresnel. The shadow map from the main pass is reused. */
+const WATER_REFL={rt:null,cam:new THREE.PerspectiveCamera(),clip:[new THREE.Plane(new THREE.Vector3(0,1,0),-WATER_Y-0.02)],t:new THREE.Vector3(),hide:[]};
+function waterNear(){const x=camera.position.x,z=camera.position.z;
+  for(const w of WATER){const b=w.b;if(x>b.x0-160&&x<b.x1+160&&z>b.z0-160&&z<b.z1+160)return true;}return false;}
+function renderWaterRefl(){
+  const on=GFX===2&&camera.position.y>WATER_Y+0.3&&waterNear();WATER_U.uReflOn.value=on?1:0;if(!on)return;
+  const R=WATER_REFL,sz=renderer.getDrawingBufferSize(new THREE.Vector2()),w=Math.max(64,sz.x>>1),h=Math.max(64,sz.y>>1);
+  if(!R.rt||R.rt.width!==w||R.rt.height!==h){if(R.rt)R.rt.dispose();R.rt=new THREE.WebGLRenderTarget(w,h,{type:THREE.HalfFloatType});WATER_U.uRefl.value=R.rt.texture;}
+  const c=R.cam;c.fov=camera.fov;c.aspect=camera.aspect;c.near=camera.near;c.far=Math.min(camera.far,900);c.updateProjectionMatrix();
+  camera.getWorldDirection(_sd);R.t.copy(camera.position).add(_sd);
+  c.position.set(camera.position.x,2*WATER_Y-camera.position.y,camera.position.z);c.up.set(0,-1,0);c.lookAt(R.t.x,2*WATER_Y-R.t.y,R.t.z);c.updateMatrixWorld();
+  WATER_U.uReflM.value.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse);
+  const vis=[];for(const m of WATER_MATS)m.visible=false;if(GRASS.mesh){vis.push([GRASS.mesh,GRASS.mesh.visible]);GRASS.mesh.visible=false;}vis.push([rainLines,rainLines.visible]);rainLines.visible=false;
+  const au=renderer.shadowMap.autoUpdate;renderer.shadowMap.autoUpdate=false;renderer.clippingPlanes=R.clip;
+  renderer.setRenderTarget(R.rt);renderer.clear();renderer.render(scene,c);
+  renderer.clippingPlanes=[];renderer.shadowMap.autoUpdate=au;for(const m of WATER_MATS)m.visible=true;for(const [o,v] of vis)o.visible=v;
+}
+function renderFrame(){renderWaterRefl();if(POST.on)POST.render();else{renderer.setRenderTarget(null);renderer.render(scene,camera);}}
 let SHADOW_NEAR=160,TREE_FAR=200,TREE_VIEW=560;
 function setQuality(q,auto){
   GFX=clamp(q|0,0,2);gfxAuto=!!auto;
@@ -4948,7 +5000,7 @@ function frame(now){
   for(const b of BLADES)b.rotation.z+=dt*0.9;
   updateGrass();
   WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6+Math.max(0,Math.sin(t*0.11)*Math.sin(t*0.37+1))*1.6;// gusts come and go
-  waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;
+  waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;WATER_U.uWT.value+=dt*(0.6+0.4*WIND.value.y);
   updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateCarLights(t);updateSpray(dt);updateSmoke(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
@@ -5022,7 +5074,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

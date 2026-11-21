@@ -20,6 +20,30 @@ No open bugs were logged; two known problems from the 01:17 run come first. Play
 - **Real addresses** (content): 6,000 OSM addresses (addr:street + addr:housenumber) within 950 m were fetched; every other house number per street is embedded (3,073, 39 KB). Parcel, taxi and pizza jobs pick a real address and stop at the kerb of its street in front of the house ("Deliver the parcel to Steenstraat 5").
 - **Visible car damage + tow truck** (gameplay/graphics): from 40% the bonnet sags and one flank gets a dent, from 75% the front is crumpled, the paint dull and the headlights broken (per-car copy of the body, restored on repair or paint). A wrecked car more than 120 m from the garage can be towed there with G or the pause menu for €60.
 - **GPS line on the minimap** (gameplay): replaced plan item 5 because birds, crickets, wind and rain sounds already exist. During a job, a Dijkstra route over the OSM road graph to the next target is drawn in the job colour; one-way streets count when driving; it re-routes when you leave the line.
+- **Cheaper far cars** (performance): measured the busiest view (Kettingplein looking west, Medium): ~1,400 draw calls, of which each car costs ~13. Cars over ~85 m away now swap their 4 spinning wheels, trim and plates for one merged wheel mesh: 1,411 → 1,170 calls in that view (-17%).
+- **Camera vs tree trunks** (bug/controls): the camera also stops for street tree trunks, staying at least 1.7 m behind the hero (a trunk right behind you is then culled from inside instead of filling the screen). The hero is hidden only when a wall pushes the camera into their head.
+
+### Report for Ron
+Today's run (06:45) added 7 improvements, each tested in headless Chromium (no console errors, walking/driving checked, screenshots looked right) and pushed straight to `main` (GitHub Pages deploys succeed):
+- The camera no longer looks through buildings or sits inside tree crowns and trunks.
+- The white glowing Poldertoren plinth is now matt beige-grey concrete.
+- Parcel, taxi and pizza jobs go to real house numbers from OpenStreetMap ("Deliver the parcel to Steenstraat 5").
+- A GPS line on the minimap shows the way during a job, following one-way streets in a car.
+- Damaged cars look damaged: dented, then crumpled bonnet, dull paint, broken headlights.
+- A wrecked car can be towed to the garage with G (or the pause menu on a phone) for €60.
+- Far-away cars are cheaper to draw (about 17% fewer draw calls in the busiest view).
+
+Screenshots in the project files under `runs/`: `2026-11-21b-car-damage.png` (yellow car with a sagging, crumpled front, dark headlights and smoke on De Deel), `2026-11-21b-towed-to-garage.png` (the wrecked car parked on the garage forecourt beside the orange marker), `2026-11-21b-gps-minimap.png`, `2026-11-21b-tower-concrete.png`.
+
+Problems: plan item 5 (ambient sound) was skipped because birds, crickets, wind and rain sounds already exist; the GPS line replaced it. Flat-coloured materials across the game are still treated as linear colours, which is why pale surfaces (garage forecourt, lamp posts) look washed out; only the tower was fixed. Address sample: every other house number per street is in the game, so some numbers never come up.
+
+### Next ideas (for the next run)
+1. Fix the colour handling of flat-coloured materials globally (`lm()` and vertex colours to sRGB), checked against Ron's photos, carefully because it changes the whole look.
+2. Show the house you deliver to: a small glowing door marker or house number sign at the address.
+3. More performance: people (rigged characters cost one draw call each, ~65 in busy views) could use a cheaper far version; merge building chunks per area.
+4. Taxi passengers with short lines of chat, and fares that depend on the real driving distance of the GPS route.
+5. More tower content: opening hours, a plaque about the 1957 water tower.
+6. Phone check of the new tow button in the pause menu.
 
 ## 2026-11-21 (run 01:17)
 

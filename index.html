@@ -73,6 +73,15 @@ button.ghost:hover{background:rgba(255,255,255,.08)}
 #pause h2{font-size:34px;font-weight:800;margin:6px 0 12px;letter-spacing:-.02em}
 #pause .row{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
 #pause .row .ghost{margin-left:0}
+#pach{display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:38vh;overflow:auto;margin:10px 0 0;padding-right:2px}
+#pach[hidden]{display:none}
+#pach div{font-size:12px;line-height:1.3;padding:7px 9px;border:1px solid var(--line);border-radius:6px;color:var(--muted)}
+#pach div b{display:block;font-size:13px;color:var(--ink);opacity:.55}
+#pach div.got{border-color:rgba(255,196,64,.55);background:rgba(255,196,64,.08)}
+#pach div.got b{opacity:1;color:#ffc440}
+.toast.ach{border-color:rgba(255,196,64,.6)}
+.toast.ach strong{color:#ffc440}
+@media (max-width:520px){#pach{grid-template-columns:1fr}}
 #pause .small{font-size:12px;color:var(--muted);margin:10px 0 0}
 #pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 #pstats div{display:flex;flex-direction:column;gap:5px}
@@ -170,8 +179,9 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
     <div class="eyebrow">Paused</div>
     <h2>Taking a break</h2>
     <div id="pstats"></div>
-    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="pmusic" type="button" class="ghost">Music: on</button><button id="pgfx" type="button" class="ghost">Graphics: High</button><button id="pseason" type="button" class="ghost">Season: Auto</button><button id="preset" type="button" class="ghost">New game</button></div>
-    <p class="small">Progress (coins, cash, best lap) is saved in this browser.</p>
+    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="pmusic" type="button" class="ghost">Music: on</button><button id="pgfx" type="button" class="ghost">Graphics: High</button><button id="pseason" type="button" class="ghost">Season: Auto</button><button id="preset" type="button" class="ghost">New game</button><button id="pachb" type="button" class="ghost">Achievements</button></div>
+    <div id="pach" hidden></div>
+    <p class="small">Progress (coins, cash, cars, achievements) is saved in this browser.</p>
   </div>
 </div>
 <div id="garage" hidden>
@@ -2475,10 +2485,10 @@ function updatePolice(dt,t){
   const turn=2.0*Math.min(1,Math.abs(c.speed)/3);c.h+=clamp(diff,-turn*dt,turn*dt);c.steer=clamp(diff*2,-1,1);
   c.x+=Math.sin(c.h)*c.speed*dt;c.z+=Math.cos(c.h)*c.speed*dt;carCollideWorld(c,false);
   // caught: you stopped (or walk) next to the police car
-  if(dist<10&&pv<2.5){S.near+=dt;if(S.near>2){S.state='leave';cash=Math.max(0,cash-150);$('cash').textContent='€'+cash;toast('<strong>Pulled over.</strong> The officer writes you a ticket: €150. Drive safely!',3800);saveGame();policeDriveOff();}}else S.near=Math.max(0,S.near-dt*0.5);
+  if(dist<10&&pv<2.5){S.near+=dt;if(S.near>2){S.state='leave';cash=Math.max(0,cash-150);$('cash').textContent='€'+cash;toast('<strong>Pulled over.</strong> The officer writes you a ticket: €150. Drive safely!',3800);ach('caught');saveGame();policeDriveOff();}}else S.near=Math.max(0,S.near-dt*0.5);
   // lost them
   if(dist>330){S.far+=dt;}else S.far=0;
-  if(S.far>6||S.t0>120){S.state='leave';toast('You lost the police. Phew.',2600);policeDriveOff();}
+  if(S.far>6||S.t0>120){S.state='leave';toast('You lost the police. Phew.',2600);ach('escape');policeDriveOff();}
 }
 function policeDriveOff(){const c=POLICE.c,n=nearestNode(c.x,c.z);c.ai={q:[],node:n,lastE:null,cruise:11,extra:0};extendRoute(c.ai,0,620);c.policeOn=false;for(const s of POLICE.blue)s.visible=false;}
 
@@ -2623,7 +2633,7 @@ function checkSpeedCams(t){
       sc.last=t;const fine=kmh>110?120:50;cash=Math.max(0,cash-fine);$('cash').textContent='€'+cash;
       const f=$('flash');f.classList.remove('go');void f.offsetWidth;f.classList.add('go');
       if(AC&&!muted){const t0=AC.currentTime;noiseHit(t0,0.05,0.2,5000,'highpass');tone(1800,t0,0.08,0.05,'square');}
-      toast(`<strong>Flitspaal!</strong> ${Math.round(kmh)} km/h where 80 is the limit. Fine: €${fine}.`,3200);
+      toast(`<strong>Flitspaal!</strong> ${Math.round(kmh)} km/h where 80 is the limit. Fine: €${fine}.`,3200);ach('flits');
       saveGame();policeAlert();
     }
   }
@@ -2816,7 +2826,7 @@ function endJob(ok,msg){
     let pay=Math.round(jobPay(j.pay,j.left,j.limit)*(1+0.05*(level()-1))*van),extra='';
     if(j.trial){const tt=elapsed-j.t0;extra=` Lap time <strong>${fmtTime(tt)}</strong>.`;if(BEST.trial===null||tt<BEST.trial){if(BEST.trial!==null)extra+=' New record!';BEST.trial=tt;}}
     cash+=pay;$('cash').textContent='€'+cash;extra+=ex;
-    toast(`${msg} <strong>+€${pay}</strong>, +${pay} XP.${extra}`,4200);jobSound(true);coinSound();addXP(pay);
+    toast(`${msg} <strong>+€${pay}</strong>, +${pay} XP.${extra}`,4200);jobSound(true);coinSound();addXP(pay);achJob(j.j.id);
   }else{toast(msg,3000);jobSound(false);}
   if(typeof saveGame==='function')saveGame();
 }
@@ -2922,10 +2932,10 @@ $('garage').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;
   if(b.id==='gClose'){closeGarage();return;}
   const o=()=>OWN.owned[OWN.model];
-  if(b.dataset.buy){const m=CAR_MODELS.find(x=>x.id===b.dataset.buy);if(cash<m.price)return;cash-=m.price;OWN.owned[m.id]={engine:0,turbo:0,tyres:0,color:m.id==='gt'?'#c0392b':m.id==='volt'?'#1a8f9a':m.id==='van'?'#f2f0ea':'#ff7b1c'};OWN.model=m.id;applyOwnCar();parkOwnCar();buyMsg(`<strong>${m.name}</strong> bought! It's parked outside the garage.`);}
+  if(b.dataset.buy){const m=CAR_MODELS.find(x=>x.id===b.dataset.buy);if(cash<m.price)return;cash-=m.price;OWN.owned[m.id]={engine:0,turbo:0,tyres:0,color:m.id==='gt'?'#c0392b':m.id==='volt'?'#1a8f9a':m.id==='van'?'#f2f0ea':'#ff7b1c'};OWN.model=m.id;applyOwnCar();parkOwnCar();buyMsg(`<strong>${m.name}</strong> bought! It's parked outside the garage.`);ach('buy');}
   else if(b.dataset.sel){OWN.model=b.dataset.sel;applyOwnCar();parkOwnCar();buyMsg(`You take the <strong>${CAR_MODELS.find(x=>x.id===OWN.model).name}</strong>.`);}
   else if(b.dataset.up){const u=UPGRADES.find(x=>x.id===b.dataset.up),k=o()[u.id];if(k>=3||cash<u.price[k])return;cash-=u.price[k];o()[u.id]++;applyOwnCar();buyMsg(`<strong>${u.name}</strong> upgraded to step ${k+1}.`);}
-  else if(b.dataset.paint){const p=b.dataset.paint;if(p===o().color)return;if(cash<40)return;cash-=40;o().color=p;applyOwnCar();buyMsg('Fresh paint!');}
+  else if(b.dataset.paint){const p=b.dataset.paint;if(p===o().color)return;if(cash<40)return;cash-=40;o().color=p;applyOwnCar();buyMsg('Fresh paint!');ach('paint');}
   $('cash').textContent='€'+cash;renderGarage();saveGame();
 });
 // your car waits on the forecourt (unless you are sitting in it)
@@ -2988,7 +2998,7 @@ function makeVehicle(kind,x,z,h){
   CARS.push(c);VEHICLES.push(c);return c;
 }
 function sendHome(v){v.x=v.home.x;v.z=v.home.z;v.h=v.home.h;v.speed=0;v.steer=0;v.g.rotation.z=0;if(v.trailer)v.trailer.reset();}
-function boardVehicle(v){P.mode='drive';P.car=v;P.m.g.visible=false;v.blockedT=0;if(v.rider)v.rider.g.visible=true;}
+function boardVehicle(v){if(v.veh)achVeh(v.veh);P.mode='drive';P.car=v;P.m.g.visible=false;v.blockedT=0;if(v.rider)v.rider.g.visible=true;}
 // the courier bike stands at the real bike racks on De Deel, the scooter outside pizzeria Casareccia (OSM: cuisine=pizza, Korte Achterzijde)
 const BIKE=(()=>{const [x,z]=freeSpot(146,-86.5,0.9,true);return makeVehicle('bike',x,z,1.82);})();
 const PIZZERIA={x:388,z:-115.9,name:'Casareccia'};
@@ -3315,7 +3325,7 @@ function startWheelRide(){
   if(cash<4){toast('A ride in the Ferris wheel costs €4.',2000);return;}
   cash-=4;$('cash').textContent='€'+cash;
   const W=KERMIS.S.wheel;let bi=0,bd=1e9;for(let k=0;k<12;k++){const a=W.wheel.rotation.z+k/12*Math.PI*2,d=Math.abs(wrapA(a+Math.PI/2));if(d<bd){bd=d;bi=k;}}
-  RIDE={k:bi,turned:0,last:W.wheel.rotation.z,pos:new THREE.Vector3()};P.m.g.visible=false;camPitch=-0.05;
+  RIDE={k:bi,turned:0,last:W.wheel.rotation.z,pos:new THREE.Vector3()};ach('wheel');P.m.g.visible=false;camPitch=-0.05;
   toast('<strong>Ferris wheel</strong>: one round, 24 m up over De Deel. Drag to look around.',3600);
 }
 function endWheelRide(){RIDE=null;P.m.g.visible=true;camPitch=0.28;toast('That was the view over Emmeloord.',1800);}
@@ -3588,11 +3598,64 @@ function enableTouch(){
   $('prompt').addEventListener('click',()=>{if(TOUCH.on)action();});
   window.addEventListener('touchstart',()=>enableTouch(),{passive:true});
 }
+/* ---------- achievements: small goals around town, saved with the game ---------- */
+const ACH_LIST=[
+  ['coin1','First coin','Pick up a polder coin'],
+  ['coins','Coin collector','Find all 12 polder coins'],
+  ['job1','First shift','Finish a job'],
+  ['jobs10','Hard worker','Finish 10 jobs'],
+  ['jobsall','Jack of all trades','Finish every kind of job once'],
+  ['race','Ring champion','Beat the rival in the ring race'],
+  ['tower','Top of the town','Take the lift up the Poldertoren'],
+  ['wheel','Round and round','Ride the Ferris wheel at the kermis'],
+  ['veh','Anything with wheels','Ride the bike, the scooter and the tractor'],
+  ['borrow','Just borrowing','Borrow a car from traffic'],
+  ['fast','Vrijbaan','Reach 150 km/h'],
+  ['flits','Smile!','Get flashed by a speed camera'],
+  ['escape','Out of sight','Lose the police'],
+  ['caught','Fair cop','Get pulled over by the police'],
+  ['buy','New wheels','Buy a car at the garage'],
+  ['paint','Fresh paint','Give your car a new colour'],
+  ['lvl5','Local hero','Reach level 5'],
+  ['night','Night owl','Be out at 3 in the morning'],
+  ['rain','Polder weather','Get caught in a shower'],
+  ['market','Thursday market','Visit the market on the Kettingplein'],
+  ['dist','Road trip','Drive 25 km in total'],
+  ['bells','Carillon','Hear the Poldertoren bells up close'],
+];
+const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
+function ach(id){
+  if(ACH.got[id])return;const a=ACH_LIST.find(x=>x[0]===id);if(!a)return;ACH.got[id]=1;
+  const n=Object.keys(ACH.got).length;
+  setTimeout(()=>{
+    const d=document.createElement('div');d.className='toast panel ach';d.innerHTML=`Achievement <strong>${a[1]}</strong>: ${a[2]}. (${n}/${ACH_LIST.length})`;$('toasts').appendChild(d);
+    setTimeout(()=>d.remove(),4600);while($('toasts').children.length>3)$('toasts').firstChild.remove();
+    if(AC&&!muted){const t0=AC.currentTime;[784,988,1175,1568].forEach((f,i)=>{tone(f,t0+i*0.07,0.5-i*0.05,0.05,'sine');tone(f*2.01,t0+i*0.07,0.25,0.015,'sine');});}
+  },600);
+  if(typeof saveGame==='function')saveGame();
+}
+function achJob(id){ACH.jobs++;ACH.kinds[id]=1;ach('job1');if(ACH.jobs>=10)ach('jobs10');if(JOBS.every(j=>ACH.kinds[j.id]))ach('jobsall');if(id==='race')ach('race');}
+function achVeh(k){ACH.veh[k]=1;if(ACH.veh.bike&&ACH.veh.scooter&&ACH.veh.tractor)ach('veh');}
+// checked four times a game minute
+function achTick(px,pz){
+  const h=(gameMin%1440)/60;
+  if(h>=3&&h<3.5)ach('night');
+  if(RAIN>0.5&&!(P.mode==='drive'&&!P.car.veh))ach('rain');
+  if(MARKET_ON&&Math.hypot(px-473,pz+168)<45)ach('market');
+  if(ACH.km>=25)ach('dist');
+  if(level()>=5)ach('lvl5');
+}
+function renderAch(){
+  $('pachb').textContent=`Achievements ${Object.keys(ACH.got).length}/${ACH_LIST.length}`;
+  $('pach').innerHTML=ACH_LIST.map(a=>`<div class="${ACH.got[a[0]]?'got':''}"><b>${ACH.got[a[0]]?'★ ':''}${a[1]}</b>${a[2]}</div>`).join('');
+}
+$('pachb').onclick=()=>{$('pach').hidden=!$('pach').hidden;renderAch();};
+
 /* ---------- save & pause ---------- */
 const SAVE_KEY='emmeloord-vrijbaan-v1';
 let GFX_SAVED=null,GFX=isTouchDevice?1:2,gfxAuto=true;
 function saveGame(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,xp:XP,own:{model:OWN.model,owned:OWN.owned},best:BEST.trial,race:BEST.race,min:Math.round(gameMin),dow:GAME_DOW,muted,music:musicOn,gfx:gfxAuto?null:GFX,season:SEASON_SET}));}catch(_){}
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,xp:XP,own:{model:OWN.model,owned:OWN.owned},best:BEST.trial,race:BEST.race,min:Math.round(gameMin),dow:GAME_DOW,muted,music:musicOn,gfx:gfxAuto?null:GFX,season:SEASON_SET,ach:ACH}));}catch(_){}
 }
 function loadGame(){
   let d=null;try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(_){d=null;}
@@ -3600,6 +3663,7 @@ function loadGame(){
   d.coins.forEach((g,i)=>{const c=COINS[i];if(c&&g){c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;}});
   cash=+d.cash||0;XP=typeof d.xp==='number'?d.xp:cash;
   if(d.own&&d.own.owned&&d.own.owned[d.own.model]){OWN.owned=d.own.owned;OWN.model=d.own.model;applyOwnCar();}
+  if(d.ach&&typeof d.ach==='object'){ACH.got=d.ach.got||{};ACH.jobs=+d.ach.jobs||0;ACH.kinds=d.ach.kinds||{};ACH.veh=d.ach.veh||{};ACH.km=+d.ach.km||0;}
   updateLevelHud();BEST.trial=typeof d.best==='number'?d.best:null;BEST.race=typeof d.race==='number'?d.race:null;
   if(typeof d.min==='number')gameMin=d.min%1440;if(typeof d.dow==='number')GAME_DOW=d.dow%7;muted=!!d.muted;musicOn=d.music!==false;if(typeof d.gfx==='number')GFX_SAVED=d.gfx;
   $('coins').textContent=coinCount+'/'+COINS.length;$('cash').textContent='€'+cash;
@@ -3609,7 +3673,7 @@ function loadGame(){
 function wipeSave(){try{localStorage.removeItem(SAVE_KEY);}catch(_){}location.reload();}
 if(loadGame()){
   $('play').textContent='Continue';$('newgame').hidden=false;
-  $('saveinfo').hidden=false;$('saveinfo').textContent=`Saved: ${coinCount}/${COINS.length} coins · €${cash}`+(BEST.trial!==null?` · best lap ${fmtTime(BEST.trial)}`:'');
+  $('saveinfo').hidden=false;$('saveinfo').textContent=`Saved: ${coinCount}/${COINS.length} coins · €${cash}`+(Object.keys(ACH.got).length?` · ${Object.keys(ACH.got).length} achievements`:'')+(BEST.trial!==null?` · best lap ${fmtTime(BEST.trial)}`:'');
 }
 $('newgame').addEventListener('click',wipeSave);
 let paused=false;
@@ -3620,6 +3684,7 @@ function setPaused(v){
   if(v){
     if(document.pointerLockElement)document.exitPointerLock();
     $('pstats').innerHTML=`<div><span class="eyebrow">Level</span><b>${level()}</b></div><div><span class="eyebrow">Coins</span><b>${coinCount}/${COINS.length}</b></div><div><span class="eyebrow">Cash</span><b>€${cash}</b></div><div><span class="eyebrow">Best lap</span><b>${BEST.trial!==null?fmtTime(BEST.trial):'–'}</b></div>`;
+    renderAch();
     $('psound').textContent='Sound: '+(muted?'off':'on');$('pmusic').textContent='Music: '+(musicOn?'on':'off');
     if(AC)AC.suspend();saveGame();
   }else{if(AC)AC.resume();canvas.focus();}
@@ -3664,7 +3729,8 @@ function action(){
 function toggleCar(){
   if(P.mode==='walk'){
     const c=nearestCar();if(!c)return;
-    if(c.ai){c.ai=null;toast('You borrowed a car. The owner shrugs and walks off.',3000);}
+    if(c.ai){c.ai=null;toast('You borrowed a car. The owner shrugs and walks off.',3000);ach('borrow');}
+    if(c.veh)achVeh(c.veh);
     P.mode='drive';P.car=c;P.m.g.visible=false;c.blockedT=0;if(c.rider)c.rider.g.visible=true;
   }else{
     const c=P.car;if(Math.abs(c.speed)>7){toast('Slow down before you get out',1600);return;}
@@ -4253,7 +4319,7 @@ function frame(now){
   for(const c of COINS){
     if(c.got)continue;c.m.rotation.y+=dt*2.4;c.m.position.y=1.3+Math.sin(t*2+c.x)*0.2;
     if(started&&Math.hypot(c.x-px,c.z-pz)<2.6){
-      c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;coinSound();addXP(25);saveGame();
+      c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;coinSound();addXP(25);ach('coin1');if(coinCount===COINS.length)ach('coins');saveGame();
       $('coins').textContent=coinCount+'/'+COINS.length;
       if(coinCount===COINS.length){cash+=250;$('cash').textContent='€'+cash;saveGame();toast(`<strong>All 12 polder coins!</strong> Bonus <strong>+€250</strong>.`,7000);}
       else toast(`Polder coin <strong>${coinCount}/${COINS.length}</strong>`,1800);
@@ -4288,13 +4354,13 @@ function frame(now){
     if(pr!==lastPrompt){lastPrompt=pr;$('prompt').innerHTML=pr;$('prompt').hidden=!pr;}
     const drv=P.mode==='drive';$('speedo').hidden=!drv;
     if(TOUCH.on&&drv!==TOUCH.drv){TOUCH.drv=drv;$('bJump').textContent=drv?'BRAKE':'JUMP';}
-    if(drv)$('spd').textContent=Math.round(Math.abs(P.car.speed)*3.6);
+    if(drv){$('spd').textContent=Math.round(Math.abs(P.car.speed)*3.6);ACH.km+=Math.abs(P.car.speed)*dt/1000;if(Math.abs(P.car.speed)*3.6>=150)ach('fast');}
     updateAudio(dt,px,pz);
     drawMini();
   }
   if(gameMin+dt>=1440)GAME_DOW=(GAME_DOW+1)%7;gameMin=(gameMin+dt)%1440;
   updateWeather(dt);
-  secTimer+=dt;if(secTimer>0.25){secTimer=0;updateClocks();updateDayNight();updateMarket();$('clock').textContent=gameTimeStr();}
+  secTimer+=dt;if(secTimer>0.25){secTimer=0;if(started)achTick(px,pz);updateClocks();updateDayNight();updateMarket();$('clock').textContent=gameTimeStr();}
   // the spotlight stays in the scene (toggling visibility would recompile every shader); it only moves and dims
   if(started&&P.mode==='drive'){
     const c=P.car,fx=Math.sin(c.h),fz=Math.cos(c.h);

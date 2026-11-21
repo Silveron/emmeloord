@@ -41,10 +41,13 @@ const srv = http.createServer((q, r) => {
   if (process.env.THREE_JS) await pg.route('**/three.min.js', r => r.fulfill({ path: process.env.THREE_JS, contentType: 'text/javascript' }));
   await pg.route('**/fonts.googleapis.com/**', r => r.fulfill({ body: '', contentType: 'text/css' }));
   pg.on('pageerror', e => console.log('PAGEERROR', e.message));
+  if (process.env.PRE) await pg.addInitScript(process.env.PRE);
+  if (process.env.BLOCK) await pg.route(process.env.BLOCK, r => r.abort());
   await pg.goto('http://localhost:8123/index.html', { timeout: 180000 });
   await pg.waitForFunction(() => window.__game, null, { timeout: 120000 });
   await pg.evaluate(q => { localStorage.clear(); __game.start(); __game.setQuality(q); }, Q);
-  await pg.waitForTimeout(8000); // photo textures and characters load in the background
+  await pg.waitForTimeout(+(process.env.WAIT||8000));
+  if (process.env.EVAL) console.log('EVAL', await pg.evaluate(process.env.EVAL)); // photo textures and characters load in the background
   const res = {};
   for (const s of SPOTS.filter(s => !process.env.SPOTS || process.env.SPOTS.split(',').includes(s.id))) {
     const info = await pg.evaluate(s => {
@@ -64,7 +67,7 @@ const srv = http.createServer((q, r) => {
       }
       if (s.side) { const L = Math.hypot(tx - x, tz - z); const ox = -(tz - z) / L * s.side, oz = (tx - x) / L * s.side; x += ox; z += oz; tx += ox; tz += oz; }
       P.x = x; P.z = z; P.y = 0; P.h = Math.atan2(tx - x, tz - z);
-      G.setCam(P.h, s.pitch ?? 0.2); G.setZoom(s.zoom ?? 1); G.setRain(s.rain || 0); G.setTime(s.time);
+      G.setCam(P.h, s.pitch ?? 0.2); G.setZoom(s.zoom ?? 1); G.setFog(!!s.fog); G.setRain(s.rain || 0); G.setTime(s.time);
       return { x, z };
     }, s);
     await pg.waitForTimeout(3500);

@@ -852,10 +852,15 @@ function onBridge(x,z){for(const r of BRIDGES){if(x<r.x0-2||x>r.x1+2||z<r.z0-2||
 function inWater(x,z){for(const w of WATER){const b=w.b;if(x>b.x0&&x<b.x1&&z>b.z0&&z<b.z1&&inPoly(x,z,w))return true;}return false;}
 
 /* ---------- ground ---------- */
+/* sunken canals (graphics plan phase 4): the water polygons are first drawn into the stencil buffer only; the grass plane and the park
+   polygons skip those pixels, so you look down into the canal: water 1.1 m below the bank, grass slopes down to it */
+const WATER_Y=-1.1;
+const HOLE_MAT=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false,stencilWrite:true,stencilRef:1,stencilFunc:THREE.AlwaysStencilFunc,stencilZPass:THREE.ReplaceStencilOp});
+function holeTest(m){m.stencilWrite=true;m.stencilRef=1;m.stencilFunc=THREE.NotEqualStencilFunc;m.stencilFail=m.stencilZFail=m.stencilZPass=THREE.KeepStencilOp;return m;}
 {
   const gb=new GB();
   flat(gb,-WORLD-20,WORLD+20,-WORLD-20,WORLD+20,0,10);
-  gb.mesh(Lam({map:grassTex}),false,true);
+  gb.mesh(holeTest(Lam({map:grassTex})),false,true);
   PHOTO_SLOTS.push([gb.__mesh.material,'grass',10]);
 }
 
@@ -904,7 +909,15 @@ const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:ne
   const gStation=T(),gGreen=T(),gFlower=T('mid'),gWater=T(),gBank=T('mid'),gPed=T(),gPark=T(),gPlat=T('mid'),gFoot=T('mid'),gCycle=T(),gTrack=T('mid'),gRoad=T(),gKlink=T(),gMark=T('near'),gRail=T('mid');
   const GCOL=[C('#a9cf86'),C('#6f9a52'),C('#ffffff'),C('#7fc25e'),C('#c9c46a')].map(c=>c.multiplyScalar(0.8));
   for(const g of GREEN){if(g.k===2)fillPoly(gFlower,g.p,0.012,6);else fillPoly(gGreen,g.p,0.012,6,GCOL[g.k]);}
-  for(const w of WATER){fillPoly(gWater,w,0.02,1);ribbon(gBank,w.concat([w[0]]),1.0,0.026,2.4,C('#a8a49b'),false);}
+  const gHole=T();
+  {const BG=C('#ffffff'),BM=C('#7d7a5e');
+   for(const w of WATER){fillPoly(gWater,w,WATER_Y,1);fillPoly(gHole,w,0.0,1);
+    // banks: a grass slope from the edge 1.3 m inwards, then a muddy strip down to the water
+    for(let i=0;i<w.length;i++){const a=w[i],b=w[(i+1)%w.length],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<0.05)continue;
+      let nx=-(b[1]-a[1])/L,nz=(b[0]-a[0])/L;const mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;if(!inPoly(mx+nx*0.4,mz+nz*0.4,w)){nx=-nx;nz=-nz;}
+      const Pq=(p,o,y)=>[p[0]+nx*o,y,p[1]+nz*o],U=(p,o)=>[(p[0]+nx*o)/6,-(p[1]+nz*o)/6];
+      gBank.quad([Pq(a,0,0.0),Pq(b,0,0.0),Pq(b,1.3,WATER_Y+0.35),Pq(a,1.3,WATER_Y+0.35)],[U(a,0),U(b,0),U(b,1.3),U(a,1.3)],[nx*0.6,0.8,nz*0.6],BG);
+      gBank.quad([Pq(a,1.3,WATER_Y+0.35),Pq(b,1.3,WATER_Y+0.35),Pq(b,1.75,WATER_Y-0.05),Pq(a,1.75,WATER_Y-0.05)],[U(a,1.3),U(b,1.3),U(b,1.75),U(a,1.75)],[nx*0.6,0.8,nz*0.6],BM);}}}
   // the car parks beside the Poldertoren on De Deel are paved with brown klinkers, aisles included
   // the smaller one right beside the tower is the bus station (platforms A to G): asphalt, buses instead of cars
   STATION=PAVED.find(a=>a.k===1&&Math.abs(polyArea(a.p))>1500&&Math.abs(polyArea(a.p))<4000&&a.p.some(q=>Math.hypot(q[0]-TOWER.x,q[1]-TOWER.z)<40))||null;
@@ -1006,7 +1019,7 @@ const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:ne
     for(let i=0;i<r.p.length-1;i++){
       const a=r.p[i],b=r.p[i+1],ha=r.h[i],hb=r.h[i+1];if(ha<0.06&&hb<0.06)continue;
       const L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<0.05)continue;const dx=(b[0]-a[0])/L,dz=(b[1]-a[1])/L;
-      const deck=r.bridge&&ha>2&&hb>2;
+      const overW=r.bridge&&inWater((a[0]+b[0])/2,(a[1]+b[1])/2),deck=r.bridge&&(ha>2&&hb>2||overW);
       for(const sd of [-1,1]){const nx=-dz*sd,nz=dx*sd;
         const E=(p,o,y)=>[p[0]+nx*o,y,p[1]+nz*o];
         if(deck){
@@ -1025,7 +1038,7 @@ const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:ne
         const U=(p,o,y)=>[p[0]-dz*o,y,p[1]+dx*o];
         gDeck.quad([U(a,-hw-0.4,ha-1.1),U(b,-hw-0.4,hb-1.1),U(b,hw+0.4,hb-1.1),U(a,hw+0.4,ha-1.1)],[[0,0],[1,0],[1,1],[0,1]],[0,-1,0],CON2);
         // a wall pier every ~16 m, kept clear of the street or canal underneath
-        for(let t=8;t<L;t+=16){const x=a[0]+dx*t,z=a[1]+dz*t,h=ha+(hb-ha)*t/L-1.1;
+        if(ha>2&&hb>2)for(let t=8;t<L;t+=16){const x=a[0]+dx*t,z=a[1]+dz*t,h=ha+(hb-ha)*t/L-1.1;
           if(inWater(x,z)||onRoad(x,z,1.5)&&!nearSegs(x,z).every(s=>s.r===r||!(segDist(x,z,s.ax,s.az,s.bx,s.bz)[0]<s.r.w/2+1.5)||s.r.h))continue;
           const pw=Math.min(hw*0.7,4),px=-dz*pw,pz=dx*pw,tx=dx*0.45,tz=dz*0.45;
           const c4=[[x+px+tx,z+pz+tz],[x+px-tx,z+pz-tz],[x-px-tx,z-pz-tz],[x-px+tx,z-pz+tz]];
@@ -1037,10 +1050,11 @@ const waterMat=new THREE.MeshPhongMaterial({normalMap:waterNormal,normalScale:ne
   }
   gEmb.mesh(overlay({map:grassTex,vertexColors:true},1),true,true);for(const m of gEmb.meshes)PHOTO_SLOTS.push([m.material,'grass',6]);
   gDeck.mesh(Lam({map:pavTex,vertexColors:true,roughness:0.92,side:THREE.DoubleSide}),true,true);
-  gGreen.mesh(overlay({map:grassTex,vertexColors:true},1),false,true);
-  gFlower.mesh(overlay({map:tulipTex},1),false,true);
+  gGreen.mesh(holeTest(overlay({map:grassTex,vertexColors:true},1)),false,true);
+  gFlower.mesh(holeTest(overlay({map:tulipTex},1)),false,true);
   gWater.mesh(waterMat,false,true);
-  gBank.mesh(overlay({map:pavTex,vertexColors:true},3),false,true);
+  gHole.mesh(HOLE_MAT,false,false);for(const m of gHole.meshes)m.renderOrder=-0.5;
+  gBank.mesh(overlay({map:grassTex,vertexColors:true},1),false,true);for(const m of gBank.meshes)PHOTO_SLOTS.push([m.material,'grass',6]);
   gStation.mesh(overlay({map:asphaltTex,normalMap:asphaltSet.normalMap,roughness:0.92},3),false,true);if(gStation.__mesh)PHOTO_SLOTS.push([gStation.__mesh.material,'asphalt',8]);
   gPark.mesh(overlay({map:baseTex,normalMap:pavSet.normalMap,roughness:0.88},3),false,true);
   gPed.mesh(overlay({map:klinkerTex,normalMap:klinkerSet.normalMap,roughness:0.8},3),false,true);
@@ -1467,7 +1481,7 @@ function updateDucks(dt,t){
   }
   D.list.forEach((d,i)=>{const g=d.g,sh=Math.sin(g.h),ch=Math.cos(g.h);
     const x=g.x+ch*d.ox+sh*d.oz,z=g.z-sh*d.ox+ch*d.oz,bob=Math.sin(t*2+d.ph)*0.015;
-    _dq.setFromAxisAngle(_dy,g.h+Math.sin(t*0.7+d.ph)*0.25);_dm.compose(_dv.set(x,0.06+bob,z),_dq,_ds);D.bm.setMatrixAt(i,_dm);D.hm.setMatrixAt(i,_dm);});
+    _dq.setFromAxisAngle(_dy,g.h+Math.sin(t*0.7+d.ph)*0.25);_dm.compose(_dv.set(x,WATER_Y+0.06+bob,z),_dq,_ds);D.bm.setMatrixAt(i,_dm);D.hm.setMatrixAt(i,_dm);});
   D.bm.instanceMatrix.needsUpdate=D.hm.instanceMatrix.needsUpdate=true;
 }
 function updateBirds(dt,t){
@@ -4642,8 +4656,8 @@ const POST={on:false};
   const isGL2=renderer.capabilities.isWebGL2;
   const ftype=isGL2||renderer.extensions.has('OES_texture_half_float')?THREE.HalfFloatType:THREE.UnsignedByteType;
   const mk=(o)=>new THREE.WebGLRenderTarget(1,1,Object.assign({minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat,depthBuffer:false,stencilBuffer:false},o));
-  POST.scene=mk({type:ftype,depthBuffer:true});
-  POST.scene.depthTexture=new THREE.DepthTexture(1,1);POST.scene.depthTexture.type=THREE.UnsignedIntType;
+  POST.scene=mk({type:ftype,depthBuffer:true,stencilBuffer:true});
+  POST.scene.depthTexture=new THREE.DepthTexture(1,1);POST.scene.depthTexture.format=THREE.DepthStencilFormat;POST.scene.depthTexture.type=THREE.UnsignedInt248Type;
   POST.ao=mk({});POST.b1=mk({type:ftype});POST.b2=mk({type:ftype});POST.comp=mk({});
   const quadCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1),quadScene=new THREE.Scene();
   const quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2),null);quad.frustumCulled=false;quadScene.add(quad);

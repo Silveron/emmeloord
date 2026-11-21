@@ -157,6 +157,8 @@ def levels_h(t, kind, a):
         except: pass
     return None
 
+BAG3D = json.load(open(os.environ.get('BAG3D', '/home/user/osm2/bag3d.json'))) if os.path.exists(os.environ.get('BAG3D', '/home/user/osm2/bag3d.json')) else {}
+BAGHIT = [0]
 edgecount = collections.Counter()
 blds = []
 for p, t, wid in polys_of(lambda t: 'building' in t and t.get('building') not in ('roof', 'construction', 'static_caravan', 'houseboat')):
@@ -210,6 +212,16 @@ for i, (p, t, wid, a, k) in enumerate(blds):
         if kind == 0 and a > 220: h = 7.0
         if kind == 2 and a > 1500: h = 9
     h = round(min(h, 40), 1)
+    # measured heights and roofs from the 3D BAG (tools/bag3d.py), matched by the OSM ref:bag tag (graphics plan phase 5)
+    bag = BAG3D.get(t.get('ref:bag', '').zfill(16))
+    rise = ang = None
+    if bag and bag[3] > 1.5:
+        _, eave, ridge, h70, typ, bang, _yr = bag
+        if typ == 1 and bang is not None and ridge - eave > 0.8 and eave > 1.8:
+            h = round(min(eave, 40), 1); rise = round(min(ridge - eave, 14), 1); ang = bang
+        else:
+            h = round(min(max(h70, 2.2), 40), 1)
+        BAGHIT[0] += 1
     shop = 1 if (i in shopbld or (kind == 2 and dc < 450)) else 0
     ps = simp_poly(p, 0.25)
     if area(ps) < 0: ps = ps[::-1]   # make winding consistent (positive area)
@@ -221,7 +233,7 @@ for i, (p, t, wid, a, k) in enumerate(blds):
         for j in range(len(nds)):
             if edgecount[frozenset((nds[j], nds[(j + 1) % len(nds)]))] > 1: inner.append(j)
     roof = 0
-    if kind == 0 and len(ps) == 4 and a < 600:
+    if kind == 0 and len(ps) == 4 and a < 600 and not bag:
         # near-rectangular -> gabled roof
         ang = []
         for j in range(4):
@@ -229,7 +241,8 @@ for i, (p, t, wid, a, k) in enumerate(blds):
             v1 = (b1[0] - a1[0], b1[1] - a1[1]); v2 = (c1[0] - b1[0], c1[1] - b1[1])
             ang.append(abs(v1[0] * v2[0] + v1[1] * v2[1]) / (math.hypot(*v1) * math.hypot(*v2) + 1e-9))
         if max(ang) < 0.12: roof = 1
-    bout.append([kind, h, roof, shop, enc(ps), inner])
+    if bag: roof = 0   # the 3D BAG decides: a pitched roof only where it measured one (rise/ang set)
+    bout.append([kind, h, roof, shop, enc(ps), inner, rise, ang])
 
 
 BEDGES = []
@@ -558,9 +571,10 @@ for k,e in green: vu(k); pts_out(dec(e),2)
 vu(len(paved))
 for k,e in paved: vu(k); pts_out(dec(e),4)
 vu(len(bout))
-for kind,h,roof,shop,e,inner in bout:
-    vu(kind); vu(round(h*10)); vu(roof|(shop<<1)); pts_out(dec(e),4); vu(len(inner))
+for kind,h,roof,shop,e,inner,rise,ang in bout:
+    vu(kind); vu(round(h*10)); vu(roof|(shop<<1)|(4 if rise else 0)); pts_out(dec(e),4); vu(len(inner))
     for j in inner: vu(j)
+    if rise: vu(round(rise*10)); vu(round(ang*2) % 360)
 pts_out(gn_out,2)
 vu(len(edges))
 for e in edges:
@@ -623,6 +637,7 @@ ang_out(give); ang_out(zebra)
 for L in (bollards, bins, cabinets, kerbcuts): pts_out(L, 4)
 vu(len(hedges))
 for e in hedges: pts_out(dec(e), 4)
+print('3D BAG matches', BAGHIT[0], 'of', len(bout))
 print('give', len(give), 'zebra', len(zebra), 'bollards', len(bollards), 'bins', len(bins), 'cabinets', len(cabinets), 'kerbcuts', len(kerbcuts), 'hedges', len(hedges))
 b64=base64.b64encode(bytes(buf)).decode()
 meta={'region':[RX0,RX1,RZ0,RZ1],'names':names,'shops':[[round(x,1),round(z,1),s] for x,z,s in shops],'places':places,'areas':areas}

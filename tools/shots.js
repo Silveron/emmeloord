@@ -23,6 +23,8 @@ const SPOTS = [
   { id: 'a6-marknesserweg', at: [1360, -80], look: [1428, -96], time: 15, pitch: 0.05 },
   { id: 'a6-muntweg', at: [1230, -1660], look: [1343, -1720], time: 15, pitch: 0.05 },
   { id: 'canal-centre', at: [-120, -330], look: [-60, -300], time: 14, pitch: 0.25 },
+  { id: 'roofs-emmelhage', at: [-300, -1890], look: [-420, -1990], time: 11, pitch: 0.75, zoom: 4 },
+  { id: 'roofs-centre', at: [180, 120], look: [60, 20], time: 11, pitch: 0.75, zoom: 4 },
   { id: 'kerb-close', place: 'Emmelhage', time: 12, side: 2.2, pitch: 0.08, zoom: 0.45 },
 ];
 

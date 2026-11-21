@@ -250,7 +250,16 @@ const pick=a=>a[Math.floor(rng()*a.length)];
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const wrapA=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
 const lerpA=(a,b,t)=>a+wrapA(b-a)*t;
+/* colour management: every hex or CSS colour in the code is an sRGB colour (as picked from photos, like a paint chip), so it is turned
+   into linear light on the way in, as current Three.js does; getHex() gives sRGB back. Before this, pale colours were treated as
+   far brighter than they are and glowed in the sun (graphics plan, phase 1) */
+{const P=THREE.Color.prototype,sh=P.setHex,ss=P.setStyle,gh=P.getHex;let d=0;
+  P.setHex=function(h){sh.call(this,h);if(!d)this.convertSRGBToLinear();return this;};
+  P.setStyle=function(st){d++;try{ss.call(this,st);}finally{d--;}if(!d)this.convertSRGBToLinear();return this;};
+  P.getHex=function(){const r=this.r,g=this.g,b=this.b;this.convertLinearToSRGB();const h=gh.call(this);this.r=r;this.g=g;this.b=b;return h;};}
 const C=c=>new THREE.Color(c);
+// CL: a colour taken as linear light as-is (sky, fog and light colours, which were tuned on screen that way)
+const CL=c=>new THREE.Color(c).convertLinearToSRGB();
 const WHITE=C('#ffffff');
 // game clock in minutes; one real second is one game minute, so a full day takes 24 minutes
 let GAME_DOW=(new Date().getDay()+6)%7;const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -267,12 +276,12 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=0.9;
 const scene=new THREE.Scene();
 const FOG=0xcfe1ec;
-scene.background=new THREE.Color(FOG);
-scene.fog=new THREE.Fog(FOG,220,1050);
+scene.background=CL(FOG);
+scene.fog=new THREE.Fog(FOG,220,1050);scene.fog.color.copy(CL(FOG));
 const camera=new THREE.PerspectiveCamera(62,1,0.3,2400);
 
-const hemi=new THREE.HemisphereLight(0xe4f1ff,0x5a7048,0.74);scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xfff0d6,0.95);
+const hemi=new THREE.HemisphereLight(CL(0xe4f1ff),CL(0x5a7048),0.74);scene.add(hemi);
+const sun=new THREE.DirectionalLight(CL(0xfff0d6),0.95);
 sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
 {const s=sun.shadow.camera;s.left=-95;s.right=95;s.top=95;s.bottom=-95;s.near=10;s.far=420;}
@@ -302,7 +311,7 @@ gl_FragColor=vec4(c,1.0);
 #include <encodings_fragment>
 }`;
 const SKY_BLANK=new THREE.DataTexture(new Uint8Array([128,128,128,255]),1,1);SKY_BLANK.needsUpdate=true;
-const skyUniforms=()=>({top:{value:new THREE.Color(0x5b9ad8)},bot:{value:new THREE.Color(FOG)},sunDir:{value:new THREE.Vector3(-0.5,0.7,0.4)},sunCol:{value:new THREE.Color(0xfff0d6)},sunAmt:{value:1},
+const skyUniforms=()=>({top:{value:CL(0x5b9ad8)},bot:{value:CL(FOG)},sunDir:{value:new THREE.Vector3(-0.5,0.7,0.4)},sunCol:{value:CL(0xfff0d6)},sunAmt:{value:1},
   tDay:{value:SKY_BLANK},tDusk:{value:SKY_BLANK},tOver:{value:SKY_BLANK},wPhoto:{value:new THREE.Vector4(0,0,0,0)},uShift:{value:0}});
 const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,uniforms:skyUniforms(),vertexShader:SKY_VS,fragmentShader:SKY_FS});
 const sky=new THREE.Mesh(new THREE.SphereGeometry(1800,32,16),skyMat);
@@ -331,7 +340,7 @@ function updateEnv(force){
   const now=performance.now()/1000;
   if(!force&&(key===envKey||now-envT<2.5))return;
   envKey=key;envT=now;
-  envScene.userData.gnd.material.color.copy(u.bot.value).multiplyScalar(0.35).lerp(C('#3e4a32'),0.5);
+  envScene.userData.gnd.material.color.copy(u.bot.value).multiplyScalar(0.35).lerp(CL('#3e4a32'),0.5);
   const rt=pmrem.fromScene(envScene,0.02,0.1,100);
   scene.environment=rt.texture;if(envRT)envRT.dispose();envRT=rt;
 }
@@ -1163,8 +1172,8 @@ let carousel=null;
 {
   const g=new THREE.Group();g.position.set(TOWER.x,0,TOWER.z);scene.add(g);
   // pale concrete: colours are given in sRGB and converted, with less sky reflection, so the plinth no longer glows white in the sun
-  const cc=(c,ei)=>Lam({color:new THREE.Color(c).convertSRGBToLinear(),roughness:0.96,envMapIntensity:ei});
-  const concrete=cc('#b3ab9e',0.35),concreteDk=cc('#9a9286',0.3),dark=lm('#33302e');
+  const cc=(c,ei)=>Lam({color:new THREE.Color(c),roughness:0.96,envMapIntensity:ei});
+  const concrete=cc('#b3ab9e',0.35),concreteDk=cc('#9a9286',0.3),dark=lm('#5a5550');
   const add=(geo,mat,x,y,z,parent)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;(parent||g).add(m);return m;};
   const B=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
   const TH=TOWER.th;                       // rotation of the octagon, taken from its footprint on the map
@@ -1374,7 +1383,7 @@ const flagTex=canvasTex(96,64,(g,w,h)=>{g.fillStyle='#ae1c28';g.fillRect(0,0,w,h
       [Cy,TM(0.32,0.3,-1.25,0.13,0.9,0.13,1.45,0.5)],[S,TM(0.52,0.3,-1.62,0.2,0.2,0.26)], // tail
     ]);
     const plinth=new THREE.BoxGeometry(1.25,0.24,2.55);
-    const stone=Lam({color:'#625d56',roughness:0.97,envMapIntensity:0.12}),base=Lam({color:'#55514b',roughness:0.95,envMapIntensity:0.12});
+    const stone=Lam({color:'#a39c91',roughness:0.97,envMapIntensity:0.12}),base=Lam({color:'#8f8980',roughness:0.95,envMapIntensity:0.12});
     for(const [x,z] of OSM_LIONS){
       const lg=new THREE.Group();lg.position.set(x,0,z);lg.rotation.y=Math.atan2(-x,-z)+Math.PI;scene.add(lg);
       const b=new THREE.Mesh(plinth,base);b.position.y=0.12;b.receiveShadow=true;b.castShadow=true;lg.add(b);
@@ -1652,8 +1661,8 @@ for(const r of POLDER_ROADS){
 /* trees are split into 150 m chunks so far chunks can be hidden, use a simpler crown, and skip the shadow pass */
 const TREE_CHUNKS=[];
 {
-  const CH=150,trunkG=new THREE.CylinderGeometry(0.16,0.3,1,7),trunkMat=Lam({color:0x4a3a2e,roughness:1});
-  const limbG=limbTrunk(),barkMat=Lam({color:0x3e3732,roughness:1});
+  const CH=150,trunkG=new THREE.CylinderGeometry(0.16,0.3,1,7),trunkMat=Lam({color:0x7a6c5e,roughness:1});
+  const limbG=limbTrunk(),barkMat=Lam({color:0x6e645a,roughness:1});
   const geo={round:leafCrown(120),poplar:lumpyCrown(true)},far={round:leafCrown(40),poplar:lumpyCrown(true,true)};
   const leafMat=Lam({color:0xffffff,vertexColors:true,roughness:0.95});
   const cardMat=Lam({map:leafTex,alphaTest:0.5,side:THREE.DoubleSide,vertexColors:true,roughness:0.9,envMapIntensity:0.5});
@@ -1714,7 +1723,7 @@ function updateTreeChunks(px,pz){
 {
   // street lamps where the map has them
   const ok=OSM_LAMPS.filter(([x,z])=>!blocked(x,z,0.4));
-  const poleG=new THREE.CylinderGeometry(0.055,0.11,5,6,1,true),poleM=Lam({color:0x2f3336,metalness:0.6,roughness:0.45});
+  const poleG=new THREE.CylinderGeometry(0.055,0.11,5,6,1,true),poleM=Lam({color:0x60666b,metalness:0.35,roughness:0.5});
   // lantern head: glass bowl under a dark hood
   const headG=new THREE.LatheGeometry([[0.001,-0.2],[0.1,-0.2],[0.2,0.02],[0.3,0.1],[0.08,0.24],[0.001,0.26]].map(p=>new THREE.Vector2(p[0],p[1])),10);
   const poolG=new THREE.PlaneGeometry(9,9).rotateX(-Math.PI/2);
@@ -1876,7 +1885,7 @@ function mergeParts(parts){
   for(const [geo,c,x,y,z,sx,sy,sz] of parts){
     const g=(geo.index?geo.toNonIndexed():geo.clone());
     _pm.compose(_pp.set(x,y,z),_pq.identity(),_ps.set(sx||1,sy||1,sz||1));g.applyMatrix4(_pm);
-    const cc=C(c).convertSRGBToLinear(),P=g.attributes.position,N=g.attributes.normal;
+    const cc=C(c),P=g.attributes.position,N=g.attributes.normal;
     for(let i=0;i<P.count;i++){pos.push(P.getX(i),P.getY(i),P.getZ(i));nor.push(N.getX(i),N.getY(i),N.getZ(i));col.push(cc.r,cc.g,cc.b);}
   }
   const g=new THREE.BufferGeometry();
@@ -1943,7 +1952,7 @@ function rigTemplate(gltf,height,mergeColours){
 function rigColours(t,o){
   const key=[o.shirt,o.pants,o.skin,o.hair].join();const c=t.parts.cache;if(c[key])return c[key];
   const col={Shirt:o.shirt,Pants:o.pants,Skin:o.skin,Hair:o.hair,Eyes:'#1a1a1a',Socks:o.shoes||'#2a2a2a'};
-  const cs=t.parts.names.map(n=>C(col[n]||'#888').convertSRGBToLinear());
+  const cs=t.parts.names.map(n=>C(col[n]||'#888'));
   const arr=new Float32Array(t.parts.part.length*3);t.parts.part.forEach((k,i)=>{arr[i*3]=cs[k].r;arr[i*3+1]=cs[k].g;arr[i*3+2]=cs[k].b;});
   const g=t.parts.geo.clone();g.setAttribute('color',new THREE.BufferAttribute(arr,3));
   // generous bounds: the skinned pose moves vertices away from the bind pose
@@ -2008,10 +2017,10 @@ async function loadRigs(){
     RIG.people=rigTemplate(pg,1.76,true);
     // the player keeps the orange top and dark jeans of the old model
     hg.scene.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;const mm=o.material;mm.envMapIntensity=0.7;mm.roughness=0.8;
-      if(mm.name==='LightGreen')mm.color.set('#ff7b1c').convertSRGBToLinear();
-      else if(mm.name==='Green')mm.color.set('#c45a12').convertSRGBToLinear();
-      else if(mm.name==='Brown')mm.color.set('#24324a').convertSRGBToLinear();
-      else if(mm.name==='Brown2')mm.color.set('#3a2a1c').convertSRGBToLinear();});
+      if(mm.name==='LightGreen')mm.color.set('#ff7b1c');
+      else if(mm.name==='Green')mm.color.set('#c45a12');
+      else if(mm.name==='Brown')mm.color.set('#24324a');
+      else if(mm.name==='Brown2')mm.color.set('#3a2a1c');});
     RIG.hero=rigTemplate(hg,1.8,false);
     for(const m of PEOPLE)attachRig(m);
   }catch(e){console.warn('Rigged characters not available, keeping the simple ones.',e);}
@@ -2089,7 +2098,7 @@ function mergeGeo(list){
 // merge geometries and give each part its own vertex colour, so a whole model is a single draw call
 function mergeCol(list){
   const g=mergeGeo(list.map(l=>[l[0],l[1]])),n=g.attributes.position.count,col=new Float32Array(n*3);let o=0;
-  for(const l of list){const cnt=l[0].index?l[0].index.count:l[0].attributes.position.count,c=C(l[2]).convertSRGBToLinear();for(let i=0;i<cnt;i++){col[(o+i)*3]=c.r;col[(o+i)*3+1]=c.g;col[(o+i)*3+2]=c.b;}o+=cnt;}
+  for(const l of list){const cnt=l[0].index?l[0].index.count:l[0].attributes.position.count,c=C(l[2]);for(let i=0;i<cnt;i++){col[(o+i)*3]=c.r;col[(o+i)*3+1]=c.g;col[(o+i)*3+2]=c.b;}o+=cnt;}
   g.setAttribute('color',new THREE.BufferAttribute(col,3));return g;
 }
 const SPHERE=new THREE.SphereGeometry(0.5,14,10),CYL=new THREE.CylinderGeometry(0.5,0.5,1,14);
@@ -2394,7 +2403,7 @@ function staticCars(list){
     const geos={shell:CARPARTS[kind].shell,glass:CARGEO[kind].glass,trim:CARPARTS.trim,head:CARPARTS.head,tail:CARPARTS.tail,plates:CARPARTS.plates};
     for(const [name,mat,paint] of parts){
       const im=new THREE.InstancedMesh(geos[name],paint?new THREE.MeshStandardMaterial({metalness:0.5,roughness:0.32,envMapIntensity:1.1}):mat,L.length);
-      L.forEach((c,i)=>{m4.compose(new THREE.Vector3(c.x,0,c.z),q.setFromAxisAngle(Y,c.h),one);im.setMatrixAt(i,m4);if(paint)im.setColorAt(i,col.set(c.color).convertSRGBToLinear());});
+      L.forEach((c,i)=>{m4.compose(new THREE.Vector3(c.x,0,c.z),q.setFromAxisAngle(Y,c.h),one);im.setMatrixAt(i,m4);if(paint)im.setColorAt(i,col.set(c.color));});
       im.castShadow=name==='shell';scene.add(im);out.meshes.push(im);
     }
     const wh=new THREE.InstancedMesh(CARPARTS.wheel,WHEEL_MAT,L.length*4),sh=new THREE.InstancedMesh(CAR_SHADOW_GEO,CAR_SHADOW_MAT,L.length);
@@ -4239,11 +4248,11 @@ const STARS=(()=>{
 const headSpot=new THREE.SpotLight(0xfff1d0,0,55,0.55,0.6,1.2);
 scene.add(headSpot);scene.add(headSpot.target);
 const DN={
-  topDay:C('#5b9ad8'),topDusk:C('#45609c'),topNight:C('#081226'),
-  botDay:C(FOG),botDusk:C('#f2a66e'),botNight:C('#141d31'),
-  sunDay:C('#fff0d6'),sunDusk:C('#ffad66'),moon:C('#9fb4ff'),
-  hemiDay:C('#e4f1ff'),hemiNight:C('#5d70a8'),gndDay:C('#5a7048'),gndNight:C('#1c2430'),
-  glow:C('#ffcf86'),rainTop:C('#6f7c88'),rainBot:C('#a3adb4'),cloudDay:C('#8a99a8'),cloudNight:C('#141a26'),
+  topDay:CL('#5b9ad8'),topDusk:CL('#45609c'),topNight:CL('#081226'),
+  botDay:CL(FOG),botDusk:CL('#f2a66e'),botNight:CL('#141d31'),
+  sunDay:CL('#fff0d6'),sunDusk:CL('#ffad66'),moon:CL('#9fb4ff'),
+  hemiDay:CL('#e4f1ff'),hemiNight:CL('#5d70a8'),gndDay:CL('#5a7048'),gndNight:CL('#1c2430'),
+  glow:CL('#ffcf86'),rainTop:CL('#6f7c88'),rainBot:CL('#a3adb4'),cloudDay:CL('#8a99a8'),cloudNight:CL('#141a26'),
   c1:new THREE.Color(),c2:new THREE.Color()
 };
 let NIGHT=0,RAIN=0,rainTarget=0,weatherT=150,FOGK=0,FOG_DAY=Math.random()<0.35,FOG_ROLLED=false,SNOW=0,SNOWING=false;

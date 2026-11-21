@@ -30,6 +30,9 @@ html,body{height:100%;margin:0;overflow:hidden;background:#12181c;color:var(--in
 #mini{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:180px;height:180px;border-radius:50%;border:2px solid rgba(255,255,255,.28);box-shadow:0 6px 24px rgba(0,0,0,.35);background:#2b3a2e}
 #speedo{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:12px 16px;text-align:right}
 #speedo .v{font:700 46px/1 var(--mono);font-variant-numeric:tabular-nums;margin-top:6px}
+#dmg{margin-top:8px;height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+#dmg[hidden]{display:none}
+#dmg i{display:block;height:100%;width:0;background:#e6b422}
 #speedo .v small{font-size:13px;color:var(--muted);margin-left:4px}
 #prompt{position:fixed;left:50%;bottom:calc(64px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:9px 16px;font-weight:600;font-size:15px;white-space:nowrap}
 #hint{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:12px;color:var(--muted);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.6)}
@@ -162,7 +165,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
   <div><span class="eyebrow">Time</span><b id="clock">12:00</b></div>
 </div>
 <canvas id="mini" width="360" height="360" hidden></canvas>
-<div id="speedo" class="panel" hidden><div class="eyebrow">Speed</div><div class="v"><span id="spd">0</span><small>km/h</small></div></div>
+<div id="speedo" class="panel" hidden><div class="eyebrow">Speed</div><div class="v"><span id="spd">0</span><small>km/h</small></div><div id="dmg" hidden title="Damage"><i></i></div></div>
 <div id="prompt" class="panel" hidden></div>
 <div id="hint" hidden><kbd>E</kbd> car &nbsp;·&nbsp; <kbd>H</kbd> horn &nbsp;·&nbsp; <kbd>R</kbd> back to De Deel &nbsp;·&nbsp; <kbd>T</kbd> time &nbsp;·&nbsp; <kbd>M</kbd> sound &nbsp;·&nbsp; <kbd>N</kbd> music &nbsp;·&nbsp; <kbd>P</kbd> pause &nbsp;·&nbsp; drag or click to look</div>
 <div id="mission" class="panel" hidden><div class="eyebrow" id="mTitle">Job</div><div id="mText"></div><b id="mTime"></b><div id="mDir"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2 L20 20 L12 15 L4 20 Z" fill="currentColor"/></svg><span id="mDist"></span></div></div>
@@ -193,6 +196,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
     <div class="eyebrow" id="gWhere">Garage</div>
     <h2 id="gTitle">Your garage</h2>
     <p class="gsub" id="gSub"></p>
+    <div id="gFix"></div>
     <div class="gsec">Cars</div><div id="gCars"></div>
     <div class="gsec" id="gUpHead">Upgrades</div><div id="gUps"></div>
     <div class="gsec">Paint <small>(€40)</small></div><div id="gPaint"></div>
@@ -2944,6 +2948,8 @@ function renderGarage(){
     const own=!!OWN.owned[m.id],sel=m.id===OWN.model;
     let btn=sel?'<button class="ghost" disabled>Driving it</button>':own?`<button class="ghost" data-sel="${m.id}">Take this one</button>`:L<m.lvl?`<button class="ghost" disabled>Level ${m.lvl}</button>`:`<button class="primary" data-buy="${m.id}" ${cash<m.price?'disabled':''}>Buy €${m.price}</button>`;
     return `<div class="grow"><div class="gname"><b>${m.name}</b><span>${m.info} Top ${kmh(m.top)} km/h.</span></div>${btn}</div>`;}).join('');
+  {const c=P.mode==='drive'&&!P.car.veh?P.car:OWN.car,d=Math.round(c.dmg||0),k=repairCost(c);
+   $('gFix').innerHTML=d>0?`<div class="grow"><div class="gname"><b>Repair ${c===OWN.car?'your car':'this car'}</b><span>Damage ${d}%. New panels, a fixed radiator, no more smoke.</span></div><button class="primary" data-fix="1" ${cash<k?'disabled':''}>Repair €${k}</button></div>`:'';}
   $('gUpHead').textContent='Upgrades for the '+cur.name;
   $('gUps').innerHTML=UPGRADES.map(u=>{const k=o[u.id];
     const btn=k>=3?'<button class="ghost" disabled>Maxed</button>':L<u.lvl[k]?`<button class="ghost" disabled>Level ${u.lvl[k]}</button>`:`<button class="primary" data-up="${u.id}" ${cash<u.price[k]?'disabled':''}>Upgrade €${u.price[k]}</button>`;
@@ -2954,7 +2960,8 @@ $('garage').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;
   if(b.id==='gClose'){closeGarage();return;}
   const o=()=>OWN.owned[OWN.model];
-  if(b.dataset.buy){const m=CAR_MODELS.find(x=>x.id===b.dataset.buy);if(cash<m.price)return;cash-=m.price;OWN.owned[m.id]={engine:0,turbo:0,tyres:0,color:m.id==='gt'?'#c0392b':m.id==='volt'?'#1a8f9a':m.id==='van'?'#f2f0ea':'#ff7b1c'};OWN.model=m.id;applyOwnCar();parkOwnCar();buyMsg(`<strong>${m.name}</strong> bought! It's parked outside the garage.`);ach('buy');}
+  if(b.dataset.fix){const c=P.mode==='drive'&&!P.car.veh?P.car:OWN.car,k=repairCost(c);if(cash<k)return;cash-=k;c.dmg=0;buyMsg('Good as new!');ach('repair');}
+  else if(b.dataset.buy){const m=CAR_MODELS.find(x=>x.id===b.dataset.buy);if(cash<m.price)return;cash-=m.price;OWN.owned[m.id]={engine:0,turbo:0,tyres:0,color:m.id==='gt'?'#c0392b':m.id==='volt'?'#1a8f9a':m.id==='van'?'#f2f0ea':'#ff7b1c'};OWN.model=m.id;applyOwnCar();parkOwnCar();buyMsg(`<strong>${m.name}</strong> bought! It's parked outside the garage.`);ach('buy');}
   else if(b.dataset.sel){OWN.model=b.dataset.sel;applyOwnCar();parkOwnCar();buyMsg(`You take the <strong>${CAR_MODELS.find(x=>x.id===OWN.model).name}</strong>.`);}
   else if(b.dataset.up){const u=UPGRADES.find(x=>x.id===b.dataset.up),k=o()[u.id];if(k>=3||cash<u.price[k])return;cash-=u.price[k];o()[u.id]++;applyOwnCar();buyMsg(`<strong>${u.name}</strong> upgraded to step ${k+1}.`);}
   else if(b.dataset.paint){const p=b.dataset.paint;if(p===o().color)return;if(cash<40)return;cash-=40;o().color=p;applyOwnCar();buyMsg('Fresh paint!');ach('paint');}
@@ -2962,6 +2969,29 @@ $('garage').addEventListener('click',e=>{
 });
 // your car waits on the forecourt (unless you are sitting in it)
 function parkOwnCar(){const c=OWN.car;if(P.mode==='drive'&&P.car===c)return;const [x,z]=GARAGE.park;c.x=x;c.z=z;c.h=GARAGE.h+Math.PI*0.75;c.speed=0;c.g.position.set(x,0,z);c.g.rotation.y=c.h;}
+/* ---------- car damage: crashes hurt the car you drive; smoke from the bonnet when it is badly hurt, slower when wrecked; the garage repairs it ---------- */
+function dmgFactor(c){const d=c.dmg||0;return d>=100?0.45:d>=75?0.75:1;}
+function hurtCar(c,n){
+  if(!c||c.veh||c.bus||n<=0)return;const before=c.dmg||0;c.dmg=Math.min(100,before+n);
+  if(before<50&&c.dmg>=50)toast('Your car is smoking. The garage can fix it.',2600);
+  if(before<100&&c.dmg>=100)toast('<strong>Wrecked!</strong> The engine limps along. Get it to the garage (white dot on the map).',3600);
+}
+function repairCost(c){return Math.ceil((c.dmg||0)*1.2);}
+const SMOKE=(()=>{const N=140,pos=new Float32Array(N*3).fill(-999),vel=new Float32Array(N*3),life=new Float32Array(N);
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const m=new THREE.PointsMaterial({map:glowTex,color:0x4a4d50,size:3.6,transparent:true,opacity:0.62,depthWrite:false,sizeAttenuation:true});
+  const p=new THREE.Points(g,m);p.frustumCulled=false;p.visible=false;scene.add(p);return {p,pos,vel,life,N,i:0,acc:0,on:false};})();
+function updateSmoke(dt){
+  const S=SMOKE,c=P.mode==='drive'?P.car:OWN.car,d=c&&c.dmg||0;
+  if(d>=50){S.acc+=dt*(d>=100?26:d>=75?16:8);const sh=Math.sin(c.h),ch=Math.cos(c.h);
+    while(S.acc>1){S.acc--;const i=S.i=(S.i+1)%S.N;S.pos[i*3]=c.x+sh*1.55+(rng()-.5)*0.5;S.pos[i*3+1]=1.0;S.pos[i*3+2]=c.z+ch*1.55+(rng()-.5)*0.5;
+      S.vel[i*3]=-sh*c.speed*0.4+(rng()-.5)*0.6+0.5;S.vel[i*3+1]=1.2+rng()*0.8;S.vel[i*3+2]=-ch*c.speed*0.4+(rng()-.5)*0.6;S.life[i]=1.6+rng()*1.2;S.on=true;}}
+  if(!S.on)return;let any=false;
+  for(let i=0;i<S.N;i++){if(S.life[i]<=0)continue;S.life[i]-=dt;if(S.life[i]<=0){S.pos[i*3+1]=-999;continue;}any=true;
+    S.vel[i*3]*=1-dt*1.2;S.vel[i*3+2]*=1-dt*1.2;S.pos[i*3]+=S.vel[i*3]*dt;S.pos[i*3+1]+=S.vel[i*3+1]*dt;S.pos[i*3+2]+=S.vel[i*3+2]*dt;}
+  S.p.material.color.setHex(d>=75?0x2e3032:0x5a5d60);
+  S.p.geometry.attributes.position.needsUpdate=true;S.p.visible=any;S.on=any;
+}
 /* ---------- more vehicles: a courier bike, a pizza scooter and a farm tractor (take them for a ride any time) ---------- */
 const VMAT=Lam({vertexColors:true,roughness:0.5,metalness:0.15,envMapIntensity:0.9});
 const VEHICLES=[],VNAME={bike:'bike',scooter:'scooter',tractor:'tractor'};
@@ -3692,6 +3722,7 @@ const ACH_LIST=[
   ['market','Thursday market','Visit the market on the Kettingplein'],
   ['dist','Road trip','Drive 25 km in total'],
   ['bells','Carillon','Hear the Poldertoren bells up close'],
+  ['repair','Good as new','Get your car repaired at the garage'],
 ];
 const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
 function ach(id){
@@ -3725,7 +3756,7 @@ $('pachb').onclick=()=>{$('pach').hidden=!$('pach').hidden;renderAch();};
 const SAVE_KEY='emmeloord-vrijbaan-v1';
 let GFX_SAVED=null,GFX=isTouchDevice?1:2,gfxAuto=true;
 function saveGame(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,xp:XP,own:{model:OWN.model,owned:OWN.owned},best:BEST.trial,race:BEST.race,min:Math.round(gameMin),dow:GAME_DOW,muted,music:musicOn,gfx:gfxAuto?null:GFX,season:SEASON_SET,ach:ACH}));}catch(_){}
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,xp:XP,own:{model:OWN.model,owned:OWN.owned},best:BEST.trial,race:BEST.race,min:Math.round(gameMin),dow:GAME_DOW,muted,music:musicOn,gfx:gfxAuto?null:GFX,season:SEASON_SET,ach:ACH,dmg:Math.round(OWN.car.dmg||0)}));}catch(_){}
 }
 function loadGame(){
   let d=null;try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(_){d=null;}
@@ -3733,6 +3764,7 @@ function loadGame(){
   d.coins.forEach((g,i)=>{const c=COINS[i];if(c&&g){c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;}});
   cash=+d.cash||0;XP=typeof d.xp==='number'?d.xp:cash;
   if(d.own&&d.own.owned&&d.own.owned[d.own.model]){OWN.owned=d.own.owned;OWN.model=d.own.model;applyOwnCar();}
+  if(typeof d.dmg==='number')OWN.car.dmg=clamp(d.dmg,0,100);
   if(d.ach&&typeof d.ach==='object'){ACH.got=d.ach.got||{};ACH.jobs=+d.ach.jobs||0;ACH.kinds=d.ach.kinds||{};ACH.veh=d.ach.veh||{};ACH.km=+d.ach.km||0;}
   updateLevelHud();BEST.trial=typeof d.best==='number'?d.best:null;BEST.race=typeof d.race==='number'?d.race:null;
   if(typeof d.min==='number')gameMin=d.min%1440;if(typeof d.dow==='number')GAME_DOW=d.dow%7;muted=!!d.muted;musicOn=d.music!==false;if(typeof d.gfx==='number')GFX_SAVED=d.gfx;
@@ -3833,7 +3865,7 @@ function carCollideWorld(c,isPlayer){
     const l=Math.hypot(tx,tz);
     if(l>1e-4){
       const into=-(tx/l*fx+tz/l*fz)*Math.sign(c.speed);
-      if(into>0.25){if(isPlayer&&Math.abs(c.speed)>8)thud();c.speed*=1-into*0.55;}
+      if(into>0.25){if(isPlayer&&Math.abs(c.speed)>8){thud();hurtCar(c,(Math.abs(c.speed)*into-7)*2.4);}c.speed*=1-into*0.55;}
     }
   }
   c.x=clamp(c.x,-WORLD+12,WORLD-12);c.z=clamp(c.z,-WORLD+12,WORLD-12);
@@ -3842,8 +3874,8 @@ function driveCar(c,dt){
   const up=K('KeyW','ArrowUp')||TOUCH.jy<-0.3,dn=K('KeyS','ArrowDown')||TOUCH.jy>0.4,hb=K('Space');
   let st=(K('KeyA','ArrowLeft')?1:0)-(K('KeyD','ArrowRight')?1:0);
   if(!st&&Math.abs(TOUCH.jx)>0.12)st=-clamp((TOUCH.jx-Math.sign(TOUCH.jx)*0.12)/0.75,-1,1);
-  const S=c.stats||{top:36,acc:12,grip:1};
-  if(up){if(c.speed<-0.5)c.speed+=22*dt;else c.speed+=S.acc*dt*(1-c.speed/S.top);}
+  const S=c.stats||{top:36,acc:12,grip:1},wk=dmgFactor(c);
+  if(up){if(c.speed<-0.5)c.speed+=22*dt;else c.speed+=S.acc*wk*dt*(1-c.speed/(S.top*wk));}
   if(dn){if(c.speed>0.5)c.speed-=24*dt;else c.speed=Math.max(c.speed-8*dt,-(S.rev||11));}
   if(!up&&!dn)c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),2.6*dt);
   if(hb)c.speed-=Math.sign(c.speed)*Math.min(Math.abs(c.speed),13*dt);
@@ -3902,7 +3934,7 @@ function carVsCar(){
       let wa=a===P.car||a.ai?0.5:0.35,wb=1-wa;if(a.bus){wa=1;wb=0;}else if(b.bus){wa=0;wb=1;}
       a.x+=px*wb;a.z+=pz*wb;b.x-=px*wa;b.z-=pz*wa;
       const rel=Math.abs(a.speed-b.speed);
-      if(rel>6&&(a===P.car||b===P.car))thud();
+      if(rel>6&&(a===P.car||b===P.car)){thud();hurtCar(P.car,(rel-5)*1.8);}
       a.speed*=0.9;b.speed*=0.9;
     }
   }
@@ -4399,7 +4431,7 @@ function frame(now){
   for(const b of BLADES)b.rotation.z+=dt*0.9;
   WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6+Math.max(0,Math.sin(t*0.11)*Math.sin(t*0.37+1))*1.6;// gusts come and go
   waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;
-  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateCarLights(t);updateSpray(dt);
+  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateCarLights(t);updateSpray(dt);updateSmoke(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
   for(const c of CLOUDS){c.position.x+=dt*3;if(c.position.x>1200)c.position.x=-1200;}
@@ -4426,7 +4458,7 @@ function frame(now){
     if(pr!==lastPrompt){lastPrompt=pr;$('prompt').innerHTML=pr;$('prompt').hidden=!pr;}
     const drv=P.mode==='drive';$('speedo').hidden=!drv;
     if(TOUCH.on&&drv!==TOUCH.drv){TOUCH.drv=drv;$('bJump').textContent=drv?'BRAKE':'JUMP';}
-    if(drv){$('spd').textContent=Math.round(Math.abs(P.car.speed)*3.6);ACH.km+=Math.abs(P.car.speed)*dt/1000;if(Math.abs(P.car.speed)*3.6>=150)ach('fast');}
+    if(drv){$('spd').textContent=Math.round(Math.abs(P.car.speed)*3.6);{const d=P.car.dmg||0,bar=$('dmg');if(bar.hidden!==!(d>0))bar.hidden=!(d>0);if(d>0){const w=Math.round(d)+'%';if(bar.firstChild.style.width!==w){bar.firstChild.style.width=w;bar.firstChild.style.background=d>=75?'#e5533d':'#e6b422';}}}ACH.km+=Math.abs(P.car.speed)*dt/1000;if(Math.abs(P.car.speed)*3.6>=150)ach('fast');}
     updateAudio(dt,px,pz);
     drawMini();
   }

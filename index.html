@@ -2067,7 +2067,8 @@ function makeCar(x,z,h,color,kind){
     const w=new THREE.Mesh(CARPARTS.wheel,WHEEL_MAT);w.castShadow=true;pv.add(w);
     wheels.push(w);if(sz>0)fronts.push(pv);
   }
-  const c={g,body,wheels,fronts,x,z,h,speed:0,steer:0,ai:null,color,blockedT:0,impatient:0,honked:0,shell,headM};
+  const c={g,body,wheels,fronts,x,z,h,speed:0,steer:0,ai:null,color,blockedT:0,impatient:0,honked:0,shell,headM,far:false};
+  c.lodHide=[body.children[2],body.children[5],...fronts,...wheels.filter(w=>!fronts.includes(w.parent)).map(w=>w.parent)];
   g.position.set(x,0,z);g.rotation.y=h;
   CARS.push(c);return c;
 }
@@ -4054,8 +4055,17 @@ function updateNPCs(dt){
     n.m.g.position.set(n.x,0,n.z);n.m.g.rotation.y=n.h;
   }
 }
+/* far cars (over ~85 m) swap their four spinning wheels, trim and plates for one merged wheel mesh: 13 draw calls become 7 */
+let FAR_WHEELS=null,_cp=null;
+function carLOD(c){
+  if(!c.lodHide||c.veh||c.bus)return;
+  if(!_cp)_cp=camera.position;const d2=(c.x-_cp.x)**2+(c.z-_cp.z)**2,far=c===P.car?false:c.far?d2>78*78:d2>88*88;
+  if(far===c.far)return;c.far=far;
+  if(!c.farW){if(!FAR_WHEELS)FAR_WHEELS=mergeGeo([-1,1].flatMap(sx=>[1.38,-1.38].map(sz=>[CARPARTS.wheel,TM(sx*.9,.38,sz)])));c.farW=new THREE.Mesh(FAR_WHEELS,WHEEL_MAT);c.g.add(c.farW);}
+  c.farW.visible=far;for(const o of c.lodHide)o.visible=!far;
+}
 function syncCar(c,dt){
-  c.g.position.set(c.x,0,c.z);c.g.rotation.y=c.h;
+  c.g.position.set(c.x,0,c.z);c.g.rotation.y=c.h;carLOD(c);
   for(const w of c.wheels)w.rotation.x+=c.speed*dt/(w.userData.r||0.38);
   for(const f of c.fronts)f.rotation.y=c.steer*0.45;
   // bikes and scooters lean into the corner
@@ -4250,13 +4260,17 @@ function bldHit(x,z,y){
     if(inPoly(x,z,c.poly))return true;const p=c.poly;for(let k=0,j=p.length-1;k<p.length;j=k++)if(segDist(x,z,p[j][0],p[j][1],p[k][0],p[k][1])[0]<0.3)return true;}
   return false;
 }
+function trunkHit(x,z,y){
+  if(y>5)return false;const a=TREE_GRID.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)));if(!a)return false;
+  for(const t of a){const r=0.55*(t.cs||t.s)+0.3;if((x-t.x)**2+(z-t.z)**2<r*r)return true;}return false;
+}
 function camAvoid(tg,c,height){
   const ty=tg.y+height*0.5,dx=c.x-tg.x,dy=c.y-ty,dz=c.z-tg.z,L=Math.hypot(dx,dz,dy);if(L<0.5)return;
   const n=Math.ceil(L/0.4);let f=1;
-  for(let i=1;i<=n;i++){const u=i/n;if(bldHit(tg.x+dx*u,tg.z+dz*u,ty+dy*u)){f=Math.max(0.12,(i-1.6)/n);break;}}
+  if(!TREE_GRID)treeGrid();
+  for(let i=1;i<=n;i++){const u=i/n,x=tg.x+dx*u,z=tg.z+dz*u,y=ty+dy*u;if(bldHit(x,z,y)){f=Math.max(0.12,(i-1.6)/n);break;}if(trunkHit(x,z,y)){f=Math.max(1.7/L,(i-1.6)/n);break;}/* trunks: stay 1.7 m back; a trunk right behind the hero is culled from inside */}
   if(f<1){c.set(tg.x+dx*f,ty+dy*f,tg.z+dz*f);c.y=Math.max(c.y,0.6);}
   // tree crowns (round street trees: crown centre ~8.2 s high, about 4 s wide, 3.9 s tall)
-  if(!TREE_GRID)treeGrid();
   const i0=Math.floor((c.x-6)/CELL),i1=Math.floor((c.x+6)/CELL),j0=Math.floor((c.z-6)/CELL),j1=Math.floor((c.z+6)/CELL);
   for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){const a=TREE_GRID.get(gkey(i,j));if(!a)continue;
     for(const t of a){const s=t.cs||t.s,r=Math.hypot(c.x-t.x,c.z-t.z)/(5.2*s);if(r>=1)continue;
@@ -4287,6 +4301,7 @@ function updateCamera(dt,t){
   const pulled=tmp.distanceToSquared(camTarget)<camPos.distanceToSquared(camTarget)-0.5;
   camPos.lerp(tmp,1-Math.exp(-(pulled?30:P.mode==='drive'?9:18)*dt));
   camera.position.copy(camPos);
+  if(P.mode==='walk')P.m.g.visible=camPos.distanceTo(camTarget)>1.1;   // hide the hero when a wall pushes the camera into their head
   if(lookUp<=0)camera.lookAt(camTarget.x,camTarget.y+height*0.6,camTarget.z);
   else{
     const lx=camTarget.x-camPos.x,ly=camTarget.y+height*0.6-camPos.y,lz=camTarget.z-camPos.z,hz=Math.hypot(lx,lz)||1;

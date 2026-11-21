@@ -1121,7 +1121,9 @@ const slitMat=new THREE.MeshStandardMaterial({color:0x0e0c0b,roughness:0.95,envM
 let carousel=null;
 {
   const g=new THREE.Group();g.position.set(TOWER.x,0,TOWER.z);scene.add(g);
-  const concrete=lm('#9c9283'),concreteDk=lm('#857c70'),dark=lm('#33302e');
+  // pale concrete: colours are given in sRGB and converted, with less sky reflection, so the plinth no longer glows white in the sun
+  const cc=(c,ei)=>Lam({color:new THREE.Color(c).convertSRGBToLinear(),roughness:0.96,envMapIntensity:ei});
+  const concrete=cc('#b3ab9e',0.35),concreteDk=cc('#9a9286',0.3),dark=lm('#33302e');
   const add=(geo,mat,x,y,z,parent)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;(parent||g).add(m);return m;};
   const B=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
   const TH=TOWER.th;                       // rotation of the octagon, taken from its footprint on the map

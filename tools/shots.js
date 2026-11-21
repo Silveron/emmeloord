@@ -20,6 +20,7 @@ const SPOTS = [
   { id: 'deel-dusk', start: true, look: [0, 0], time: 19.6 },
   { id: 'deel-night', start: true, look: [0, 0], time: 22.5 },
   { id: 'deel-rain', start: true, look: [0, 0], time: 14, rain: 1 },
+  { id: 'kerb-close', place: 'Emmelhage', time: 12, side: 2.2, pitch: 0.08, zoom: 0.45 },
 ];
 
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.jpg': 'image/jpeg', '.png': 'image/png', '.glb': 'model/gltf-binary', '.mp3': 'audio/mpeg', '.json': 'application/json' };
@@ -35,7 +36,7 @@ const srv = http.createServer((q, r) => {
   if (process.env.THREE_JS) await pg.route('**/three.min.js', r => r.fulfill({ path: process.env.THREE_JS, contentType: 'text/javascript' }));
   await pg.route('**/fonts.googleapis.com/**', r => r.fulfill({ body: '', contentType: 'text/css' }));
   pg.on('pageerror', e => console.log('PAGEERROR', e.message));
-  await pg.goto('http://localhost:8123/index.html');
+  await pg.goto('http://localhost:8123/index.html', { timeout: 180000 });
   await pg.waitForFunction(() => window.__game, null, { timeout: 120000 });
   await pg.evaluate(q => { localStorage.clear(); __game.start(); __game.setQuality(q); }, Q);
   await pg.waitForTimeout(8000); // photo textures and characters load in the background
@@ -56,8 +57,9 @@ const srv = http.createServer((q, r) => {
         for (const r of D.ROADS) if (r.c === 0 && r.n && r.w < 6) for (let i = 0; i < r.p.length - 1; i++) { const d = Math.hypot(r.p[i][0] - pl[0], r.p[i][1] - pl[1]); if (d < bd) { bd = d; best = [r.p[i], r.p[i + 1]]; } }
         [x, z] = best[0]; [tx, tz] = best[1];
       }
+      if (s.side) { const L = Math.hypot(tx - x, tz - z); const ox = -(tz - z) / L * s.side, oz = (tx - x) / L * s.side; x += ox; z += oz; tx += ox; tz += oz; }
       P.x = x; P.z = z; P.y = 0; P.h = Math.atan2(tx - x, tz - z);
-      G.setCam(P.h, 0.2); G.setRain(s.rain || 0); G.setTime(s.time);
+      G.setCam(P.h, s.pitch ?? 0.2); G.setZoom(s.zoom ?? 1); G.setRain(s.rain || 0); G.setTime(s.time);
       return { x, z };
     }, s);
     await pg.waitForTimeout(3500);

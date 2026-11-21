@@ -1308,13 +1308,31 @@ const flagTex=canvasTex(96,64,(g,w,h)=>{g.fillStyle='#ae1c28';g.fillRect(0,0,w,h
     fl.position.set(x+0.95,8.2,z);scene.add(fl);FLAGS.push(fl);
     addCollider({x,z,r:0.15});
   }
-  // De Leeuwen: concrete lions near the tower
-  const stone=lm('#c8c2b6');
-  for(const [x,z] of OSM_LIONS){
-    const lg=new THREE.Group();lg.position.set(x,0,z);lg.rotation.y=Math.atan2(-x,-z)+Math.PI;scene.add(lg);
-    const P=(w,h,d,px,py,pz)=>{const m=new THREE.Mesh(UNIT,stone);m.scale.set(w,h,d);m.position.set(px,py,pz);m.castShadow=true;lg.add(m);};
-    P(1.0,0.5,2.0,0,0.25,0);P(0.8,0.7,1.5,0,0.85,-0.1);P(0.9,0.9,0.7,0,1.35,0.75);P(0.6,0.45,0.4,0,1.2,1.2);P(0.25,0.25,0.9,0,0.75,-1.0);
-    addCollider({x,z,r:0.9});
+  // De Leeuwen: four concrete lions around the tower (OSM tourism=artwork, replicas by Marieke van Diemen), lying sphinx-like on low plinths
+  {
+    const S=new THREE.SphereGeometry(0.5,18,12),Cy=new THREE.CylinderGeometry(0.5,0.5,1,12);
+    const lion=mergeGeo([
+      [S,TM(0,0.66,-0.25,0.95,0.78,1.75)],          // body
+      [S,TM(0,0.62,-0.82,0.92,0.74,0.85)],          // haunches
+      [S,TM(0,0.98,0.42,1.05,1.12,0.95)],           // chest and mane
+      [S,TM(0,1.18,0.55,0.92,0.82,0.72)],           // mane round the neck
+      [S,TM(0,1.38,0.78,0.62,0.6,0.6)],             // head
+      [S,TM(0,1.24,1.03,0.38,0.3,0.42)],            // muzzle
+      [S,TM(0,1.33,1.21,0.15,0.1,0.1)],             // nose
+      [S,TM(0.22,1.66,0.7,0.17,0.19,0.1)],[S,TM(-0.22,1.66,0.7,0.17,0.19,0.1)],   // ears
+      [S,TM(0.27,0.36,0.88,0.28,0.26,0.95)],[S,TM(-0.27,0.36,0.88,0.28,0.26,0.95)],// front legs
+      [S,TM(0.27,0.3,1.33,0.3,0.2,0.3)],[S,TM(-0.27,0.3,1.33,0.3,0.2,0.3)],       // paws
+      [S,TM(0.38,0.42,-0.7,0.32,0.5,0.75)],[S,TM(-0.38,0.42,-0.7,0.32,0.5,0.75)], // hind legs folded
+      [Cy,TM(0.32,0.3,-1.25,0.13,0.9,0.13,1.45,0.5)],[S,TM(0.52,0.3,-1.62,0.2,0.2,0.26)], // tail
+    ]);
+    const plinth=new THREE.BoxGeometry(1.25,0.24,2.55);
+    const stone=Lam({color:'#625d56',roughness:0.97,envMapIntensity:0.12}),base=Lam({color:'#55514b',roughness:0.95,envMapIntensity:0.12});
+    for(const [x,z] of OSM_LIONS){
+      const lg=new THREE.Group();lg.position.set(x,0,z);lg.rotation.y=Math.atan2(-x,-z)+Math.PI;scene.add(lg);
+      const b=new THREE.Mesh(plinth,base);b.position.y=0.12;b.receiveShadow=true;b.castShadow=true;lg.add(b);
+      const m=new THREE.Mesh(lion,stone);m.position.y=0.18;m.castShadow=true;m.receiveShadow=true;lg.add(m);
+      addCollider({x,z,r:0.9});
+    }
   }
   for(const p of BIKERACKS){
     let cx=0,cz=0;for(const q of p){cx+=q[0];cz+=q[1];}cx/=p.length;cz/=p.length;

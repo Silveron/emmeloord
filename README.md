@@ -4,7 +4,7 @@ A small 3D open-world game in the browser, set in Emmeloord (Noordoostpolder, th
 
 ## Play
 
-Open `index.html` in a browser (desktop or phone). No build step is needed; Three.js (r128) loads from cdnjs. To serve it locally:
+Open `index.html` in a browser (desktop or phone). No build step is needed; Three.js (r159) is included in `assets/lib/`. To serve it locally:
 
 ```sh
 python3 -m http.server 8000

@@ -1,6 +1,6 @@
 // Fixed screenshot spots + draw-call numbers (graphics plan, phase 0).
 // Usage: node tools/shots.js <outdir> [quality 0|1|2] [label]
-//   serves the repo on :8123, uses THREE_JS=<path to three.min.js r128> when cdnjs is unreachable.
+//   serves the repo on :8123 (Three.js is vendored in assets/lib, so no network is needed).
 // Writes <outdir>/<label>-<spot>.png and <outdir>/<label>.json with draw calls and triangles per spot.
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');

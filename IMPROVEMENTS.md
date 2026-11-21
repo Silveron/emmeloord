@@ -14,6 +14,13 @@ No open bugs were logged; two known problems from the 01:17 run come first. Play
 5. **Ambient sound** (sound): birds in the morning, soft wind, crickets at summer nights, all procedural Web Audio, quiet in the car.
 6. **Performance** (phones): check draw calls in the busiest views and merge cheap static parts.
 
+### Done
+- **Camera collision** (bug/controls): the camera walks out from the player to its wanted spot and stops in front of the first wall (building footprints now carry their roof height). Under round street trees it dips below the crown instead of ending up in the leaves. Pulls in fast, eases back out.
+- **Poldertoren concrete** (graphics/bug): the plinth, ledges and door surround were flat colours treated as linear light and glowed white in the sun; now sRGB-converted beige-grey concrete with less sky reflection.
+- **Real addresses** (content): 6,000 OSM addresses (addr:street + addr:housenumber) within 950 m were fetched; every other house number per street is embedded (3,073, 39 KB). Parcel, taxi and pizza jobs pick a real address and stop at the kerb of its street in front of the house ("Deliver the parcel to Steenstraat 5").
+- **Visible car damage + tow truck** (gameplay/graphics): from 40% the bonnet sags and one flank gets a dent, from 75% the front is crumpled, the paint dull and the headlights broken (per-car copy of the body, restored on repair or paint). A wrecked car more than 120 m from the garage can be towed there with G or the pause menu for €60.
+- **GPS line on the minimap** (gameplay): replaced plan item 5 because birds, crickets, wind and rain sounds already exist. During a job, a Dijkstra route over the OSM road graph to the next target is drawn in the job colour; one-way streets count when driving; it re-routes when you leave the line.
+
 ## 2026-11-21 (run 01:17)
 
 ### Plan (prioritized)

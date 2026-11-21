@@ -1011,7 +1011,7 @@ const hash=(x,z)=>{let h=Math.imul(Math.round(x*7)|0,73856093)^Math.imul(Math.ro
       const rc=C(FLATROOF[Math.floor(hv*FLATROOF.length)]);
       fillPoly(roofGB,p,h,3,rc);
     }
-    addCollider({poly:p,x0:b.x0,x1:b.x1,z0:b.z0,z1:b.z1});
+    addCollider({poly:p,x0:b.x0,x1:b.x1,z0:b.z0,z1:b.z1,h:gable>=0?h+3:h+0.6});
     MAPRECTS.push(b);
   }
 }
@@ -1093,7 +1093,7 @@ const LANDMARKS=[];
       let nx=(c[1]-a[1])/L,nz=-(c[0]-a[0])/L;if(!ccw){nx=-nx;nz=-nz;}
       const u=Math.max(1,Math.round(L/4));gW.quad([[a[0],0,a[1]],[c[0],0,c[1]],[c[0],eave,c[1]],[a[0],eave,a[1]]],[[0,0],[u,0],[u,1],[0,1]],[nx,0,nz],WHITE);}
     fillPoly(gR,p,eave,4);
-    addCollider({poly:p,...polyBox(p)});
+    addCollider({poly:p,...polyBox(p),h:eave+3});
     // bell tower on the corner closest to a street
     let best=p[0],bd=1e9;for(const q of p){const n=nearestRoad(q[0],q[1],r=>r.c===0);const d=n?n.d:1e9;if(d<bd){bd=d;best=q;}}
     const tw=ch.tower>25?6:5,H=ch.tower,dx=cx-best[0],dz=cz-best[1],dl=Math.hypot(dx,dz)||1,tx=best[0]+dx/dl*tw*0.5,tz=best[1]+dz/dl*tw*0.5;
@@ -1481,7 +1481,7 @@ if(VOORHUYS_FP){
   LIGHT_HOOKS.push(l=>{upM.opacity=l*0.75;upM.visible=l>0.01;brickM.emissive.setScalar(l*1.1);annexM.emissive.setScalar(l*1.1);glassM.emissive.setRGB(l*0.6,l*0.36,l*0.15);});
   // collision: main block, annex, conservatory and terrace planters
   const ring=[toW(-MW/2-12,-MD-0.5),toW(MW/2,-MD-0.5),toW(MW/2,0.3),...ptsA.slice().reverse().map(([x,z])=>toW(x,z+0.2)),toW(-MW/2-12,0.3)];
-  addCollider({poly:ring,...polyBox(ring)});VOORHUYS.ring=ring;
+  addCollider({poly:ring,...polyBox(ring),h:12});VOORHUYS.ring=ring;
   {const pl=[toW(-29.2,7),toW(-16.4,7),toW(-16.4,8),toW(-29.2,8)];addCollider({poly:pl,...polyBox(pl)});}
 }
 /* ---------- the splash fountain on De Deel: an octagon of wet stone with jets rising straight from the floor ---------- */
@@ -1642,7 +1642,7 @@ const TREE_CHUNKS=[];
       if(t.type==='poplar'){m.compose(p.set(t.x,th/2,t.z),q.identity(),sc.set(t.s,th,t.s));trunk.setMatrixAt(i,m);col.setHSL(rand(.21,.29),rand(.38,.55),rand(.30,.40));m.compose(p.set(t.x,th+6*t.s,t.z),q,sc.set(1.5*t.s,13*t.s,1.5*t.s));}
       else{
         // tall street tree: about 12-15 m, clear trunk to 4 m, crown 8-10 m across
-        const s=t.s*rand(0.9,1.15),ry=rand(0,6.3);
+        const s=t.s*rand(0.9,1.15),ry=rand(0,6.3);t.cs=s;
         m.compose(p.set(t.x,-50,t.z),q.identity(),sc.set(0.01,0.01,0.01));trunk.setMatrixAt(i,m);
         m.compose(p.set(t.x,0,t.z),q.setFromEuler(new THREE.Euler(0,ry,0)),sc.set(2.6*s,3.6*s,2.6*s));limbs.setMatrixAt(li++,m);
         col.setHSL(rand(.2,.27),rand(.22,.36),rand(.44,.56));
@@ -4183,6 +4183,29 @@ function gameTimeStr(){const m=Math.floor(gameMin)%1440;return DOW[GAME_DOW]+' '
 /* ---------- camera & loop ---------- */
 const camTarget=new THREE.Vector3(),camPos=new THREE.Vector3(),tmp=new THREE.Vector3();
 let towerVisited=false,lastLoc='',lastPrompt='',secTimer=0,elapsed=0;
+/* camera collision (leaf cards reach ~1.3x the crown scale): walk from the player out to the wanted camera spot and stop in front of the first wall (building
+   footprints carry their roof height); a camera that would sit inside a tree crown drops below it */
+let TREE_GRID=null;
+function treeGrid(){TREE_GRID=new Map();for(const t of TREES){if(t.type!=='round')continue;const k=gkey(Math.floor(t.x/CELL),Math.floor(t.z/CELL));let a=TREE_GRID.get(k);if(!a){a=[];TREE_GRID.set(k,a);}a.push(t);}}
+function bldHit(x,z,y){
+  const a=grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)));if(!a)return false;
+  for(const c of a){if(c.h===undefined||c.off||y>c.h)continue;if(x<c.x0-0.3||x>c.x1+0.3||z<c.z0-0.3||z>c.z1+0.3)continue;
+    if(inPoly(x,z,c.poly))return true;const p=c.poly;for(let k=0,j=p.length-1;k<p.length;j=k++)if(segDist(x,z,p[j][0],p[j][1],p[k][0],p[k][1])[0]<0.3)return true;}
+  return false;
+}
+function camAvoid(tg,c,height){
+  const ty=tg.y+height*0.5,dx=c.x-tg.x,dy=c.y-ty,dz=c.z-tg.z,L=Math.hypot(dx,dz,dy);if(L<0.5)return;
+  const n=Math.ceil(L/0.4);let f=1;
+  for(let i=1;i<=n;i++){const u=i/n;if(bldHit(tg.x+dx*u,tg.z+dz*u,ty+dy*u)){f=Math.max(0.12,(i-1.6)/n);break;}}
+  if(f<1){c.set(tg.x+dx*f,ty+dy*f,tg.z+dz*f);c.y=Math.max(c.y,0.6);}
+  // tree crowns (round street trees: crown centre ~8.2 s high, about 4 s wide, 3.9 s tall)
+  if(!TREE_GRID)treeGrid();
+  const i0=Math.floor((c.x-6)/CELL),i1=Math.floor((c.x+6)/CELL),j0=Math.floor((c.z-6)/CELL),j1=Math.floor((c.z+6)/CELL);
+  for(let i=i0;i<=i1;i++)for(let j=j0;j<=j1;j++){const a=TREE_GRID.get(gkey(i,j));if(!a)continue;
+    for(const t of a){const s=t.cs||t.s,r=Math.hypot(c.x-t.x,c.z-t.z)/(5.2*s);if(r>=1)continue;
+      const cy=8.2*s,hy=4.6*s*Math.sqrt(1-r*r),bot=cy-hy;
+      if(c.y>bot-0.4&&c.y<cy+hy)c.y=Math.max(Math.min(c.y,bot-0.4),Math.min(tg.y+0.3,bot-0.4),0.6);}}
+}
 function updateCamera(dt,t){
   if(!started){
     const a=t*0.06+0.6;
@@ -4202,8 +4225,10 @@ function updateCamera(dt,t){
   const cp=Math.cos(orbitP),sp=Math.sin(orbitP);
   tmp.set(camTarget.x-Math.sin(camYaw)*dist*cp,camTarget.y+height+dist*sp,camTarget.z-Math.cos(camYaw)*dist*cp);
   tmp.y=Math.max(tmp.y,0.6);
+  camAvoid(camTarget,tmp,height);
   if(camPos.lengthSq()===0)camPos.copy(tmp);
-  camPos.lerp(tmp,1-Math.exp(-(P.mode==='drive'?9:18)*dt));
+  const pulled=tmp.distanceToSquared(camTarget)<camPos.distanceToSquared(camTarget)-0.5;
+  camPos.lerp(tmp,1-Math.exp(-(pulled?30:P.mode==='drive'?9:18)*dt));
   camera.position.copy(camPos);
   if(lookUp<=0)camera.lookAt(camTarget.x,camTarget.y+height*0.6,camTarget.z);
   else{
@@ -4496,7 +4521,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,TREES,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

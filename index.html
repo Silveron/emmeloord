@@ -187,7 +187,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
     <div class="eyebrow">Paused</div>
     <h2>Taking a break</h2>
     <div id="pstats"></div>
-    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="pmusic" type="button" class="ghost">Music: on</button><button id="pgfx" type="button" class="ghost">Graphics: High</button><button id="pseason" type="button" class="ghost">Season: Auto</button><button id="preset" type="button" class="ghost">New game</button><button id="pachb" type="button" class="ghost">Achievements</button></div>
+    <div class="row"><button id="resume" type="button" class="primary">Resume</button><button id="psound" type="button" class="ghost">Sound: on</button><button id="pmusic" type="button" class="ghost">Music: on</button><button id="pgfx" type="button" class="ghost">Graphics: High</button><button id="pseason" type="button" class="ghost">Season: Auto</button><button id="preset" type="button" class="ghost">New game</button><button id="ptow" type="button" class="ghost" hidden>Tow my car (€60)</button><button id="pachb" type="button" class="ghost">Achievements</button></div>
     <div id="pach" hidden></div>
     <p class="small">Progress (coins, cash, cars, achievements) is saved in this browser.</p>
   </div>
@@ -2057,8 +2057,8 @@ function makeCar(x,z,h,color,kind){
   const body=new THREE.Group();g.add(body);
   const van=kind==='van',paint=paintMat(color),CP=CARPARTS[van?'van':'car'];
   const M=(geo,mat,cast=true)=>{const m=new THREE.Mesh(geo,mat);m.castShadow=cast;body.add(m);return m;};
-  M(CP.shell,paint);M(CARGEO[van?'van':'car'].glass,GLASS_MAT);M(CARPARTS.trim,TRIMMAT);
-  M(CARPARTS.head,headMat,false);M(CARPARTS.tail,tailMat,false);M(CARPARTS.plates,PLATE_MAT,false);
+  const shell=M(CP.shell,paint);M(CARGEO[van?'van':'car'].glass,GLASS_MAT);M(CARPARTS.trim,TRIMMAT);
+  const headM=M(CARPARTS.head,headMat,false);M(CARPARTS.tail,tailMat,false);M(CARPARTS.plates,PLATE_MAT,false);
   const shadow=new THREE.Mesh(CAR_SHADOW_GEO,CAR_SHADOW_MAT);shadow.position.y=0.07;shadow.renderOrder=1;g.add(shadow);
   const beam=new THREE.Mesh(BEAM_GEO,BEAM_MAT);beam.position.set(0,0.17,8.5);beam.renderOrder=2;g.add(beam);
   const wheels=[],fronts=[];
@@ -2067,7 +2067,7 @@ function makeCar(x,z,h,color,kind){
     const w=new THREE.Mesh(CARPARTS.wheel,WHEEL_MAT);w.castShadow=true;pv.add(w);
     wheels.push(w);if(sz>0)fronts.push(pv);
   }
-  const c={g,body,wheels,fronts,x,z,h,speed:0,steer:0,ai:null,color,blockedT:0,impatient:0,honked:0};
+  const c={g,body,wheels,fronts,x,z,h,speed:0,steer:0,ai:null,color,blockedT:0,impatient:0,honked:0,shell,headM};
   g.position.set(x,0,z);g.rotation.y=h;
   CARS.push(c);return c;
 }
@@ -2918,6 +2918,7 @@ function applyOwnCar(){
   if(!c.wing){c.wing=new THREE.Mesh(WING_GEO,TRIMMAT);c.wing.castShadow=true;b.add(c.wing);}c.wing.visible=!!m.wing;
   c.color=o.color;c.model=m;
   c.stats={top:m.top+o.engine*2.5,acc:m.acc+o.turbo*2.2,grip:m.grip+o.tyres*0.07};
+  c.shell0=null;c.dmgLook=undefined;damageLook(c);
 }
 // the garage: the car dealer OpenStreetMap shows on the Nagelerstraat
 const SHOW_CARS=[];
@@ -2981,7 +2982,7 @@ $('garage').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;
   if(b.id==='gClose'){closeGarage();return;}
   const o=()=>OWN.owned[OWN.model];
-  if(b.dataset.fix){const c=P.mode==='drive'&&!P.car.veh?P.car:OWN.car,k=repairCost(c);if(cash<k)return;cash-=k;c.dmg=0;buyMsg('Good as new!');ach('repair');}
+  if(b.dataset.fix){const c=P.mode==='drive'&&!P.car.veh?P.car:OWN.car,k=repairCost(c);if(cash<k)return;cash-=k;c.dmg=0;damageLook(c);buyMsg('Good as new!');ach('repair');}
   else if(b.dataset.buy){const m=CAR_MODELS.find(x=>x.id===b.dataset.buy);if(cash<m.price)return;cash-=m.price;OWN.owned[m.id]={engine:0,turbo:0,tyres:0,color:m.id==='gt'?'#c0392b':m.id==='volt'?'#1a8f9a':m.id==='van'?'#f2f0ea':'#ff7b1c'};OWN.model=m.id;applyOwnCar();parkOwnCar();buyMsg(`<strong>${m.name}</strong> bought! It's parked outside the garage.`);ach('buy');}
   else if(b.dataset.sel){OWN.model=b.dataset.sel;applyOwnCar();parkOwnCar();buyMsg(`You take the <strong>${CAR_MODELS.find(x=>x.id===OWN.model).name}</strong>.`);}
   else if(b.dataset.up){const u=UPGRADES.find(x=>x.id===b.dataset.up),k=o()[u.id];if(k>=3||cash<u.price[k])return;cash-=u.price[k];o()[u.id]++;applyOwnCar();buyMsg(`<strong>${u.name}</strong> upgraded to step ${k+1}.`);}
@@ -2995,7 +2996,40 @@ function dmgFactor(c){const d=c.dmg||0;return d>=100?0.45:d>=75?0.75:1;}
 function hurtCar(c,n){
   if(!c||c.veh||c.bus||n<=0)return;const before=c.dmg||0;c.dmg=Math.min(100,before+n);
   if(before<50&&c.dmg>=50)toast('Your car is smoking. The garage can fix it.',2600);
-  if(before<100&&c.dmg>=100)toast('<strong>Wrecked!</strong> The engine limps along. Get it to the garage (white dot on the map).',3600);
+  if(before<100&&c.dmg>=100)toast(canTow()?`<strong>Wrecked!</strong> The engine limps along. Press G (or the pause menu) to have it towed to the garage for €${TOW_COST}.`:'<strong>Wrecked!</strong> The engine limps along. Get it to the garage (white dot on the map).',4200);
+  damageLook(c);
+}
+/* visible damage on the player's car: from 40% the bonnet is pushed in and one side gets a dent, from 75% the front is crumpled,
+   the paint goes dull and the headlights are broken. Each car gets its own copy of the body only once it is hurt. */
+const BROKEN_HEAD=new THREE.MeshStandardMaterial({color:0x2a2c2e,roughness:0.35,metalness:0.3});
+function damageLook(c){
+  if(!c||!c.shell)return;const d=c.dmg||0,lvl=d>=75?2:d>=40?1:0;if(c.dmgLook===lvl||(c.dmgLook===undefined&&lvl===0))return;c.dmgLook=lvl;
+  if(!c.head0)c.head0=c.headM.material;if(!c.shell0){c.shell0=c.shell.geometry;c.paint0=c.shell.material;}
+  if(c.shell.geometry!==c.shell0)c.shell.geometry.dispose();
+  if(c.shell.material!==c.paint0)c.shell.material.dispose();
+  if(lvl===0){c.shell.geometry=c.shell0;c.shell.material=c.paint0;c.headM.material=c.head0;return;}
+  const g=c.shell0.clone(),P=g.attributes.position;g.computeBoundingBox();const bb=g.boundingBox,zf=bb.max.z,xm=bb.max.x;
+  const amt=lvl===2?1:0.45,side=(String(c.color).length+Math.floor(Math.abs(c.x)))%2?1:-1,dz0=rand(-0.8,0.6);
+  for(let i=0;i<P.count;i++){let x=P.getX(i),y=P.getY(i),z=P.getZ(i);
+    const n=Math.sin(x*7.1+y*3.3)*0.5+Math.sin(z*5.7-x*2.9)*0.5;
+    const f=clamp((z-(zf-1.3))/1.3,0,1);
+    if(f>0){z-=f*f*amt*(0.09+0.05*n);y-=f*amt*(0.09+0.08*n)*clamp((y-0.5)/0.6,0,1);x*=1-f*amt*0.03*(1+n);}
+    if(x*side>xm-0.25){const k=Math.exp(-((z-dz0)**2)/0.35)*clamp((y-0.35)/0.4,0,1)*clamp((1.15-y)/0.3,0,1);x-=side*k*amt*0.12;}
+    P.setXYZ(i,x,y,z);}
+  g.computeVertexNormals();c.shell.geometry=g;
+  const m=c.paint0.clone();m.color=c.paint0.color.clone().multiplyScalar(lvl===2?0.72:0.88);m.roughness=Math.min(1,(c.paint0.roughness||0.3)+(lvl===2?0.45:0.2));m.metalness=(c.paint0.metalness||0)*0.5;c.shell.material=m;
+  c.headM.material=lvl===2?BROKEN_HEAD:c.head0;
+}
+/* tow truck: a wrecked car far from the garage can be towed there (G or the pause menu) */
+const TOW_COST=60;
+function canTow(){return started&&P.mode==='drive'&&!P.car.veh&&!P.car.police&&(P.car.dmg||0)>=100&&Math.hypot(P.car.x-GARAGE.x,P.car.z-GARAGE.z)>120;}
+function towCar(){
+  if(!canTow()){toast((P.mode==='drive'&&(P.car.dmg||0)>=100)?'The garage is close: drive there yourself.':'The tow truck only comes for a wrecked car.',2200);return;}
+  if(JOB)endJob(false,'Job cancelled: your car was towed.');
+  const k=Math.min(cash,TOW_COST);cash-=k;$('cash').textContent='€'+cash;
+  const c=P.car,[x,z]=GARAGE.park;c.x=x;c.z=z;c.h=GARAGE.h+Math.PI;c.speed=0;c.steer=0;camYaw=c.h;
+  if(paused)setPaused(false);
+  toast(`<strong>Towed to the garage</strong> for €${k}. Drive into the orange marker to repair the car.`,3800);saveGame();
 }
 function repairCost(c){return Math.ceil((c.dmg||0)*1.2);}
 const SMOKE=(()=>{const N=140,pos=new Float32Array(N*3).fill(-999),vel=new Float32Array(N*3),life=new Float32Array(N);
@@ -3656,6 +3690,7 @@ window.addEventListener('keydown',e=>{
   if(paused)return;
   if(e.code==='KeyE'||e.code==='KeyF')action();
   if(e.code==='KeyH')playerHorn();
+  if(e.code==='KeyG')towCar();
   if(e.code==='KeyM'){muted=!muted;if(master)master.gain.value=muted?0:0.55;syncMusic();toast(muted?'Sound off':'Sound on',1500);}
   if(e.code==='KeyR')resetPlayer();
   if(e.code==='KeyT'){if(gameMin+60>=1440)GAME_DOW=(GAME_DOW+1)%7;gameMin=(gameMin+60)%1440;updateDayNight();updateClocks();$('clock').textContent=gameTimeStr();toast('Time skips ahead to '+gameTimeStr(),1400);}
@@ -3771,6 +3806,7 @@ function renderAch(){
   $('pachb').textContent=`Achievements ${Object.keys(ACH.got).length}/${ACH_LIST.length}`;
   $('pach').innerHTML=ACH_LIST.map(a=>`<div class="${ACH.got[a[0]]?'got':''}"><b>${ACH.got[a[0]]?'★ ':''}${a[1]}</b>${a[2]}</div>`).join('');
 }
+$('ptow').onclick=()=>towCar();
 $('pachb').onclick=()=>{$('pach').hidden=!$('pach').hidden;renderAch();};
 
 /* ---------- save & pause ---------- */
@@ -3785,7 +3821,7 @@ function loadGame(){
   d.coins.forEach((g,i)=>{const c=COINS[i];if(c&&g){c.got=true;c.m.visible=false;c.b.visible=false;coinCount++;}});
   cash=+d.cash||0;XP=typeof d.xp==='number'?d.xp:cash;
   if(d.own&&d.own.owned&&d.own.owned[d.own.model]){OWN.owned=d.own.owned;OWN.model=d.own.model;applyOwnCar();}
-  if(typeof d.dmg==='number')OWN.car.dmg=clamp(d.dmg,0,100);
+  if(typeof d.dmg==='number'){OWN.car.dmg=clamp(d.dmg,0,100);damageLook(OWN.car);}
   if(d.ach&&typeof d.ach==='object'){ACH.got=d.ach.got||{};ACH.jobs=+d.ach.jobs||0;ACH.kinds=d.ach.kinds||{};ACH.veh=d.ach.veh||{};ACH.km=+d.ach.km||0;}
   updateLevelHud();BEST.trial=typeof d.best==='number'?d.best:null;BEST.race=typeof d.race==='number'?d.race:null;
   if(typeof d.min==='number')gameMin=d.min%1440;if(typeof d.dow==='number')GAME_DOW=d.dow%7;muted=!!d.muted;musicOn=d.music!==false;if(typeof d.gfx==='number')GFX_SAVED=d.gfx;
@@ -3802,7 +3838,7 @@ $('newgame').addEventListener('click',wipeSave);
 let paused=false;
 function setPaused(v){
   if(!started||v===paused||garageOpen)return;
-  paused=v;$('pause').hidden=!v;
+  paused=v;$('pause').hidden=!v;if(v)$('ptow').hidden=!canTow();
   for(const k in keys)keys[k]=false;
   if(v){
     if(document.pointerLockElement)document.exitPointerLock();
@@ -4542,7 +4578,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,TREES,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,TREES,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

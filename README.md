@@ -21,6 +21,7 @@ python3 -m http.server 8000
 | Space | Jump, or handbrake when driving |
 | Mouse | Click or drag to look around, scroll to zoom |
 | H | Horn |
+| G | Call a tow truck when your car is wrecked (€60, takes it to the garage) |
 | R | Back to De Deel |
 | T | Skip one hour (day/night) |
 | M | Sound on/off |
@@ -37,7 +38,7 @@ The four polder roads have an 80 km/h limit (red-ringed signs where they leave t
 
 ## Car damage
 
-Hard crashes into walls, trees or other cars damage the car you drive (the bar under the speedometer). Above half damage smoke pours from the bonnet; badly damaged cars lose speed, and a wrecked car only limps along. The garage repairs it (the price depends on the damage).
+Hard crashes into walls, trees or other cars damage the car you drive (the bar under the speedometer). Above half damage smoke pours from the bonnet; badly damaged cars lose speed, and a wrecked car only limps along. The garage repairs it (the price depends on the damage). You can see it too: from 40% the bonnet is dented, from 75% the front is crumpled, the paint dull and the headlights broken. A wrecked car far from the garage can be towed there (G, or the pause menu on a phone) for €60.
 
 ## Achievements
 

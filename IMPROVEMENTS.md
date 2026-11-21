@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-21 (run 06:45)
+
+### Plan (prioritized)
+No open bugs were logged; two known problems from the 01:17 run come first. Playing at the start view confirms the tower plinth still glows white in the sun.
+
+1. **Camera collision** (bug/controls): the camera no longer ends up inside buildings or tree crowns; it pulls in in front of walls and dips under crowns.
+2. **Pale concrete too bright** (graphics/bug): tone down the tower plinth, lions and other pale concrete per material (less sky light, darker base colour), not the global lighting.
+3. **Real addresses** (content): taxi, courier and pizza jobs name real street + house numbers from OSM (addr:street/addr:housenumber) of the building you drive to.
+4. **Visible car damage + tow** (gameplay/graphics): a dented bonnet and a broken headlight on badly damaged cars; when wrecked far from the garage, a tow option brings the car there for a fee.
+5. **Ambient sound** (sound): birds in the morning, soft wind, crickets at summer nights, all procedural Web Audio, quiet in the car.
+6. **Performance** (phones): check draw calls in the busiest views and merge cheap static parts.
+
 ## 2026-11-21 (run 01:17)
 
 ### Plan (prioritized)

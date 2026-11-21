@@ -1648,6 +1648,30 @@ const flagTex=canvasTex(96,64,(g,w,h)=>{g.fillStyle='#ae1c28';g.fillRect(0,0,w,h
 }
 plainGB2.mesh(plainMat);
 
+/* Dutch city bikes (omafiets, graphics plan phase 9): low step-through frame, mudguards, chain guard, rear carrier, swept-back
+   handlebars, a brown saddle, front lamp and rear reflector. omaParts gives the frame parts as [geometry, matrix, colour] in bike
+   space (forward +z, wheels at z = +-0.52, axle height 0.36) to merge; omaWheel is one wheel (tyre + rim + hub) to spin. */
+const OMA_TUBE=new THREE.CylinderGeometry(0.018,0.018,1,6).rotateX(Math.PI/2),OMA_BOX=new THREE.BoxGeometry(1,1,1),
+  OMA_GUARD=new THREE.TorusGeometry(0.375,0.022,3,16,Math.PI*1.1).rotateZ(-0.08*Math.PI).rotateY(Math.PI/2);
+function omaParts(fc,stand){
+  const L=[],seg=(y1,z1,y2,z2,x,c,th)=>{const dy=y2-y1,dz=z2-z1,l=Math.hypot(dy,dz),t=th||1;L.push([OMA_TUBE,TM(x||0,(y1+y2)/2,(z1+z2)/2,t,t,l,Math.atan2(-dy,dz)),c||fc]);},
+    box=(x,y,z,sx,sy,sz,c,rx)=>L.push([OMA_BOX,TM(x,y,z,sx,sy,sz,rx||0),c]);
+  seg(0.72,0.44,0.42,0.2,0,fc,1.3);seg(0.42,0.2,0.3,-0.04,0,fc,1.3);seg(0.84,0.43,0.56,-0.13,0,fc,1.1);   // the two low step-through tubes
+  seg(0.3,-0.04,0.86,-0.2,0,fc,1.2);seg(0.66,0.465,0.96,0.42,0,fc,1.4);                                  // seat tube, head tube
+  for(const x of [-0.055,0.055]){seg(0.3,-0.04,0.36,-0.52,x);seg(0.83,-0.19,0.36,-0.52,x);seg(0.68,0.46,0.36,0.53,x*0.9);} // stays, fork
+  seg(0.96,0.42,1.06,0.4,0,'#8a8d90');box(0,1.06,0.39,0.5,0.025,0.025,'#8a8d90');                           // stem, bar
+  for(const x of [-0.25,0.25])seg(1.06,0.39,1.03,0.24,x,'#1c1c1c',1.5);                                     // swept-back grips
+  seg(0.86,-0.2,0.92,-0.23,0,'#8a8d90');box(0,0.95,-0.25,0.15,0.07,0.25,'#4a3222');                        // seat post, saddle
+  for(const z of [-0.52,0.52])L.push([OMA_GUARD,TM(0,0.36,z),fc]);                                         // mudguards
+  box(0.085,0.34,-0.27,0.02,0.13,0.6,'#1d1d1d');                                                            // chain guard
+  box(0,0.8,-0.5,0.2,0.02,0.4,'#2a2a2a');for(const x of [-0.085,0.085])seg(0.8,-0.68,0.36,-0.55,x,'#2a2a2a'); // carrier
+  box(0,0.8,0.6,0.07,0.07,0.08,'#d8d8d0');box(0,0.79,-0.71,0.05,0.04,0.02,'#b3171b');                      // lamp, reflector
+  if(stand)seg(0.3,-0.2,0.02,-0.3,0.1,'#555');
+  return L;
+}
+const OMA_WHEEL_PARTS=[[new THREE.TorusGeometry(0.34,0.034,6,20),'#1b1b1b'],[new THREE.TorusGeometry(0.305,0.012,4,20),'#b8bcc0'],
+  [new THREE.CylinderGeometry(0.03,0.03,0.1,8).rotateX(Math.PI/2),'#9a9ea2']].map(([g,c])=>[g.rotateY(Math.PI/2),c]);
+const OMA_WHEEL=mergeCol(OMA_WHEEL_PARTS.map(([g,c])=>[g,new THREE.Matrix4(),c]));
 /* bikes */
 {
   // all parked bikes are merged into one vertex-coloured mesh (was 7 draw calls per bike)
@@ -1656,9 +1680,8 @@ plainGB2.mesh(plainMat);
   for(const [x,z,rot] of BIKE_SPOTS){
     const G=TM(x,0,z,1,1,1,0,rot||0),at=(geo,m,c)=>L.push([geo,G.clone().multiply(m),c]);
     const fc=pick(['#1f3d5a','#222222','#7a1f1f','#2d5a3a','#d9d4c8','#ff7b1c']);
-    for(const sd of [-0.5,0.5])at(tire,TM(0,0.35,sd,1,1,1,0,Math.PI/2),'#1d1d1d');
-    at(tube,TM(0,0.62,0,1,1,0.8),fc);at(tube,TM(0,0.5,-0.18,1,1,0.6,0.9),fc);at(tube,TM(0,0.62,0.45,1,1,0.6,1.3),fc);
-    at(tube,TM(0,0.92,0.5,1,1,0.5,0,Math.PI/2),'#888888');at(saddle,TM(0,0.86,-0.3),'#222222');
+    for(const sd of [-0.52,0.52])for(const [geo,c] of OMA_WHEEL_PARTS)at(geo,TM(0,0.36,sd),c);
+    for(const [geo,m,c] of omaParts(fc,true))at(geo,m,c);
   }
   if(L.length){const m=new THREE.Mesh(mergeCol(L),Lam({vertexColors:true,roughness:0.6}));scene.add(m);}
 }
@@ -2317,7 +2340,18 @@ const PLATE_TEX=canvasTex(128,32,(g,w,h)=>{g.fillStyle='#f2c200';g.fillRect(0,0,
 const PLATE_MAT=new THREE.MeshStandardMaterial({map:PLATE_TEX,roughness:0.5});
 const PLATE_GEO=new THREE.PlaneGeometry(.52,.12);
 const paintCache={};
-function paintMat(c){return paintCache[c]||(paintCache[c]=new THREE.MeshStandardMaterial({color:c,metalness:0.5,roughness:0.32,envMapIntensity:1.1}));}
+/* car paint (graphics plan phase 9): a metallic base coat under a glossy clear coat, so cars show sharp sky reflections over
+   softer colour; road dirt and spray darken and dull the lower 40 cm of the body (more when the streets are wet) */
+function carPaint(o){const m=new THREE.MeshPhysicalMaterial(Object.assign({metalness:0.45,roughness:0.42,clearcoat:1,clearcoatRoughness:0.07,envMapIntensity:1.05},o));
+  m.onBeforeCompile=sh=>{sh.uniforms.uWet=WET_U;
+    sh.vertexShader='varying float vLocY;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vLocY=position.y;');
+    sh.fragmentShader='uniform float uWet;varying float vLocY;float vDirt;\n'+sh.fragmentShader
+      .replace('#include <map_fragment>','#include <map_fragment>\n  vDirt=smoothstep(0.62,0.3,vLocY)*(0.55+0.45*uWet);diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*0.55+vec3(0.06,0.05,0.04),vDirt*0.6);')
+      .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\n  roughnessFactor=mix(roughnessFactor,0.85,vDirt*0.7);')
+      .replace('#include <clearcoat_normal_fragment_begin>','#include <clearcoat_normal_fragment_begin>')
+      .replace('material.clearcoat = clearcoat;','material.clearcoat = clearcoat*(1.0-0.8*vDirt);');};
+  return m;}
+function paintMat(c){return paintCache[c]||(paintCache[c]=carPaint({color:c}));}
 const SHADOW_TEX=canvasTex(64,128,(g,w,h)=>{const gr=g.createRadialGradient(32,64,8,32,64,60);gr.addColorStop(0,'rgba(0,0,0,.75)');gr.addColorStop(1,'rgba(0,0,0,0)');g.save();g.scale(1,2);g.translate(0,-32);g.fillStyle=gr;g.fillRect(0,0,w,h);g.restore();});
 SHADOW_TEX.wrapS=SHADOW_TEX.wrapT=THREE.ClampToEdgeWrapping;
 const CAR_SHADOW_MAT=new THREE.MeshBasicMaterial({map:SHADOW_TEX,transparent:true,depthWrite:false,opacity:0.55,polygonOffset:true,polygonOffsetFactor:-8,polygonOffsetUnits:-16});
@@ -2646,7 +2680,7 @@ function staticCars(list){
     const L=list.filter(c=>(c.kind||'car')===kind);if(!L.length)continue;
     const geos={shell:CARPARTS[kind].shell,glass:CARGEO[kind].glass,trim:CARPARTS.trim,head:CARPARTS.head,tail:CARPARTS.tail,plates:CARPARTS.plates};
     for(const [name,mat,paint] of parts){
-      const im=new THREE.InstancedMesh(geos[name],paint?new THREE.MeshStandardMaterial({metalness:0.5,roughness:0.32,envMapIntensity:1.1}):mat,L.length);
+      const im=new THREE.InstancedMesh(geos[name],paint?carPaint({}):mat,L.length);
       L.forEach((c,i)=>{m4.compose(new THREE.Vector3(c.x,0,c.z),q.setFromAxisAngle(Y,c.h),one);im.setMatrixAt(i,m4);if(paint)im.setColorAt(i,col.set(c.color));});
       im.castShadow=name==='shell';scene.add(im);out.meshes.push(im);
     }
@@ -3030,6 +3064,7 @@ function checkRedLights(t){
 }
 /* ---------- cyclists ---------- */
 const CYCLISTS=[];
+const OMA_MAT=Lam({vertexColors:true,roughness:0.5,metalness:0.2});
 {
   const tire=new THREE.TorusGeometry(0.34,0.045,6,18),tireMat=lm('#1d1d1d'),tube=new THREE.BoxGeometry(0.05,0.05,1);
   for(let i=0;i<12;i++){
@@ -3038,9 +3073,8 @@ const CYCLISTS=[];
     const g=new THREE.Group();scene.add(g);
     const fm=lm(pick(['#1f3d5a','#222','#7a1f1f','#2d5a3a','#d9d4c8','#ff7b1c','#6a3b7a']));
     const wheels=[];
-    for(const z of [-0.52,0.52]){const w=new THREE.Mesh(tire,tireMat);w.position.set(0,0.36,z);w.rotation.y=Math.PI/2;w.castShadow=true;g.add(w);wheels.push(w);}
-    const T=(x,y,z,rx,sz,m)=>{const t=new THREE.Mesh(tube,m||fm);t.position.set(x,y,z);t.rotation.x=rx;t.scale.z=sz;t.castShadow=true;g.add(t);return t;};
-    T(0,0.62,0.02,0,0.85);T(0,0.5,-0.2,0.9,0.6);T(0,0.64,0.47,1.3,0.6);T(0,1.0,0.5,0,0.08,lm('#888')).scale.x=10;
+    for(const z of [-0.52,0.52]){const w=new THREE.Mesh(OMA_WHEEL,OMA_MAT);w.position.set(0,0.36,z);w.castShadow=true;g.add(w);wheels.push(w);}
+    {const fr=new THREE.Mesh(mergeCol(omaParts('#'+fm.color.getHexString(THREE.SRGBColorSpace))),OMA_MAT);fr.castShadow=true;g.add(fr);}
     // rider: reuse the person model, seated
     const rider=makePerson({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS)});
     scene.remove(rider.g);g.add(rider.g);rider.g.position.set(0,0.12,-0.22);rider.g.rotation.x=0.18;
@@ -4894,17 +4928,19 @@ void main(){
     pass(POST.fxaaMat,null);
   };
 }
-/* planar reflection of the town in the canals (High only, graphics plan phase 8): when water is within 160 m, the scene is
-   drawn once more from a camera mirrored in the water plane, at half resolution, clipped at the water line, into a texture the
+/* planar reflection of the town in the canals (High only, graphics plan phase 8): when there is water in view nearby, the scene is
+   drawn once more from a camera mirrored in the water plane (up to 350 m away), at half resolution, clipped at the water line, into a texture the
    water shader blends in by Fresnel. The shadow map from the main pass is reused. */
 const WATER_REFL={rt:null,cam:new THREE.PerspectiveCamera(),clip:[new THREE.Plane(new THREE.Vector3(0,1,0),-WATER_Y-0.02)],t:new THREE.Vector3(),hide:[]};
 function waterNear(){const x=camera.position.x,z=camera.position.z;
-  for(const w of WATER){const b=w.b;if(x>b.x0-160&&x<b.x1+160&&z>b.z0-160&&z<b.z1+160)return true;}return false;}
+  camera.getWorldDirection(_sd);const ax=x+_sd.x*45,az=z+_sd.z*45;   // water within 90 m of a point 45 m ahead, i.e. in view
+  for(const w of WATER){const b=w.b;if(ax>b.x0-90&&ax<b.x1+90&&az>b.z0-90&&az<b.z1+90){
+    const nx=Math.max(b.x0,Math.min(ax,b.x1)),nz=Math.max(b.z0,Math.min(az,b.z1));if(Math.hypot(nx-ax,nz-az)<90)return true;}}return false;}
 function renderWaterRefl(){
   const on=GFX===2&&camera.position.y>WATER_Y+0.3&&waterNear();WATER_U.uReflOn.value=on?1:0;if(!on)return;
   const R=WATER_REFL,sz=renderer.getDrawingBufferSize(new THREE.Vector2()),w=Math.max(64,sz.x>>1),h=Math.max(64,sz.y>>1);
   if(!R.rt||R.rt.width!==w||R.rt.height!==h){if(R.rt)R.rt.dispose();R.rt=new THREE.WebGLRenderTarget(w,h,{type:THREE.HalfFloatType});WATER_U.uRefl.value=R.rt.texture;}
-  const c=R.cam;c.fov=camera.fov;c.aspect=camera.aspect;c.near=camera.near;c.far=Math.min(camera.far,900);c.updateProjectionMatrix();
+  const c=R.cam;c.fov=camera.fov;c.aspect=camera.aspect;c.near=camera.near;c.far=Math.min(camera.far,350);c.updateProjectionMatrix();
   camera.getWorldDirection(_sd);R.t.copy(camera.position).add(_sd);
   c.position.set(camera.position.x,2*WATER_Y-camera.position.y,camera.position.z);c.up.set(0,-1,0);c.lookAt(R.t.x,2*WATER_Y-R.t.y,R.t.z);c.updateMatrixWorld();
   WATER_U.uReflM.value.multiplyMatrices(c.projectionMatrix,c.matrixWorldInverse);

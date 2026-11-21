@@ -26,6 +26,7 @@ const SPOTS = [
   { id: 'canal-centre', at: [-120, -330], look: [-60, -300], time: 14, pitch: 0.25 },
   { id: 'roofs-emmelhage', at: [-300, -1890], look: [-420, -1990], time: 11, pitch: 0.75, zoom: 4 },
   { id: 'roofs-centre', at: [180, 120], look: [60, 20], time: 11, pitch: 0.75, zoom: 4 },
+  { id: 'bikes-deel', at: [139, -78], look: [146, -86], time: 13, pitch: 0.12, zoom: 0.5 },
   { id: 'kerb-close', place: 'Emmelhage', time: 12, side: 2.2, pitch: 0.08, zoom: 0.45 },
 ];
 
@@ -73,7 +74,7 @@ const srv = http.createServer((q, r) => {
     }, s);
     await pg.waitForTimeout(3500);
     const st = await pg.evaluate(() => { const r = __game.renderer; r.info.autoReset = false; return new Promise(ok => requestAnimationFrame(() => { r.info.reset(); requestAnimationFrame(() => { const i = r.info.render; const o = { calls: i.calls, tris: i.triangles, tex: r.info.memory.textures, geo: r.info.memory.geometries }; r.info.autoReset = true; ok(o); }); })); });
-    await pg.screenshot({ path: path.join(OUT, `${LABEL}-${s.id}.png`) });
+    await pg.screenshot({ path: path.join(OUT, `${LABEL}-${s.id}.png`), timeout: 120000 });
     res[s.id] = Object.assign(info, st);
     console.log(s.id, JSON.stringify(res[s.id]));
   }

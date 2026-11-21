@@ -50,7 +50,7 @@ Coins, cash, your best lap and the time of day are saved in your browser automat
 
 ## Jobs
 
-Coloured light beams mark three jobs (also shown on the minimap). Stand or drive into one and press **E** (or tap the prompt):
+Coloured light beams mark three jobs (also shown on the minimap). Stand or drive into one and press **E** (or tap the prompt): During a job a GPS line on the minimap shows the way along the streets (one-way streets respected when you drive), and deliveries go to real house numbers from OpenStreetMap.
 
 - **Parcel delivery** (blue, on De Deel): pick up a parcel at a real shop in the centre and deliver it to an address on a real street. Works on foot or by car.
 - **Polder taxi** (yellow, north of De Deel): pick up a passenger and drive them home, sometimes far out into the polder. Stop at the marker to let them in and out.

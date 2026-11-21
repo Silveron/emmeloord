@@ -4294,6 +4294,34 @@ function updateCamera(dt,t){
     camera.lookAt(camPos.x+lx/hz*ce,camPos.y+Math.sin(el),camPos.z+lz/hz*ce);
   }
 }
+/* GPS: shortest way over the road graph to the current job target, drawn on the minimap (one-way streets respected when driving) */
+const GPS={key:'',path:null,t:0};
+function nearNode(x,z){let bi=-1,bd=1e18;for(let i=0;i<GNODES.length;i++){const n=GNODES[i];if(!n.out.length)continue;const d=(n.x-x)**2+(n.z-z)**2;if(d<bd){bd=d;bi=i;}}return bi;}
+function gpsRoute(px,pz,tx,tz,drive){
+  const s=nearNode(px,pz),g=nearNode(tx,tz);if(s<0||g<0)return null;
+  const N=GNODES.length,dist=new Float64Array(N).fill(Infinity),prev=new Array(N),done=new Uint8Array(N);
+  const H=[[0,s]];dist[s]=0;const push=e=>{H.push(e);let i=H.length-1;while(i>0){const p=(i-1)>>1;if(H[p][0]<=H[i][0])break;[H[p],H[i]]=[H[i],H[p]];i=p;}};
+  const pop=()=>{const top=H[0],last=H.pop();if(H.length){H[0]=last;let i=0;for(;;){const l=2*i+1,r=l+1;let m=i;if(l<H.length&&H[l][0]<H[m][0])m=l;if(r<H.length&&H[r][0]<H[m][0])m=r;if(m===i)break;[H[m],H[i]]=[H[i],H[m]];i=m;}}return top;};
+  while(H.length){const [d,u]=pop();if(done[u])continue;done[u]=1;if(u===g)break;
+    const list=drive?GNODES[u].out:GNODES[u].all;
+    for(const o of list){const e=o.e;const v=o.fwd?e.b:e.a;if(done[v])continue;
+      if(e.L===undefined){let L=0;for(let i=1;i<e.p.length;i++)L+=Math.hypot(e.p[i][0]-e.p[i-1][0],e.p[i][1]-e.p[i-1][1]);e.L=L;}
+      const nd=d+e.L;if(nd<dist[v]){dist[v]=nd;prev[v]=o;push([nd,v]);}}}
+  if(!done[g])return null;
+  const segs=[];for(let v=g;v!==s;){const o=prev[v];const p=o.fwd?o.e.p:o.e.p.slice().reverse();segs.unshift(p);v=o.fwd?o.e.a:o.e.b;}
+  const path=[[px,pz]];for(const p of segs)for(const q of p)path.push(q);path.push([tx,tz]);return path;
+}
+for(const n of GNODES)n.all=[];
+for(const e of GEDGES){GNODES[e.a].all.push({e,fwd:true});GNODES[e.b].all.push({e,fwd:false});}
+function updateGPS(t){
+  if(!JOB||!JOB.steps||!JOB.steps[JOB.i]){GPS.path=null;GPS.key='';return;}
+  const s=JOB.steps[JOB.i],px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z,drive=P.mode==='drive';
+  if(Math.hypot(s.x-px,s.z-pz)<70){GPS.path=null;return;}
+  const key=JOB.i+'|'+Math.round(s.x)+'|'+Math.round(s.z)+'|'+drive;
+  let off=false;if(GPS.path&&t-GPS.t>2){let bd=1e9;for(let i=0;i<GPS.path.length-1;i++){const q=GPS.path[i],r=GPS.path[i+1];bd=Math.min(bd,segDist(px,pz,q[0],q[1],r[0],r[1])[0]);}off=bd>30;}
+  if(key!==GPS.key||off||!GPS.path){GPS.key=key;GPS.t=t;GPS.path=gpsRoute(px,pz,s.x,s.z,drive);}
+  else if(GPS.path)GPS.path[0]=[px,pz];
+}
 function drawMini(){
   const S=mini.width,R=130,px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z,h=P.mode==='drive'?P.car.h:P.h;
   const k=S/(2*R);
@@ -4304,6 +4332,8 @@ function drawMini(){
   for(const c of CARS){if(c===P.car)continue;const [x,y]=W(c.x,c.z);if(!c.g.visible)continue;mctx.fillStyle=c.policeOn?'#2f6bff':c.rivalOn?'#ff3b30':c.bus?'#1f7fa6':c.ai?'#2b2f33':'#ffffff';mctx.fillRect(x-4,y-4,8,8);}
   for(const c of COINS){if(c.got)continue;let [x,y]=W(c.x,c.z);const dx=x-S/2,dy=y-S/2,d=Math.hypot(dx,dy),lim=S/2-12;if(d>lim){x=S/2+dx/d*lim;y=S/2+dy/d*lim;}mctx.fillStyle='#ff7b1c';mctx.strokeStyle='#fff';mctx.lineWidth=2;mctx.beginPath();mctx.arc(x,y,7,0,7);mctx.fill();mctx.stroke();}
   const mark=(wx,wz,col,r)=>{let [x,y]=W(wx,wz);const dx=x-S/2,dy=y-S/2,d=Math.hypot(dx,dy),lim=S/2-12;if(d>lim){x=S/2+dx/d*lim;y=S/2+dy/d*lim;}mctx.fillStyle=col;mctx.strokeStyle='#fff';mctx.lineWidth=2;mctx.beginPath();mctx.arc(x,y,r,0,7);mctx.fill();mctx.stroke();};
+  if(JOB&&GPS.path){const col='#'+JOB.j.col.toString(16).padStart(6,'0');mctx.lineJoin=mctx.lineCap='round';
+    for(const [w,c] of [[10,'rgba(15,21,25,.55)'],[5.5,col]]){mctx.lineWidth=w;mctx.strokeStyle=c;mctx.beginPath();GPS.path.forEach((q,i)=>{const [x,y]=W(q[0],q[1]);if(i)mctx.lineTo(x,y);else mctx.moveTo(x,y);});mctx.stroke();}}
   if(JOB){const s=JOB.steps[JOB.i];mark(s.x,s.z,'#'+JOB.j.col.toString(16).padStart(6,'0'),10);}
   else for(const j of JOBS)mark(j.x,j.z,'#'+j.col.toString(16).padStart(6,'0'),7);
   mark(GARAGE.x,GARAGE.z,'#ffffff',6);
@@ -4542,7 +4572,7 @@ function frame(now){
     if(TOUCH.on&&drv!==TOUCH.drv){TOUCH.drv=drv;$('bJump').textContent=drv?'BRAKE':'JUMP';}
     if(drv){$('spd').textContent=Math.round(Math.abs(P.car.speed)*3.6);{const d=P.car.dmg||0,bar=$('dmg');if(bar.hidden!==!(d>0))bar.hidden=!(d>0);if(d>0){const w=Math.round(d)+'%';if(bar.firstChild.style.width!==w){bar.firstChild.style.width=w;bar.firstChild.style.background=d>=75?'#e5533d':'#e6b422';}}}ACH.km+=Math.abs(P.car.speed)*dt/1000;if(Math.abs(P.car.speed)*3.6>=150)ach('fast');}
     updateAudio(dt,px,pz);
-    drawMini();
+    updateGPS(t);drawMini();
   }
   if(gameMin+dt>=1440)GAME_DOW=(GAME_DOW+1)%7;
   {const h0=Math.floor(gameMin/60);gameMin=(gameMin+dt)%1440;const h1=Math.floor(gameMin/60);if(h1!==h0&&started&&!paused&&h1>=8&&h1<=22)playCarillon(h1);}
@@ -4578,7 +4608,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,TREES,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

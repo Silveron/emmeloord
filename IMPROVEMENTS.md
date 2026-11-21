@@ -20,6 +20,29 @@ No open bugs were logged. Left over from yesterday's plan: achievements and a Po
 - **Carillon** (sound): from 08:00 to 22:00 the bells play a short original tune on every full game hour and then strike the hour (bell partials: hum, prime, minor third, fifth, nominal). Heard up to about 700 m, softer inside a car.
 - **De Leeuwen** (graphics/bug): the four concrete lions by the tower (OSM tourism=artwork, replicas by Marieke van Diemen, positions unchanged) were bright white boxes; now rounded lying lions with mane, paws and tail on low plinths, in darker matt concrete with less sky reflection.
 - **Car damage** (gameplay/graphics): hard hits on walls, trees and other cars add damage (bar under the speedometer). From 50% smoke rises from the bonnet, from 75% it is dark and the car is slower, at 100% it is wrecked (45% power). Repair at the garage for about €1.20 per percent. Your own car's damage is saved.
+- **Performance** (phones): the ~45 parked bikes are merged into one mesh: draw calls at the start view (Medium) 973 → 906. The rest is mostly large world chunks; further gains need building chunks merged per area.
+- **Phone layout** (mobile/bug): on a sideways phone the pause card was taller than the screen; it now scrolls, so the achievements list is reachable. The speedometer overlapped the pause button; on short screens it now sits next to it.
+
+### Report for Ron
+Today's run (01:17) added 7 improvements, each tested in headless Chromium (no console errors, walking/driving checked, screenshots looked right) and pushed straight to `main`:
+- 23 achievements with a gold pop-up and a list in the pause menu.
+- Take the lift up the Poldertoren (E at the door facing De Deel) and walk around the gallery at 43.4 m.
+- The tower carillon plays a short tune and strikes the hour on every full hour, 08:00-22:00.
+- The four concrete lions (De Leeuwen) by the tower now look like lions instead of white blocks.
+- Car damage: smoke from the bonnet, slower when wrecked, repair at the garage.
+- Fewer draw calls (parked bikes merged) and two phone layout fixes.
+
+Screenshots: `runs/2026-11-21-tower-gallery.png` (view from the gallery over De Deel with the kermis, the bus station and the polder wind turbines), `2026-11-21-achievement.png`, `2026-11-21-car-smoke.png` in the project files.
+
+Problems: light concrete (tower plinth, lions) still looks very bright in sunshine; the sky lighting is strong on pale materials. Not changed globally because it affects the whole look. The camera can end up inside tree crowns when driving under street trees.
+
+### Next ideas (for the next run)
+1. Camera collision with tree crowns and buildings (pull the camera in).
+2. Tone down the overall brightness of pale concrete/white surfaces (sky light strength), checked against Ron's photos.
+3. Real house numbers from OSM (addr:housenumber) for taxi and pizza addresses.
+4. Merge static world chunks per area for phones; check draw calls in the busiest views.
+5. Visible dents or a crumpled bonnet on damaged cars; tow truck if wrecked far from the garage.
+6. More tower content: the turning figures explained when you look at them, opening hours.
 
 ## 2026-11-20 (real map + Poldertoren)
 

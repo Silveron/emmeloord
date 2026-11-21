@@ -838,10 +838,10 @@ function nearestRoad(x,z,filt){let best=null,bd=1e9;for(const s of nearSegs(x,z)
 // raised pavements (phase 3): people walking on them stand 12.5 cm higher
 function groundY(x,z,y0){const n=nearestRoad(x,z,r=>r.side);const g=n&&n.d<0?0.125:0;const h=roadH(x,z,y0||0);return h>g?h:g;}
 /* height of the road surface under (x,z) for something now at height y0: bridges, viaducts and their ramps (graphics plan phase 4).
-   Where two roads cross (A6 over the Marknesserweg) the one nearest to y0 wins, so you stay on the level you are driving on */
-function roadH(x,z,y0){let best=0,bd=Math.abs(y0);
+   The highest surface no more than 0.6 m above y0 wins, so you climb a ramp step by step but drive under a viaduct you are not on */
+function roadH(x,z,y0){let best=0;
   for(const s of nearSegs(x,z)){const r=s.r;if(!r.h)continue;const q=segDist(x,z,s.ax,s.az,s.bx,s.bz);if(q[0]>r.w/2+0.6)continue;
-    const h=r.h[s.i]+(r.h[s.i+1]-r.h[s.i])*q[3];const d=Math.abs(h-y0);if(d<bd&&(h<y0+1.2)){bd=d;best=h;}}
+    const h=r.h[s.i]+(r.h[s.i+1]-r.h[s.i])*q[3];if(h>best&&h<=y0+0.6)best=h;}
   return best;}
 function onRoad(x,z,m){const n=nearestRoad(x,z,r=>r.c===0);return !!n&&n.d<m;}
 function onPed(x,z,m){const n=nearestRoad(x,z,r=>r.c!==0);if(n&&n.d<m)return true;for(const a of PAVED)if(x>a.x0&&x<a.x1&&z>a.z0&&z<a.z1&&inPoly(x,z,a.p))return true;return false;}

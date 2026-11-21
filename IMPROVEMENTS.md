@@ -15,6 +15,11 @@ No open bugs were logged. Left over from yesterday's plan: achievements and a Po
 6. **Performance** (phones): look at draw calls and merge static street furniture where it is cheap to do.
 
 ### Done
+- **Achievements** (gameplay): 23 goals (first coin, all coins, first job, 10 jobs, every kind of job, beat the rival, tower lift, Ferris wheel, bike + scooter + tractor, borrow a car, 150 km/h, flitspaal, lose the police, pulled over, buy a car, new paint, level 5, out at 3 AM, caught in a shower, the Thursday market, 25 km driven, the carillon up close, a repair). Gold toast with a chime; list in the pause menu (Achievements button); saved; the start screen shows the count.
+- **Poldertoren lift** (content): at the tower door facing De Deel press E. The screen goes dark with a metre counter while the lift goes up, then you stand on the visitor gallery at 43.4 m. Walk around the octagonal gallery (A/D or joystick), drag to look; E takes the lift down and you come out at the door.
+- **Carillon** (sound): from 08:00 to 22:00 the bells play a short original tune on every full game hour and then strike the hour (bell partials: hum, prime, minor third, fifth, nominal). Heard up to about 700 m, softer inside a car.
+- **De Leeuwen** (graphics/bug): the four concrete lions by the tower (OSM tourism=artwork, replicas by Marieke van Diemen, positions unchanged) were bright white boxes; now rounded lying lions with mane, paws and tail on low plinths, in darker matt concrete with less sky reflection.
+- **Car damage** (gameplay/graphics): hard hits on walls, trees and other cars add damage (bar under the speedometer). From 50% smoke rises from the bonnet, from 75% it is dark and the car is slower, at 100% it is wrecked (45% power). Repair at the garage for about €1.20 per percent. Your own car's damage is saved.
 
 ## 2026-11-20 (real map + Poldertoren)
 

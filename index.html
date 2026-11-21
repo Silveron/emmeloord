@@ -709,6 +709,17 @@ function wallFace(gb,p0,p1,y0,y1,n,col,floorH,vBase){
 }
 
 /* ---------- materials ---------- */
+/* cloud shadows (graphics plan phase 10): soft patches of shade drifting east over the town and the polder with the clouds,
+   typical of Dutch skies. Installed on the MeshStandardMaterial prototype, so every PBR material gets it (materials with their
+   own onBeforeCompile call this one first); it dims only direct sunlight. CLOUD_U = (offset x, offset z, strength, unused). */
+const CLOUD_U={value:new THREE.Vector4(0,0,0,0)};
+THREE.MeshStandardMaterial.prototype.onBeforeCompile=function(sh){sh.uniforms.uCloud=CLOUD_U;
+  sh.fragmentShader=sh.fragmentShader.replace('void main() {',`uniform vec4 uCloud;
+float cnz(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);float a=fract(sin(dot(i,vec2(127.1,311.7)))*43758.5453),b=fract(sin(dot(i+vec2(1,0),vec2(127.1,311.7)))*43758.5453),c=fract(sin(dot(i+vec2(0,1),vec2(127.1,311.7)))*43758.5453),d=fract(sin(dot(i+vec2(1,1),vec2(127.1,311.7)))*43758.5453);return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
+float cloudShade(){ if(uCloud.z<0.001) return 1.0; vec3 wp=cameraPosition+transpose(mat3(viewMatrix))*(-vViewPosition);
+  vec2 q=(wp.xz-uCloud.xy)/260.0; float n=cnz(q)*0.6+cnz(q*2.13+5.2)*0.3+cnz(q*4.7+1.7)*0.1;
+  return 1.0-uCloud.z*smoothstep(0.5,0.68,n); }
+void main() {`).replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin.replace('getDirectionalLightInfo( directionalLight, directLight );','getDirectionalLightInfo( directionalLight, directLight );\n\t\tdirectLight.color *= cloudShade();'));};
 const Lam=o=>new THREE.MeshStandardMaterial(Object.assign({roughness:0.88,metalness:0,envMapIntensity:0.65},o));
 const overlay=(o,lvl)=>Lam(Object.assign({polygonOffset:true,polygonOffsetFactor:-lvl,polygonOffsetUnits:-lvl*2},o));
 const wallMats=FACADES.map(f=>{const s=makeFacade(f);return Lam({map:s.map,normalMap:s.normalMap,normalScale:new THREE.Vector2(1,1),roughness:f.kind==='office'?0.55:0.9,emissiveMap:makeFacadeGlow(f),emissive:0x000000,vertexColors:true});});
@@ -2051,8 +2062,9 @@ const BLADES=[];
 const BLADE_GEO=new THREE.CylinderGeometry(0.2,0.95,34,6);BLADE_GEO.scale(1,1,0.32);
 {
   const white=lm('#eef0f0');
-  // rows of turbines out in the polder, just outside the town
-  const pos=[];for(let x=RX0+150;x<=RX1-150;x+=250)pos.push([x,RZ0-420]);for(let z=RZ0+150;z<=RZ1-150;z+=240)pos.push([Math.min(RX1+380,WORLD-60),z]);for(let x=RX0+250;x<=RX1-250;x+=280)pos.push([x,Math.min(RZ1+380,WORLD-60)]);
+  // wind turbines at their OpenStreetMap positions (power=generator, generator:source=wind) within reach of the map; OSM has one
+  // south of town (node 1617174216). The rows of turbines that used to stand here were invented and are gone.
+  const pos=[[289,3788]];
   for(const [x,z] of pos){
     if(POLDER_ROADS.some(pr=>segDist(x,z,pr.p[0][0],pr.p[0][1],pr.p[1][0],pr.p[1][1])[0]<20))continue;
     const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=Math.atan2(-x,-z);scene.add(g);
@@ -4626,6 +4638,7 @@ function updateDayNight(){
   tailMat.emissive.setRGB(0.25+lights*0.55,0,0);
   c1.copy(DN.cloudNight).multiplyScalar(1.6).lerp(WHITE,day).lerp(DN.sunDusk,dusk*0.35).multiplyScalar(1-0.42*RAIN);
   for(const m of CLOUD_MATS){m.color.copy(c1);m.opacity=0.92+0.08*RAIN;}
+  CLOUD_U.value.z=GFX===0?0:0.6*day*(1-RAIN)*(1-FOGK);
   // wet streets: darker and glossier while it rains
   for(const [m,r0] of WET_MATS){m.roughness=r0*(1-0.6*WET);m.color.setScalar(1-0.34*WET);}
   headSpot.intensity=lights*1.6;
@@ -5041,6 +5054,7 @@ function frame(now){
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
   // clouds drift east and wrap around the camera, so there are clouds wherever you are in town
+  CLOUD_U.value.x+=dt*3;
   for(const c of CLOUDS){c.position.x+=dt*3;const ox=c.position.x-camera.position.x,oz=c.position.z-camera.position.z,d=Math.hypot(ox,oz);if(d>850){c.position.x=camera.position.x-ox/d*840;c.position.z=camera.position.z-oz/d*840;}}
   updateCamera(dt,t);
   updateTreeChunks(px,pz);updateCull();
@@ -5110,7 +5124,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

@@ -2,6 +2,29 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-21 (realistic graphics plan, phases 0 to 10)
+
+Ron approved the whole plan in `docs/GRAPHICS_PLAN.md` ("ok lets go I accept everything"). Each phase was pushed live separately.
+
+### Done
+- **Phase 0, measuring stick** (tools): `tools/shots.js` takes screenshots at fixed real spots and records draw calls and triangles per spot, so each phase can be compared before and after.
+- **Phase 1, colours** (graphics): flat colours and vertex colours are treated as sRGB, so pale surfaces no longer glow; dark materials (trunks, poles, lions) were re-tuned.
+- **Phase 2, engine** (graphics): Three.js r128 → r159, vendored in `assets/lib` (no CDN). It brings built-in colour management; the High post chain does its own ACES tone mapping.
+- **Phase 3, streets** (graphics/content, OSM): kerbs along streets with `kerb` data inside built-up areas, pavements raised 12.5 cm, klinker streets from OSM `surface`, shark teeth and zebra crossings at OSM give-way and crossing points, and OSM bollards, bins, street cabinets, lowered kerbs and hedges.
+- **Phase 4, heights** (graphics/gameplay): bridges and viaducts get deck heights from OSM bridge/layer tags; for example, the A6 runs 6.5 m up over the Marknesserweg and Zwolse Vaart with ramps at 3.5 %, on piers with guard rails and grass embankments. Cars drive up the ramps. Canals are sunken 1.1 m with sloped grass and mud banks (stencil holes in the ground).
+- **Phase 5, buildings** (graphics, 3D BAG): measured eave height, ridge height, roof type and ridge direction from the 3D BAG (TU Delft, CC BY 4.0) for 12,015 of 12,705 buildings, matched by BAG id (`tools/bag3d.py`). Pitched roofs only where the 3D BAG measured them, in their real direction. L-shaped houses get one roof with raised gable walls.
+- **Phase 6, grass** (graphics): tufts of grass blades within 13 m (Medium) or 24 m (High), swaying in the wind and fading out at the edge.
+- **Phase 7, light and shadow** (graphics): the shadow box is pushed ahead of the camera and snapped to shadow texels (no shimmer), soft contact shadows run along every wall, and rough surfaces lose most of their sun sheen.
+- **Phase 8, water and rain** (graphics): canals have a PBR water surface with Fresnel sky reflections, two ripple layers and rain rings. On High the canal mirrors the town (planar reflection). Streets get wet with rain and dry over a few minutes, and puddles in low spots become mirror-like.
+- **Phase 9, vehicles** (graphics): car paint has a clear coat, and the lower body is dulled by road dirt (more when wet). Parked bikes and cyclists are now Dutch city bikes (omafiets) with mudguards, chain guard, carrier, lamp and reflector.
+- **Phase 10, sky and horizon** (graphics/content): cloud shadows drift east over town with the clouds, on Medium and High. The invented rows of wind turbines are replaced by the one turbine OSM has near the map (node 1617174216, south of town).
+
+### Problems / notes
+- **Fixed a long-standing bug:** the first frame could get a negative time step, which put a layer of "snow" on every lawn and roof at startup. That was the real cause of the pale mint lawns, and it also made earlier screenshot comparisons unreliable. Time steps are now never negative.
+- High is heavier when a canal is in view (the scene is drawn twice); the reflection only renders when water is ahead, at half resolution, out to 350 m.
+- Not done, waiting for Ron's photos: era facade styles from OSM `start_date`, roof tile colours per street, and bus liveries.
+- Not done (large): temporal anti-aliasing, a colour grade (LUT) matched to the drone video, and near-camera 3D tree models and impostors.
+
 ## 2026-11-21 (whole town)
 
 Ron asked to build all of Emmeloord, not only the centre.

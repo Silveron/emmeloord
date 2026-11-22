@@ -14,6 +14,35 @@ No open bugs were logged after the graphics run. A quick play at the start view 
 5. **Small sound pass** (sound): a door/seat sound when a passenger gets in or out, an indicator tick when steering at low speed.
 6. **Next leftovers** if there is time: more polder content, Poldertoren plaque, people variety.
 
+### Done
+- **Taxi passengers with a story** (gameplay/content): six original passengers (Mrs Bakker, Daan the late student, Sanne the nurse, Mr De Vries the farmer, Yusuf with eggs in his shopping, Mr Visser the tourist). They greet you, chat as subtitles during the ride, react to crashes and to speeding over 72 km/h (Daan likes it fast and complains when you crawl). The ride ends with a 1 to 5 star rating that scales the fare (70% to 110%). Fare and time limit follow the real GPS driving route. New achievement "Five stars" (24 in total).
+- **House-number plate** (gameplay/graphics): parcel, taxi and pizza jobs show a floating plate with the number and street above the real house you deliver to, on top of its roof, readable from a distance and seen through other buildings.
+- **Far people hidden** (performance): pedestrians further than 120/160/210 m (Low/Medium/High) from the camera are hidden and not animated; in the busy test views 19 to 41 of 72 people are drawn instead of 62.
+- **Phone layout** (mobile/bug): on a sideways phone the job box ran under the coins/cash panel; it now sits right of the place name. The new chat subtitles and the tow button in the pause menu were checked on a sideways phone.
+- **Sounds** (sound): car doors, a starter motor when you get in (a soft chime for the electric Volt E), the delivery van beeps when reversing, a little chatter blip when a passenger talks.
+- **Street hails** (gameplay): from level 2, while you drive around without a job, someone at the kerb ahead now and then waves for a taxi (yellow beam, yellow dot on the minimap). Stop next to them and the taxi ride starts right there.
+
+### Report for Ron
+Tonight's run (01:17) added 6 improvements, each tested in headless Chromium (no console errors, walking/driving and the job checked with a script, screenshots looked right) and pushed straight to `main`; GitHub Pages deploys succeeded.
+- Taxi passengers are now characters who talk during the ride, react to crashes and speeding, and give you 1 to 5 stars that change the fare.
+- A house-number plate floats over the house you deliver to.
+- People sometimes wave for a taxi at the kerb while you drive: stop next to them to start a ride.
+- Far-away pedestrians are hidden, which saves draw calls in busy views.
+- Sideways phones: the job box no longer covers the coins and cash.
+- New sounds: car doors, starter motor, van reversing beep.
+
+Screenshots in the project files under `runs/`: `2026-11-22-house-plate.png` (plate "21-01 De Deel" above the shops on De Deel), `2026-11-22-taxi-hail.png` (a person in a yellow beam on Smeden waving for a taxi), `2026-11-22-phone-taxi-chat.png` (sideways phone with Yusuf talking about the Thursday market).
+
+Problems: the waving arm only shows on the simple fallback people; the rigged characters stand still in their beam (needs a wave animation on the rig). Draw-call numbers in the headless tests are noisy while tiles stream in, so the people saving is counted in people drawn, not exact calls. Every play test still runs at 3 to 5 fps in the cloud, so long drives are simulated with teleports.
+
+### Next ideas (for the next run)
+1. A wave pose for rigged people (hailing passengers, people greeting you).
+2. More passenger lines and a few special rides (rush to the Medisch Centrum, a tourist who wants to see the Poldertoren first: a detour step).
+3. Parcel recipients: someone opens the door when you arrive; signature sound.
+4. Daily taxi stats in the pause menu (rides, average stars, best tip).
+5. People variety (graphics plan): more CC0 bodies, children and elderly.
+6. Poldertoren plaque with facts checked from OSM/Wikipedia.
+
 ## 2026-11-21 (realistic graphics plan, phases 0 to 10)
 
 Ron approved the whole plan in `docs/GRAPHICS_PLAN.md` ("ok lets go I accept everything"). Each phase was pushed live separately.

@@ -14,6 +14,33 @@ The 01:17 run left one known bug: rigged people who hail a taxi stand still in t
 5. **Poldertoren plaque** (content): a plaque by the tower door with facts checked in OSM.
 6. Leftovers if there is time: people variety, more passenger lines, phone check of new UI.
 
+### Done
+- **Waving for rigged people** (bug/graphics): the real characters can now wave (the right arm bones are aimed in world space, so it works whatever the rig's bone axes are). Street hailers wave in their yellow beam.
+- **Passengers walk home, parcel recipients come out** (gameplay/content): at the drop-off the passenger gets out, waves goodbye and walks to their front door. With a parcel the doorbell rings, a resident walks to you, the scanner beeps, they say a line ("Is it the new coffee machine? Brilliant.") and go back inside.
+- **Special taxi rides** (gameplay/content): Mr Smit cut his thumb cutting onions and needs a rush ride to the Dokter J.H. Jansencentrum, Urkerweg 1 (OSM node 2719213291, amenity=clinic): tight time limit, fare x1.5, he likes it fast. Mr Visser the tourist now asks to pass the Poldertoren first (extra GPS step on De Deel; a happy line and half a star when you do).
+- **Taxi stats** (gameplay): rides, average rating, best fare and taxi takings in the pause menu, saved.
+- **Poldertoren plaque** (content): bronze plaque beside the tower door. Facts checked against OSM way 266435887 and its Wikipedia article: finished 1959, 65.3 m, water tower, 48-bell carillon, visitor gallery at 43.4 m (the OSM height tag is the gallery height). Walk up to it to read it.
+- **Passers-by wave hello** (gameplay/graphics): when you walk right past a pedestrian, now and then they turn and wave.
+
+### Report for Ron
+This morning's run (06:45) added 6 improvements, each tested in headless Chromium (no console errors; walking, driving and full taxi and parcel jobs scripted; screenshots checked) and pushed straight to `main`:
+- People wave properly now: taxi hailers raise and wave an arm, and passers-by sometimes wave hello.
+- Taxi passengers wave goodbye and walk to their door; parcel customers come out after the doorbell.
+- Two special taxi rides: a rush to the medical centre on the Urkerweg (real OSM spot) and a tourist who wants to see the Poldertoren first.
+- Taxi stats in the pause menu.
+- A bronze plaque by the tower door with checked facts (1959, 65.3 m, 48 bells).
+
+Screenshots in the project files under `runs/`: `2026-11-22b-wave-hello.png` (a man in a blue shirt waving at the player on the kermis lot by De Deel), `2026-11-22b-hail-wave.png` (taxi hailer waving in a yellow beam on Smeden), `2026-11-22b-taxi-stats.png` (pause menu with taxi rides, rating, best fare), `2026-11-22b-plaque.png`.
+
+Problems: the README said the tower is from 1959 while OSM says start_date 1957; Wikipedia gives 1959 as finished, so the plaque says 1959. Headless play runs at about 1 frame per second, so animations were checked with state values plus a few screenshots.
+
+### Next ideas (for the next run)
+1. People variety (graphics plan): more CC0 bodies, children and elderly.
+2. More passengers and special rides (late-night ride home from the kermis, a student to the Zuyderzee College at its OSM spot).
+3. A honk reaction: pedestrians look round or step back when you honk near them.
+4. Phone check of the larger pause stats grid on a small sideways phone.
+5. Tower facts in the lift ride (gallery at 43.4 m, the 48 bells) shown on the way up.
+
 ## 2026-11-22 (run 01:17)
 
 ### Plan (prioritized)

@@ -3355,6 +3355,7 @@ function parcelRecipient(s){
   const mx=px-(px-dx)/L*stop,mz=pz-(pz-dz)/L*stop;
   const m=makePerson({shirt:pick(SHIRTS),pants:pick(['#333','#3c4a63','#5b4a3a']),skin:pick(SKINS),hair:pick(HAIRS)});
   m.g.position.set(dx,groundY(dx,dz),dz);
+  if(AC&&!muted){const t=AC.currentTime;bell(659,t,0.05,0.7);bell(523,t+0.5,0.05,1);}   // doorbell: ding-dong
   actor(m,[{walk:1,x:mx,z:mz,max:9},{dur:0.9,face:'p',fn:()=>{scanBeep();say('Resident',pick(RECIPIENT_LINES),3200);}},{dur:1.8,face:'p',wave:1},{walk:1,x:dx,z:dz,max:12}]);
 }
 function passengerLeaves(m,s,car){
@@ -4018,14 +4019,15 @@ function startWheelRide(){
 /* ---------- Poldertoren lift: from the door facing De Deel up to the visitor gallery at 43.4 m ---------- */
 const TOWER_LIFT=(()=>{const apo=TOWER.r*Math.cos(Math.PI/8),a=TOWER.th+2.5*Math.PI/4;
   return {x:TOWER.x+Math.sin(a)*(apo+1.7),z:TOWER.z+Math.cos(a)*(apo+1.7),a,apo,floor:43.58};})();
-/* bronze plaque on the plinth beside the tower door; facts from OpenStreetMap (way 266435887: water tower + bell tower, 1957, height 43.4 m) */
+/* bronze plaque on the plinth beside the tower door; facts from OSM way 266435887 (water tower, bell tower) and its Wikipedia article:
+   finished 1959, 65.3 m tall, 48-bell carillon, visitor gallery at 43.4 m */
 const PLAQUE=(()=>{const a=TOWER_LIFT.a,apo=TOWER_LIFT.apo,side=2.05,tx=Math.cos(a),tz=-Math.sin(a);
   const x=TOWER.x+Math.sin(a)*(apo+0.06)+tx*side,z=TOWER.z+Math.cos(a)*(apo+0.06)+tz*side;
   const cv=document.createElement('canvas');cv.width=256;cv.height=320;const g=cv.getContext('2d');
   const gr=g.createLinearGradient(0,0,256,320);gr.addColorStop(0,'#9a7440');gr.addColorStop(0.5,'#b88d52');gr.addColorStop(1,'#7c5a30');g.fillStyle=gr;g.fillRect(0,0,256,320);
   g.strokeStyle='#5a3f1e';g.lineWidth=10;g.strokeRect(8,8,240,304);g.fillStyle='#3b2a14';g.textAlign='center';
-  g.font='700 30px Georgia,serif';g.fillText('POLDERTOREN',128,64);g.font='600 46px Georgia,serif';g.fillText('1957',128,124);
-  g.font='22px Georgia,serif';g.fillText('water tower',128,176);g.fillText('and bell tower',128,204);g.font='600 26px Georgia,serif';g.fillText('43.4 m',128,256);
+  g.font='700 30px Georgia,serif';g.fillText('POLDERTOREN',128,64);g.font='600 46px Georgia,serif';g.fillText('1959',128,124);
+  g.font='22px Georgia,serif';g.fillText('water tower',128,176);g.fillText('and carillon',128,204);g.font='600 26px Georgia,serif';g.fillText('65.3 m',128,256);
   for(const [cx,cy] of [[26,26],[230,26],[26,294],[230,294]]){g.beginPath();g.arc(cx,cy,6,0,7);g.fillStyle='#5a3f1e';g.fill();}
   const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
   const m=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.78,0.03),[0,0,0,0,0,0].map((_,i)=>i===4?new THREE.MeshStandardMaterial({map:tex,metalness:0.55,roughness:0.45}):new THREE.MeshStandardMaterial({color:0x6b4a24,metalness:0.6,roughness:0.5})));
@@ -4033,7 +4035,7 @@ const PLAQUE=(()=>{const a=TOWER_LIFT.a,apo=TOWER_LIFT.apo,side=2.05,tx=Math.cos
   return {x:x+Math.sin(a)*1.2,z:z+Math.cos(a)*1.2,m,shown:false};})();
 function updatePlaque(px,pz){
   const d=Math.hypot(px-PLAQUE.x,pz-PLAQUE.z);
-  if(P.mode==='walk'&&!RIDE&&d<2.2&&!PLAQUE.shown){PLAQUE.shown=true;toast('<strong>Poldertoren</strong>, 1957. The water tower and bell tower of Emmeloord, 43.4 m to the top of the shaft, in the middle of De Deel. The lift at the door goes up to the gallery, and the bells play on every full hour.',6500);}
+  if(P.mode==='walk'&&!RIDE&&d<2.2&&!PLAQUE.shown){PLAQUE.shown=true;toast('<strong>Poldertoren</strong>, finished in 1959 as the water tower of the Noordoostpolder: 65.3 m tall, with a carillon of 48 bells. The lift at the door goes up to the visitor gallery at 43.4 m, and the bells play on every full hour.',6500);}
   else if(d>10)PLAQUE.shown=false;
 }
 function nearTower(px,pz){return P.mode==='walk'&&!RIDE&&Math.hypot(px-TOWER_LIFT.x,pz-TOWER_LIFT.z)<3;}
@@ -4656,6 +4658,11 @@ function updateNPCs(dt){
     if(n.kermis&&!KERMIS_OPEN)continue;
     const near=(n.x-cx)**2+(n.z-cz)**2<far2;if(n.m.g.visible!==near)n.m.g.visible=near;
     if(!near&&n.stay)continue;
+    // now and then a passer-by waves hello when you walk right past them
+    if(n.waveT>0){n.waveT-=dt;n.m.wave=n.waveT>0.3?1:0;n.h=lerpA(n.h,Math.atan2(P.x-n.x,P.z-n.z),1-Math.exp(-8*dt));animPerson(n.m,0,0);
+      if(!n.m.rig&&n.m.ra)n.m.ra.rotation.x=n.m.wave?-2.6+Math.sin(n.waveT*9)*0.4:0;
+      n.m.g.position.set(n.x,(n.stay?0.2:0)+groundY(n.x,n.z),n.z);n.m.g.rotation.y=n.h;if(n.waveT<=0)n.m.wave=0;continue;}
+    if(near&&!n.stay&&P.mode==='walk'&&!RIDE&&!(n.dodge>0)&&(n.greetCd||0)<elapsed&&(n.x-P.x)**2+(n.z-P.z)**2<7){n.greetCd=elapsed+90;if(rng()<0.35){n.waveT=1.9;continue;}}
     if(n.wait>0){n.wait-=dt;animPerson(n.m,0,0);n.m.g.position.set(n.x,(n.stay?0.2:0)+groundY(n.x,n.z),n.z);continue;}
     let moving=true,spd=n.spd;
     let danger=null;

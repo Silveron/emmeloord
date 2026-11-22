@@ -147,6 +147,8 @@ body.touch #mini{top:calc(88px + env(safe-area-inset-top,0px));bottom:auto;width
 body.touch #speedo{bottom:calc(170px + env(safe-area-inset-bottom,0px));padding:8px 12px}
 body.touch #speedo .v{font-size:30px}
 @media (max-height:500px){body.touch #speedo{bottom:auto;top:calc(80px + env(safe-area-inset-top,0px));right:calc(66px + env(safe-area-inset-right,0px));padding:6px 10px}body.touch #speedo .eyebrow{display:none}body.touch #speedo .v{font-size:24px;margin-top:0}body.touch #dmg{margin-top:5px}}
+/* sideways phones: the centred job box ran under the coins/cash panel; put it right of the place name instead */
+@media (min-width:601px) and (max-width:1100px){body.touch #mission{left:calc(200px + env(safe-area-inset-left,0px));transform:none;max-width:calc(100% - 572px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));min-width:0}body.touch #loc{max-width:150px;box-sizing:border-box}body.touch #loc .name{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}body.touch #mission #mText{font-size:13px}}
 body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px));cursor:pointer}
 @media (max-width:600px){
   #loc{min-width:0;padding:8px 10px}

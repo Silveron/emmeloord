@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-22 (run 01:17)
+
+### Plan (prioritized)
+No open bugs were logged after the graphics run. A quick play at the start view (walk, try a car) gave no console errors. This run goes back to gameplay and content after two days of graphics work, using the leftover ideas from earlier runs.
+
+1. **Taxi passengers with a story** (gameplay/content): each passenger has a name and a few original lines of chat shown as subtitles during the ride; the fare follows the real driving distance of the GPS route; crashes and wild driving cost tip, and the drop-off shows a star rating.
+2. **Show the delivery house** (gameplay/graphics): a floating house-number plate and a glowing door light at the real address you deliver to, so you know which house it is.
+3. **Cheaper far people** (performance): people far away are hidden or animated less often, to save draw calls and CPU in busy views.
+4. **Phone check** (mobile/bugs): look at the pause menu tow button, mission box and the new subtitles on a sideways phone.
+5. **Small sound pass** (sound): a door/seat sound when a passenger gets in or out, an indicator tick when steering at low speed.
+6. **Next leftovers** if there is time: more polder content, Poldertoren plaque, people variety.
+
 ## 2026-11-21 (realistic graphics plan, phases 0 to 10)
 
 Ron approved the whole plan in `docs/GRAPHICS_PLAN.md` ("ok lets go I accept everything"). Each phase was pushed live separately.

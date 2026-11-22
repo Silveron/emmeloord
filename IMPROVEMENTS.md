@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-22 (run 06:45)
+
+### Plan (prioritized)
+The 01:17 run left one known bug: rigged people who hail a taxi stand still in their beam (only the simple fallback people wave). That comes first, then the leftover taxi and delivery ideas.
+
+1. **Wave for rigged people** (bug/graphics): street hailers raise and wave an arm on the real characters too; passengers wave goodbye at the drop-off.
+2. **Special taxi rides** (gameplay/content): a rush ride to the medical centre (real OSM position) with a tight time limit, and a tourist who wants to pass the Poldertoren first (an extra GPS step).
+3. **Parcel recipients** (gameplay/content): someone comes out to the kerb when you arrive with a parcel, takes it, and you hear a signature/scanner beep.
+4. **Taxi stats** (gameplay): rides, average stars, best tip and money earned in the pause menu, saved.
+5. **Poldertoren plaque** (content): a plaque by the tower door with facts checked in OSM.
+6. Leftovers if there is time: people variety, more passenger lines, phone check of new UI.
+
 ## 2026-11-22 (run 01:17)
 
 ### Plan (prioritized)

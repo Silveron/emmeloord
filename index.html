@@ -3256,6 +3256,37 @@ function taxiMood(dt,t){
   if(t>J.talkT&&t-J.saidT>6){J.saidT=t;J.talkT=t+rand(14,22);say(w.name,pick(w.talk),4800);}
 }
 function taxiCrash(){const J=JOB,t=J.tNow||0;if(t-J.crashT<2.5)return;J.crashT=t;J.saidT=t;J.stars=Math.max(1,J.stars-1);say(J.who.name,pick(J.who.crash),3200);}
+/* street hails: from level 2, while you drive around without a job, now and then someone at the kerb waves for a taxi.
+   Stop next to them and the taxi job starts right there (yellow dot on the minimap). */
+const HAIL={on:false,t:rand(25,45),m:null,mk:null,x:0,z:0,life:0,street:''};
+function dropPerson(m){scene.remove(m.g);const i=PEOPLE.indexOf(m);if(i>=0)PEOPLE.splice(i,1);}
+function clearHail(){if(HAIL.mk)HAIL.mk.visible=false;if(HAIL.m&&passenger!==HAIL.m)dropPerson(HAIL.m);HAIL.m=null;HAIL.on=false;}
+function updateHail(dt,t){
+  const drv=P.mode==='drive'&&!P.car.veh&&!P.car.bus;
+  if(HAIL.on){
+    const c=P.car,d=drv?Math.hypot(HAIL.x-c.x,HAIL.z-c.z):1e9;HAIL.life-=dt;
+    if(JOB||RIDE||!drv||HAIL.life<=0||d>520){clearHail();HAIL.t=rand(40,80);return;}
+    HAIL.mk.children[0].material.opacity=.3+Math.sin(t*5)*.12;
+    const m=HAIL.m;m.g.rotation.y=Math.atan2(c.x-HAIL.x,c.z-HAIL.z);animPerson(m,t*4,m.rig?0:0.6);
+    if(m.ra&&!m.rig)m.ra.rotation.x=-2.6+Math.sin(t*9)*0.4;   // waving arm (simple people)
+    if(d<5&&Math.abs(c.speed)<4){
+      const tj=JOBS.find(j=>j.id==='taxi');tj.hail={x:HAIL.x,z:HAIL.z,street:HAIL.street,hailer:HAIL.m};HAIL.mk.visible=false;HAIL.on=false;HAIL.m=null;HAIL.t=rand(60,110);
+      startJob(tj);
+    }
+    return;
+  }
+  if(JOB||RIDE||!drv||level()<2)return;
+  HAIL.t-=dt;if(HAIL.t>0)return;HAIL.t=rand(20,40);
+  const c=P.car,fx=Math.sin(c.h),fz=Math.cos(c.h);
+  const sp=streetSpot(120,0,{x:c.x+fx*150,z:c.z+fz*150});
+  const d=Math.hypot(sp.x-c.x,sp.z-c.z);if(d<70||d>260)return;
+  if(((sp.x-c.x)*fx+(sp.z-c.z)*fz)<0)return;   // only ahead of you
+  HAIL.on=true;HAIL.x=sp.x;HAIL.z=sp.z;HAIL.street=sp.street;HAIL.life=75;
+  if(!HAIL.mk)HAIL.mk=makeMarker(2.6,0xffd23f);HAIL.mk.visible=true;HAIL.mk.position.set(sp.x,0,sp.z);
+  HAIL.m=makePerson({shirt:pick(SHIRTS),pants:'#333',skin:pick(SKINS),hair:pick(HAIRS)});HAIL.m.g.position.set(sp.x,groundY(sp.x,sp.z),sp.z);
+  toast(`Someone on <strong>${sp.street.replace(/ [0-9].*$/,'')}</strong> is waving for a taxi. Stop next to them (yellow dot).`,4200);
+  if(AC&&!muted){const t0=AC.currentTime;tone(880,t0,0.12,0.05,'triangle');tone(1175,t0+0.12,0.18,0.05,'triangle');}
+}
 function doorSound(){if(!AC||muted)return;const t=AC.currentTime;noiseHit(t,0.12,0.22,420);noiseHit(t+0.02,0.06,0.12,1600,'bandpass',2);}
 function startJob(j){
   if(JOB)return;
@@ -3279,15 +3310,15 @@ function startJob(j){
     JOB={j,steps,i:0,limit:Math.round(d/6.5+40),pay:60};
   }else if(j.id==='taxi'){
     // passengers live all over town now: from the Centrum out to Emmelhage, Revelsant, De Zuidert or Bos en Gaard
-    const a=streetSpot(380);let b,k=0;do{b=streetSpot(rng()<0.6?2300:900);}while(Math.hypot(b.x-a.x,b.z-a.z)<300&&k++<40);
+    const a=j.hail||streetSpot(380);j.hail=null;let b,k=0;do{b=streetSpot(rng()<0.6?2300:900);}while(Math.hypot(b.x-a.x,b.z-a.z)<300&&k++<40);
     const who=FARES[Math.floor(Math.random()*FARES.length)];
-    steps=[{x:a.x,z:a.z,r:3.2,text:'Pick up '+who.name+' on '+a.street,slow:true,pick:true},
+    steps=[{x:a.x,z:a.z,r:a.hailer?6:3.2,text:'Pick up '+who.name+' on '+a.street,slow:true,pick:true},
            {x:b.x,z:b.z,r:3.4,house:b.house,text:'Drive '+who.name+' to '+b.street,slow:true,drop:true,done:'Passenger dropped off.'}];
     // fare and time follow the real driving route (GPS over the road graph), not the straight line
     const rl=(q)=>{if(!q)return 0;let L=0;for(let i=1;i<q.length;i++)L+=Math.hypot(q[i][0]-q[i-1][0],q[i][1]-q[i-1][1]);return L;};
     const d1=rl(gpsRoute(px,pz,a.x,a.z,true))||Math.hypot(a.x-px,a.z-pz)*1.3,d2=rl(gpsRoute(a.x,a.z,b.x,b.z,true))||Math.hypot(b.x-a.x,b.z-a.z)*1.3;
     JOB={j,steps,i:0,limit:Math.round((d1+d2)/9.5+35),pay:Math.round(45+d2/22),who,stars:5,routeKm:d2/1000,talkT:0,fastT:0,saidT:-99,crashT:-99};
-    passenger=makePerson(who.look||{shirt:pick(SHIRTS),pants:'#333',skin:pick(SKINS),hair:pick(HAIRS)});
+    if(a.hailer){passenger=a.hailer;}else passenger=makePerson(who.look||{shirt:pick(SHIRTS),pants:'#333',skin:pick(SKINS),hair:pick(HAIRS)});
     passenger.g.position.set(a.x,0,a.z);
   }else{
     const start=1;steps=[];
@@ -3332,7 +3363,7 @@ function endJob(ok,msg){
   if(!JOB)return;PLATE.sp.visible=false;
   if(!ok&&JOB.who&&JOB.i>0)say(JOB.who.name,pick(JOB.who.grumpy),3600);
   const j=JOB;JOB=null;target.visible=false;$('mission').hidden=true;
-  if(passenger){scene.remove(passenger.g);passenger=null;}
+  if(passenger){dropPerson(passenger);passenger=null;}
   const ex=j.j.onEnd&&j.j.onEnd(ok,j)||'';
   if(ok){
     const van=j.j.id==='parcel'&&P.mode==='drive'&&P.car.model&&P.car.model.parcel?P.car.model.parcel:1;
@@ -4901,6 +4932,7 @@ function drawMini(){
   const mark=(wx,wz,col,r)=>{let [x,y]=W(wx,wz);const dx=x-S/2,dy=y-S/2,d=Math.hypot(dx,dy),lim=S/2-12;if(d>lim){x=S/2+dx/d*lim;y=S/2+dy/d*lim;}mctx.fillStyle=col;mctx.strokeStyle='#fff';mctx.lineWidth=2;mctx.beginPath();mctx.arc(x,y,r,0,7);mctx.fill();mctx.stroke();};
   if(JOB&&GPS.path){const col='#'+JOB.j.col.toString(16).padStart(6,'0');mctx.lineJoin=mctx.lineCap='round';
     for(const [w,c] of [[10,'rgba(15,21,25,.55)'],[5.5,col]]){mctx.lineWidth=w;mctx.strokeStyle=c;mctx.beginPath();GPS.path.forEach((q,i)=>{const [x,y]=W(q[0],q[1]);if(i)mctx.lineTo(x,y);else mctx.moveTo(x,y);});mctx.stroke();}}
+  if(HAIL.on)mark(HAIL.x,HAIL.z,'#ffd23f',8);
   if(JOB){const s=JOB.steps[JOB.i];mark(s.x,s.z,'#'+JOB.j.col.toString(16).padStart(6,'0'),10);}
   else for(const j of JOBS)mark(j.x,j.z,'#'+j.col.toString(16).padStart(6,'0'),7);
   mark(GARAGE.x,GARAGE.z,'#ffffff',6);
@@ -5166,7 +5198,7 @@ function frame(now){
     const dT=Math.hypot(px-TOWER.x,pz-TOWER.z);
     if(!towerVisited&&dT<26){towerVisited=true;toast('<strong>Poldertoren</strong> (1959). 65.3 m tall, with a viewing platform at 43.4 m, a carillon of 48 bells and the turning figures at 12 m.',7000);}
     const name=zoneName(px,pz);if(name!==lastLoc){lastLoc=name;$('locName').textContent=name;}
-    updateJob(dt,px,pz,t);
+    updateJob(dt,px,pz,t);updateHail(dt,t);
     let pr='';
     const kE=TOUCH.on?'Tap: ':'<kbd>E</kbd> ';
     const nj=nearJob(px,pz);
@@ -5220,7 +5252,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({HAIL,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

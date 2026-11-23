@@ -132,6 +132,15 @@ button.primary{font:800 16px var(--display);background:var(--orange);color:#1b10
   #start h1{font-size:40px;margin:4px 0 6px}
   #start p{margin-bottom:10px;font-size:14px}
   .controls{display:none}
+  /* sideways phones: a wider, flatter pause card so the buttons fit without scrolling */
+  #pause{padding:8px}
+  #pause .card{max-width:640px;padding:12px 18px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px)}
+  #pause h2{font-size:22px;margin:2px 0 6px}
+  #pstats{grid-template-columns:repeat(5,1fr);gap:6px 8px}
+  #pstats b{font-size:15px}
+  #pause .row{margin:8px 0 2px;gap:6px}
+  #pause .row button{padding:7px 12px;font-size:13px}
+  #pause .small{display:none}
 }
 @media (pointer:coarse) and (hover:none){.controls{display:none}}
 @media (prefers-reduced-motion:reduce){.toast{animation:none}}

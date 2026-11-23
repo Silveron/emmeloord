@@ -3229,30 +3229,92 @@ const PUPILS=[];
 for(let i=0;i<7;i++){
   const o=makeBikeRider({shirt:pick(['#2c6fbb','#e8452c','#222','#f2f0ea','#7ac74f','#9b5de5','#3fa7d6','#f28fad','#555']),pants:pick(['#2b3a55','#1e2a38','#333','#3a5a8a']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1,bag:pick(['#1f3d5a','#c0392b','#222','#e6b422','#2e7d4f','#8e44ad'])},rand(0.84,0.92));
   o.rider.kid=1.1;o.g.visible=false;
-  const b=Object.assign(o,{q:[[-5000,-5000]],x:-5000,z:-5000,h:0,speed:0,cruise:rand(4.6,5.8),phase:rng()*6,rang:0,pupil:true,off:true,arrT:0});
+  // the same pupil on foot, for walking from the bike rack to the school door
+  const w=makePerson(o.rider.colours);w.kid=1.1;w.sc=o.rider.sc;w.g.scale.setScalar(o.rider.sc);w.g.visible=false;
+  const b=Object.assign(o,{q:[[-5000,-5000]],x:-5000,z:-5000,h:0,speed:0,cruise:rand(4.6,5.8),phase:rng()*6,rang:0,pupil:true,off:true,arrT:0,walker:w,walk:0,slot:null,parked:false});
   CYCLISTS.push(b);PUPILS.push(b);
+}
+/* the bike park of the Zuyderzee College: OSM way 1314839846 (amenity=bicycle_parking, x 378 to 417, z -644 to -658 in game metres),
+   in the courtyard south of the school building. Two rows of steel hoops; on school days 20 bikes stand there from 07:40 to 16:40,
+   and pupils on the school run ride in from the end of Hendric Stevinlaan, lock their bike and walk to the door on the courtyard
+   (OSM entrance node 12169881309). After school they walk back out, get on and ride home. */
+const COLLEGE_RACK=(()=>{
+  const slots=[];for(const [z,h] of [[-647.4,Math.PI],[-655.3,0]])for(let x=380.5;x<=414.6;x+=0.9)if(!(h&&Math.abs(x-385.3)<0.9))slots.push({x,z,h,used:false,fixed:false});
+  // paved floor of the bike park (the OSM polygon), grey tiles
+  {const FP=[[377.8,-658.6],[416.9,-657.5],[416.7,-644.7],[398.7,-645.2],[396.5,-643.3],[377.7,-643.7]],WP=[[384.2,-643.6],[386.4,-643.6],[386.4,-619.6],[384.2,-619.6]];
+   // no grass blades through the paving
+   for(const p of [FP,WP])PAVED.push(Object.assign({k:2,p},polyBox(p)));
+   const sh=new THREE.Shape(FP.map(([x,z])=>new THREE.Vector2(x,-z)));
+   const pg=new THREE.ShapeGeometry(sh);pg.rotateX(-Math.PI/2);pg.translate(0,0.035,0);
+   const pm=new THREE.MeshStandardMaterial({color:0x8c8c88,roughness:0.85,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+   const fl=new THREE.Mesh(pg,pm);fl.receiveShadow=true;scene.add(fl);pm.userData.pav=0.55;PHOTO_SLOTS.push([pm,'pavement',2.4]);
+   // walkway to the door through the courtyard
+   const wg=new THREE.PlaneGeometry(2.2,24);{const u=wg.attributes.uv;for(let i=0;i<u.count;i++)u.setXY(i,u.getX(i)*2.2,u.getY(i)*24);}wg.rotateX(-Math.PI/2);wg.translate(385.3,0.033,-631.6);const wm=new THREE.Mesh(wg,pm);wm.receiveShadow=true;scene.add(wm);}
+  const L=[],H=[];
+  const arch=new THREE.TorusGeometry(0.28,0.022,5,10,Math.PI);arch.rotateY(Math.PI/2);
+  for(const sl of slots){const G=TM(sl.x+0.22,0,sl.z);H.push([arch,G.clone().multiply(TM(0,0.55,0))]);for(const dz of [-0.28,0.28])H.push([CYL,G.clone().multiply(TM(0,0.275,dz,0.044,0.55,0.044))]);}
+  const hm=new THREE.Mesh(mergeGeo(H),new THREE.MeshStandardMaterial({color:0x9aa0a6,metalness:0.7,roughness:0.35}));hm.castShadow=true;scene.add(hm);
+  // the bikes that are already there when you arrive (one merged mesh)
+  const free=[...slots];for(let k=0;k<20;k++){const sl=free.splice(randInt(0,free.length-1),1)[0];sl.fixed=true;sl.used=true;
+    const G=TM(sl.x,0,sl.z,1,1,1,0,sl.h+rand(-0.06,0.06)),at=(geo,m,c)=>L.push([geo,G.clone().multiply(m),c]);
+    const fc=pick(['#1f3d5a','#222222','#7a1f1f','#2d5a3a','#d9d4c8','#ff7b1c','#6a3b7a','#3a3a3a']);
+    for(const sd of [-0.52,0.52])for(const [geo,c] of OMA_WHEEL_PARTS)at(geo,TM(0,0.36,sd),c);
+    for(const [geo,m,c] of omaParts(fc,true))at(geo,m,c);}
+  const bm=new THREE.Mesh(mergeCol(L),OMA_MAT);bm.castShadow=true;bm.visible=false;scene.add(bm);
+  return {slots,bikes:bm,gate:[436,-627],path:[[432,-638],[421,-651.3]],aisle:-651.3,door:[385.3,-620.3]};
+})();
+function rackOpen(){const h=(gameMin%1440)/60;return GAME_DOW<5&&h>=7.65&&h<16.65;}
+function parkPupil(b){
+  const s=b.slot,R=COLLEGE_RACK;b.parked=true;b.x=s.x;b.z=s.z;b.h=s.h;b.speed=0;b.q=[[s.x,s.z]];b.g.position.set(s.x,0,s.z);b.g.rotation.set(0,s.h,0);
+  b.rider.g.visible=false;const w=b.walker;w.x=s.x-0.45;w.z=s.z;w.h=s.h;w.phase=0;w.g.position.set(w.x,0,w.z);w.g.visible=true;
+  b.walk=1;b.wp=[[s.x-0.45,R.aisle],[R.door[0],R.aisle],[R.door[0],R.door[1]]];
+}
+// walk the pupil along their waypoints: rack -> aisle -> walkway -> door (b.walk 1), or the other way round (b.walk 2)
+function walkPupil(b,dt){
+  const w=b.walker,t=b.wp[0],dx=t[0]-w.x,dz=t[1]-w.z,d=Math.hypot(dx,dz),v=1.35;
+  if(d<0.25){b.wp.shift();if(!b.wp.length){w.g.visible=false;const back=b.walk===2;b.walk=0;if(back)rideHome(b);return;}}
+  else{w.h=lerpA(w.h,Math.atan2(dx,dz),1-Math.exp(-8*dt));w.x+=dx/d*Math.min(v*dt,d);w.z+=dz/d*Math.min(v*dt,d);w.phase+=dt*v*2.1;}
+  animPerson(w,w.phase,0.9);w.g.position.set(w.x,0,w.z);w.g.rotation.y=w.h;
+}
+function rideHome(b){
+  const R=COLLEGE_RACK,s=b.slot;s.used=false;b.slot=null;b.parked=false;b.rider.g.visible=true;
+  // wheeled out of the rack, facing the aisle
+  b.x=s.x;b.z=s.z+(R.aisle-s.z)*0.6;b.h=Math.atan2(0,R.aisle-s.z);b.speed=0;
+  const fx=R.gate[0]+rand(-300,300),fz=R.gate[1]+rand(200,500)*(rng()<0.5?-1:1),r=gpsRoute(R.gate[0],R.gate[1],fx,fz,false);
+  const q=[[s.x,R.aisle],[R.path[1][0],R.aisle],R.path[0],R.gate];
+  if(r)for(let i=1;i<r.length;i++){const a=r[i-1],c=r[i],L=Math.hypot(c[0]-a[0],c[1]-a[1]);if(L<0.5)continue;q.push([c[0]-(c[1]-a[1])/L*1.8,c[1]+(c[0]-a[0])/L*1.8]);}
+  b.q=q;b.arrT=0;b.home=true;
 }
 function schoolMode(){const h=(gameMin%1440)/60;if(GAME_DOW>=5)return 0;if(h>=7.3&&h<8.55)return 1;if(h>=14.9&&h<16.4)return 2;return 0;}
 let PUPIL_T=0;
 function updatePupils(dt){
   PUPIL_T-=dt;if(PUPIL_T>0)return;PUPIL_T=1.2;
   const mode=started?schoolMode():0,px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z,C=COLLEGE_SPOT;
+  COLLEGE_RACK.bikes.visible=rackOpen();
   for(const b of PUPILS){
+    if(b.parked){
+      const R=COLLEGE_RACK;
+      if(!rackOpen()&&!b.walk){b.parked=false;b.slot.used=false;b.slot=null;b.walker.g.visible=false;b.rider.g.visible=true;b.off=true;b.g.visible=false;b.x=b.z=-5000;b.q=[[-5000,-5000]];continue;}
+      if(mode===2&&!b.walk&&rng()<0.2&&Math.hypot(R.door[0]-px,R.door[1]-pz)<300){const w=b.walker,sl=b.slot;w.x=R.door[0];w.z=R.door[1];w.h=0;w.g.visible=true;b.walk=2;b.wp=[[R.door[0],R.aisle],[sl.x-0.45,R.aisle],[sl.x-0.45,sl.z]];}
+      continue;}
     if(!b.off){
       const far=Math.hypot(b.x-px,b.z-pz);
       // parked at school (or home): wait a little, then go once nobody is looking
       if(b.arrT>0)b.arrT+=1.2;
-      if(far>650||(!mode&&far>120)||(b.arrT>25&&far>40)){b.off=true;b.g.visible=false;b.x=b.z=-5000;b.q=[[-5000,-5000]];b.arrT=0;}
+      if(far>650||(!mode&&far>120)||(b.arrT>25&&far>40)){if(b.slot){b.slot.used=false;b.slot=null;}b.home=false;b.off=true;b.g.visible=false;b.x=b.z=-5000;b.q=[[-5000,-5000]];b.arrT=0;}
       continue;}
     if(!mode||rng()>0.3)continue;
     const v={q:[],extra:1.6,bike:true};if(!spawnOnNetwork(v,380,0,110))continue;
-    let tx=C.x,tz=C.z;
+    let tx=C.x,tz=C.z,sl=null;
+    // in the morning most pupils ride to the bike park behind the school
+    if(mode===1&&rng()<0.8){const fr=COLLEGE_RACK.slots.filter(q=>!q.used);if(fr.length){sl=pick(fr);[tx,tz]=COLLEGE_RACK.gate;}}
     if(mode===2){const dx=v.x-C.x,dz=v.z-C.z,L=Math.hypot(dx,dz)||1;tx=v.x+dx/L*600;tz=v.z+dz/L*600;}
     else if(Math.hypot(v.x-C.x,v.z-C.z)<150)continue;
     const r=gpsRoute(v.x,v.z,tx,tz,false);if(!r||r.length<3)continue;
     // keep to the right-hand side of the street
     const q=[];for(let i=1;i<r.length;i++){const a=r[i-1],c=r[i],L=Math.hypot(c[0]-a[0],c[1]-a[1]);if(L<0.5)continue;q.push([c[0]-(c[1]-a[1])/L*1.8,c[1]+(c[0]-a[0])/L*1.8]);}
     if(q.length<2)continue;
+    if(sl){const R=COLLEGE_RACK;q.push(R.gate,R.path[0],R.path[1],[sl.x,R.aisle],[sl.x,sl.z]);sl.used=true;b.slot=sl;}
     b.q=q;b.x=v.x;b.z=v.z;b.h=Math.atan2(q[0][0]-v.x,q[0][1]-v.z);b.speed=0;b.off=false;b.arrT=0;b.g.visible=true;
   }
 }
@@ -3261,12 +3323,15 @@ function updateCyclists(dt,t){
   updatePupils(dt);
   for(const b of CYCLISTS){
     if(b.off)continue;
+    if(b.parked){if(b.walk)walkPupil(b,dt);continue;}
     if(b.q.length<4&&!b.pupil)extendRoute(b,b.extra,520);
     let tg=b.q[0];while(b.q.length>1&&Math.hypot(tg[0]-b.x,tg[1]-b.z)<3.5){b.q.shift();tg=b.q[0];}
     const dx=tg[0]-b.x,dz=tg[1]-b.z,dist=Math.hypot(dx,dz);
-    const end=b.pupil&&b.q.length===1&&dist<4;if(end&&!b.arrT)b.arrT=0.01;
+    if(b.slot&&b.q.length===1&&dist<0.5){parkPupil(b);continue;}
+    const end=b.pupil&&!b.slot&&b.q.length===1&&dist<4;if(end&&!b.arrT)b.arrT=0.01;
     const diff=end?0:wrapA(Math.atan2(dx,dz)-b.h);
     let target=end?0:Math.abs(diff)>0.4?2.5:b.cruise;
+    if(b.slot&&b.q.length<=2)target=Math.min(target,0.5+dist*0.7);
     const fx=Math.sin(b.h),fz=Math.cos(b.h);
     const look=(ox,oz)=>{const rx=ox-b.x,rz=oz-b.z,al=rx*fx+rz*fz,lat=-rx*fz+rz*fx;if(al>0&&al<7&&Math.abs(lat)<1.6)target=Math.min(target,Math.max(0,(al-2.6)*1.2));};
     for(const c of CARS)look(c.x,c.z);
@@ -5535,7 +5600,7 @@ function applyPhotoTextures(){
     if(!I[k])continue;const r=sc/PHOTO_M[k];
     m.map=tex(I[k],true,r);if(I[k+'_n']){m.normalMap=tex(I[k+'_n'],false,r);m.normalScale=new THREE.Vector2(1,1);}
     // the photo grass is tinted a little darker and less yellow; it used to be greyed out, which turned lawns a pale mint in the sun
-    if(k==='grass'){m.userData.photoTint=new THREE.Color(0.92,0.86,0.84);m.color.multiply(m.userData.photoTint);}else if(k==='pavement')m.color.setScalar(0.8);
+    if(k==='grass'){m.userData.photoTint=new THREE.Color(0.92,0.86,0.84);m.color.multiply(m.userData.photoTint);}else if(k==='pavement')m.color.setScalar(m.userData.pav||0.8);
     m.needsUpdate=true;
   }
   if(I.roof){roofMat.map=tex(I.roof,true,2/PHOTO_M.roof);if(I.roof_n)roofMat.normalMap=tex(I.roof_n,false,2/PHOTO_M.roof);roofMat.needsUpdate=true;}
@@ -5661,7 +5726,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({COLLEGE_RACK,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

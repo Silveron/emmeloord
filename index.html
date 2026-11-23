@@ -4395,7 +4395,7 @@ function updateLost(dt){
     const cands=NPCS.filter(n=>n.child&&n.follow&&!n.follow.stay&&!n.follow.waveT&&(d=>d>45&&d<220)(Math.hypot(n.follow.x-P.x,n.follow.z-P.z)));if(!cands.length)return;
     const c=pick(cands),fx=Math.sin(P.h),fz=Math.cos(P.h),[x,z]=freeSpot(P.x+fx*9,P.z+fz*9,0.5,true);
     if(Math.hypot(x-P.x,z-P.z)>25)return;
-    L.n=c;L.p=c.follow;L.phase=1;L.cry=0;L.left=200;L.name=pick(['Noor','Sem','Lieke','Finn','Tess','Bram','Julia','Milan']);
+    L.n=c;L.p=c.follow;L.phase=1;L.hint=0;L.cry=0;L.left=200;L.name=pick(['Noor','Sem','Lieke','Finn','Tess','Bram','Julia','Milan']);
     c.follow=null;c.lostMode=1;c.x=x;c.z=z;L.p.wait=1e9;L.par=L.p.m.colours.fem?'mum':'dad';
     toast('You hear a child crying close by.',2600);return;
   }
@@ -4409,7 +4409,8 @@ function updateLost(dt){
     else if(dP>70||L.left<0)lostEnd(false);
     return;
   }
-  // phase 2: the child follows you; find dad
+  // phase 2: the child follows you; find dad. After a minute the child remembers where they were, and the parent shows on the minimap
+  if(!L.hint&&L.left<180){L.hint=1;say(L.name,pick([`Wait, I think I saw my ${L.par} over there!`,`I remember now, it was this way!`]),3600);toast(`${L.name}'s ${L.par} is the <strong>pink dot</strong> on the minimap.`,3600);}
   if(Math.hypot(p.x-P.x,p.z-P.z)<4.5&&dP<6){lostEnd(true);return;}
   if(P.mode!=='walk'||RIDE||L.left<0||JOB)lostEnd(false);
 }
@@ -5217,6 +5218,7 @@ function drawMini(){
   if(JOB&&GPS.path){const col='#'+JOB.j.col.toString(16).padStart(6,'0');mctx.lineJoin=mctx.lineCap='round';
     for(const [w,c] of [[10,'rgba(15,21,25,.55)'],[5.5,col]]){mctx.lineWidth=w;mctx.strokeStyle=c;mctx.beginPath();GPS.path.forEach((q,i)=>{const [x,y]=W(q[0],q[1]);if(i)mctx.lineTo(x,y);else mctx.moveTo(x,y);});mctx.stroke();}}
   if(HAIL.on)mark(HAIL.x,HAIL.z,'#ffd23f',8);
+  if(LOST.n&&LOST.hint&&LOST.p)mark(LOST.p.x,LOST.p.z,'#f28fad',8);
   if(JOB){const s=JOB.steps[JOB.i];mark(s.x,s.z,'#'+JOB.j.col.toString(16).padStart(6,'0'),10);}
   else for(const j of JOBS)mark(j.x,j.z,'#'+j.col.toString(16).padStart(6,'0'),7);
   mark(GARAGE.x,GARAGE.z,'#ffffff',6);

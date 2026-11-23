@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-23 (run 11:52)
+
+### Plan (prioritized)
+No open bugs were left by the 06:45 run. Its "next ideas" list is the base for this run:
+
+1. **Slimmer build for women** (graphics/people): narrower shoulders by pulling the shoulder bones in after each animation update.
+2. **Winter and autumn clothes** (graphics/seasons): scarves and woolly hats on people in winter, scarves on some in autumn, switched with the season.
+3. **Bike rack at the Zuyderzee College** (gameplay/content): pupils park their bike in a rack by the drop-off kerb and walk in, instead of vanishing.
+4. **Kermis snack stand queue** (content/sound): a few people queue at the snack stand while the kermis is open, with a frying sound when you are close.
+5. **Parent and child taxi ride** (gameplay): a fare with two passengers, the child in the back.
+6. Leftovers: polish, phone checks.
+
 ## 2026-11-23 (run 06:45)
 
 ### Plan (prioritized)

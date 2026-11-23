@@ -160,6 +160,14 @@ body.touch #speedo .v{font-size:30px}
 /* sideways phones: the centred job box ran under the coins/cash panel; put it right of the place name instead */
 @media (min-width:601px) and (max-width:1100px){body.touch #mission{left:calc(200px + env(safe-area-inset-left,0px));transform:none;max-width:calc(100% - 572px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));min-width:0}body.touch #loc{max-width:150px;box-sizing:border-box}body.touch #loc .name{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}body.touch #mission #mText{font-size:13px}}
 body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px));cursor:pointer}
+/* portrait phones: the place name ran under the coins/cash panel; shorter labels, and long street names end in "..." */
+@media (max-width:440px){
+  #stats .wide{display:none}
+  body.touch #toasts{top:calc(204px + env(safe-area-inset-top,0px))}
+  #stats{gap:8px!important}#stats .eyebrow,#loc .eyebrow{letter-spacing:.06em}
+  #loc{max-width:calc(100% - 268px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));box-sizing:border-box;overflow:hidden}
+  #loc .name{font-size:14px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
 @media (max-width:600px){
   #loc{min-width:0;padding:8px 10px}
   #loc .name{font-size:16px}
@@ -176,7 +184,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
 <canvas id="game" tabindex="0" aria-label="3D game view of Emmeloord"></canvas>
 <div id="loc" class="panel" hidden><div class="eyebrow">Emmeloord</div><div class="name" id="locName">De Deel</div></div>
 <div id="stats" class="panel" hidden>
-  <div><span class="eyebrow">Polder coins</span><b class="coin" id="coins">0/12</b></div>
+  <div><span class="eyebrow"><span class="wide">Polder </span>coins</span><b class="coin" id="coins">0/12</b></div>
   <div><span class="eyebrow">Level</span><b id="lvl">1</b><i id="lvlbar"><i id="lvlfill"></i></i></div>
   <div><span class="eyebrow">Cash</span><b id="cash">€0</b></div>
   <div><span class="eyebrow">Time</span><b id="clock">12:00</b></div>

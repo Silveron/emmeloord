@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-23 (run 01:17)
+
+### Plan (prioritized)
+No open bugs were left by the 06:45 run. Its "next ideas" list is the base for tonight:
+
+1. **Tower facts in the lift** (content): short checked facts appear on the lift display on the way up (water tank, the 48 bells, gallery height).
+2. **New taxi passengers** (gameplay/content): a student to the Zuyderzee College (position from OSM) and a late-night ride home from the kermis on De Deel.
+3. **People variety** (graphics): children and elderly people among the pedestrians (smaller bodies, slower walk, grey hair), different walking speeds.
+4. **Honk reactions** (gameplay/sound): people you honk at say something or shake their head, cyclists ring their bell back.
+5. **Phone check** (mobile/bugs): the pause menu with the taxi stats on a small sideways phone.
+6. Leftovers if there is time: more ambient sounds, small polish.
+
 ## 2026-11-22 (run 06:45)
 
 ### Plan (prioritized)

@@ -14,6 +14,35 @@ No open bugs were left by the 01:17 run. Its "next ideas" list is the base for t
 5. **Phone portrait check** (mobile/bugs): speech bubble and chat on a portrait phone.
 6. Leftovers if there is time: ambient sounds, small polish.
 
+### Done
+- **Women and girls** (graphics/people variety): the CC0 library in the npm package has no realistic woman or child body (only chunky Kenney mini figures), so the female look is built on the existing Quaternius rig. About 46% of the people are now women or girls, with one of four hair styles (long, ponytail, bob, bun) on the head bone and, for half of them, a skirt or a dress (skirt in the shirt colour) on the hips bone. Children have a 1.22x head so they read as children. Taxi passengers match their names (Mrs Bakker has a grey bun and a skirt, Sanne and Lotte have ponytails, the men are men), and a street hailer is always given a passenger of the same sex. Extra cost: one or two draw calls per woman, only while she is near the camera.
+- **Lost child can look for mum** (gameplay): the child now asks for mum or dad depending on the parent ("Take Sem to mum: a woman in a yellow shirt near Lange Nering"), dresses are called dresses.
+- **Lost child hint** (gameplay): after a minute the child remembers ("Wait, I think I saw my dad over there!") and the parent shows as a pink dot on the minimap.
+- **School run** (gameplay/content): on school days from 07:18 to 08:33, 7 pupils with backpacks (teen size, coloured backpacks on the torso bone) start out of sight near the player and cycle to the Zuyderzee College drop-off kerb (OSM way 1539834599) along the GPS road graph, keeping right. After school (14:54 to 16:24) they ride home, away from the college.
+- **Kermis closing time** (content): at 23:30 the 12 fair visitors no longer vanish; they walk to the nearer end of the stall lane and then home into town, and some say something as you pass ("I still taste the oliebollen.", "Same time next year!").
+- **Portrait phones** (mobile/bug): on a 390 px wide phone the place name ran under the coins/cash/time panel. Now the coins label is shortened to "Coins", the labels are tighter and long street names end in "..."; messages sit below the minimap instead of over it. Checked at 390x844 and 360x740; desktop and sideways phones are unchanged.
+- **Sounds** (sound): gulls call over the open polder by day, and the Zuyderzee College bell rings at 08:30 and 15:00 on school days when you are within about 350 m.
+
+### Report for Ron
+This morning's run (06:45) added 7 improvements, each tested in headless Chromium (no console errors; walking and driving scripted, the lost child, school run, kermis closing and the bell checked with scripts and screenshots) and pushed straight to `main`:
+- Women and girls in town: long hair, ponytails, bobs and buns, skirts and dresses. Children have bigger heads so they look like children.
+- The lost child can be looking for mum, and after a minute the parent shows as a pink dot on the minimap.
+- School run: on school-day mornings pupils with backpacks cycle to the Zuyderzee College, and they ride home after school.
+- When the kermis closes at 23:30 the visitors walk home through town instead of disappearing.
+- Portrait phone fix: the place name no longer overlaps the coins and cash panel.
+- Gulls over the polder, and the school bell at the college.
+
+Screenshots in the project files under `runs/`: `2026-11-23b-women-girls.png` (seven people on the Kettingplein: a woman in a blue dress with a blonde ponytail, a woman with long hair, a bob, a girl in a yellow dress, a boy and two men), `2026-11-23b-school-run.png` (a pupil with a yellow backpack cycling on Koningin Julianastraat at 07:36), `2026-11-23b-kermis-home.png` (fair-goers walking home at night, "I still taste the oliebollen."), `2026-11-23b-phone-portrait.png`.
+
+Problems: none open. The women share the man's body (only hair and skirt differ, no different build), and skirts are rigid, so legs can poke through them a little when walking fast. Headless play runs at a few frames per second, so the school run and kermis were sped up by script.
+
+### Next ideas (for the next run)
+1. A slimmer build for women (narrower shoulders by scaling the shoulder bones) and a few more clothes: trousers in other colours, coats in autumn and winter.
+2. Bike parking at the Zuyderzee College: pupils lock their bike in a rack and walk in, instead of vanishing after 25 s.
+3. A taxi ride for a parent with a child (two passengers, the child in the back).
+4. More kermis night life: a queue at the snack stand, oliebollen stand smell... (sound of frying, a short announcer line).
+5. Seasonal clothes: scarves and coats when the season is winter.
+
 ## 2026-11-23 (run 01:17)
 
 ### Plan (prioritized)

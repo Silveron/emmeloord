@@ -4317,17 +4317,17 @@ function playerHorn(){
 }
 /* honk reactions: the nearest pedestrian calls something back (a speech bubble over their head), cyclists ring their bell,
    and a taxi passenger has an opinion about it */
-const BUBBLE=(()=>{const cv=document.createElement('canvas');cv.width=256;cv.height=96;const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
+const BUBBLE=(()=>{const cv=document.createElement('canvas');cv.width=512;cv.height=96;const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,depthWrite:false,transparent:true,fog:false}));sp.center.set(0.5,0);sp.renderOrder=21;sp.visible=false;scene.add(sp);
   return {cv,tex,sp,n:null,t:0};})();
 const HONK_LINES=['Hey!','Easy!','Watch it!','Pardon?!','Hello to you too!','Hoi!','I saw you!','Calm down!','Ahh!','Rude!'];
 const HONK_TAXI=['Was that really necessary?','Ooh, someone is in a hurry.','You can honk all you like, they will not move faster.','My ears!','Ha, tell them!'];
 let honkSaid=-99,honkCount=0,honkT0=0;
 function showBubble(n,text){
-  const B=BUBBLE,g=B.cv.getContext('2d');g.clearRect(0,0,256,96);g.font='700 34px system-ui,sans-serif';const w=Math.min(244,g.measureText(text).width+36);
-  g.fillStyle='rgba(255,255,255,0.94)';g.strokeStyle='#222';g.lineWidth=3;g.beginPath();g.roundRect?g.roundRect(128-w/2,4,w,62,18):g.rect(128-w/2,4,w,62);g.fill();g.stroke();
-  g.beginPath();g.moveTo(118,64);g.lineTo(128,88);g.lineTo(140,64);g.closePath();g.fill();g.beginPath();g.moveTo(118,66);g.lineTo(128,88);g.lineTo(140,66);g.stroke();
-  g.fillStyle='#1a1a1a';g.textAlign='center';g.textBaseline='middle';g.fillText(text,128,36);B.tex.needsUpdate=true;
+  const B=BUBBLE,g=B.cv.getContext('2d');g.clearRect(0,0,512,96);g.font='700 34px system-ui,sans-serif';const w=Math.min(500,g.measureText(text).width+36);
+  g.fillStyle='rgba(255,255,255,0.94)';g.strokeStyle='#222';g.lineWidth=3;g.beginPath();g.roundRect?g.roundRect(256-w/2,4,w,62,18):g.rect(256-w/2,4,w,62);g.fill();g.stroke();
+  g.beginPath();g.moveTo(246,64);g.lineTo(256,88);g.lineTo(268,64);g.closePath();g.fill();g.beginPath();g.moveTo(246,66);g.lineTo(256,88);g.lineTo(268,66);g.stroke();
+  g.fillStyle='#1a1a1a';g.textAlign='center';g.textBaseline='middle';g.fillText(text,256,36);B.tex.needsUpdate=true;
   B.n=n;B.t=2.2;B.sp.visible=true;
 }
 function honkReact(n,px,pz){
@@ -4338,11 +4338,47 @@ function honkReact(n,px,pz){
   // leaning on the horn in town gets you a dirty look from the whole street
   if(t-honkT0>6){honkT0=t;honkCount=0;}if(++honkCount>=5&&Math.hypot(px,pz)<900){honkCount=0;ach('horn');}
 }
+/* lost child: now and then, while you walk around town by day without a job, a child who lost their dad stands crying nearby.
+   Walk up to them, then lead them (they follow you) to their dad, who waits somewhere close by. */
+const LOST={n:null,p:null,phase:0,t:rand(80,140),cry:0,left:0,name:''};
+const SHIRT_NAMES={'#2c6fbb':'blue','#c0392b':'red','#f2f0ea':'white','#2e7d4f':'green','#e6b422':'yellow','#8e44ad':'purple','#ff7b1c':'orange','#34495e':'dark blue','#d35400':'rust-coloured','#16a085':'teal'};
+function lostEnd(ok){
+  const L=LOST,c=L.n,p=L.p;if(!c)return;
+  c.lostMode=0;c.follow=p;p.wait=ok?2.5:0;
+  if(ok){p.waveT=2.2;showBubble(p,pick(['Thank you so much!','There you are!','Oh, thank you!']));cash+=25;$('cash').textContent='€'+cash;addXP(30,'lost child');ach('lost');
+    toast(`<strong>${L.name}</strong> is back with dad. He gives you <strong>+€25</strong> for your trouble.`,3600);jobSound(true);}
+  else toast(`${L.name} spotted dad in the distance and ran off to him.`,2600);
+  L.n=null;L.p=null;L.phase=0;L.t=rand(150,260);
+}
+function updateLost(dt){
+  const L=LOST,h=(gameMin%1440)/60,ok=P.mode==='walk'&&!JOB&&!RIDE&&h>=9&&h<19&&RAIN<0.5;
+  if(!L.n){
+    if(!ok||!started)return;L.t-=dt;if(L.t>0)return;L.t=rand(40,80);
+    const cands=NPCS.filter(n=>n.child&&n.follow&&!n.follow.stay&&!n.follow.waveT&&(d=>d>45&&d<220)(Math.hypot(n.follow.x-P.x,n.follow.z-P.z)));if(!cands.length)return;
+    const c=pick(cands),fx=Math.sin(P.h),fz=Math.cos(P.h),[x,z]=freeSpot(P.x+fx*9,P.z+fz*9,0.5,true);
+    if(Math.hypot(x-P.x,z-P.z)>25)return;
+    L.n=c;L.p=c.follow;L.phase=1;L.cry=0;L.left=200;L.name=pick(['Noor','Sem','Lieke','Finn','Tess','Bram','Julia','Milan']);
+    c.follow=null;c.lostMode=1;c.x=x;c.z=z;L.p.wait=1e9;
+    toast('You hear a child crying close by.',2600);return;
+  }
+  const c=L.n,p=L.p,dP=Math.hypot(c.x-P.x,c.z-P.z);L.left-=dt;
+  if(L.phase===1){
+    L.cry-=dt;if(L.cry<0){L.cry=3.2;showBubble(c,pick(['Daddy?','*sniff*','Dad? Where are you?','Boohoo...']));}
+    if(dP<2.6){L.phase=2;L.left=240;c.lostMode=0;c.follow=P;const col=SHIRT_NAMES[p.m.colours.shirt]||'bright';
+      say(L.name,`I can't find my dad! He has a ${col} shirt. We were near ${streetName(p.x,p.z)}.`,5200);
+      toast(`Take <strong>${L.name}</strong> to dad: a man in a <strong>${col} shirt</strong> near ${streetName(p.x,p.z)}. ${L.name} follows you.`,5200);}
+    else if(dP>70||L.left<0)lostEnd(false);
+    return;
+  }
+  // phase 2: the child follows you; find dad
+  if(Math.hypot(p.x-P.x,p.z-P.z)<4.5&&dP<6){lostEnd(true);return;}
+  if(P.mode!=='walk'||RIDE||L.left<0||JOB)lostEnd(false);
+}
 function updateBubble(dt){
   const B=BUBBLE;if(!B.sp.visible)return;B.t-=dt;
   if(B.t<=0||!B.n||!B.n.m.g.visible){B.sp.visible=false;B.n=null;return;}
   const m=B.n.m,sc=m.sc||1,d=camera.position.distanceTo(m.g.position),k=Math.max(1,d*0.075);
-  B.sp.position.set(m.g.position.x,m.g.position.y+1.85*sc+0.05,m.g.position.z);B.sp.scale.set(2.4*k,0.9*k,1);B.sp.material.opacity=Math.min(1,B.t*3);
+  B.sp.position.set(m.g.position.x,m.g.position.y+1.85*sc+0.05,m.g.position.z);B.sp.scale.set(4.8*k,0.9*k,1);B.sp.material.opacity=Math.min(1,B.t*3);
 }
 function horn(){if(!AC||muted)return;const t=AC.currentTime;tone(392,t,0.35,0.18,'square');tone(494,t,0.35,0.12,'square');}
 function coinSound(){if(!AC||muted)return;const t=AC.currentTime;tone(988,t,0.12,0.2,'triangle');tone(1319,t+0.09,0.3,0.2,'triangle');}
@@ -4482,6 +4518,7 @@ const ACH_LIST=[
   ['repair','Good as new','Get your car repaired at the garage'],
   ['stars5','Five stars','Get five stars from a taxi passenger'],
   ['horn','Polder trumpet','Honk five times in a row in town'],
+  ['lost','Found you!','Bring a lost child back to their dad'],
 ];
 const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
 function ach(id){
@@ -4749,6 +4786,7 @@ function updateNPCs(dt){
       if(!n.m.rig&&n.m.ra)n.m.ra.rotation.x=n.m.wave?-2.6+Math.sin(n.waveT*9)*0.4:0;
       n.m.g.position.set(n.x,(n.stay?0.2:0)+groundY(n.x,n.z),n.z);n.m.g.rotation.y=n.h;if(n.waveT<=0)n.m.wave=0;continue;}
     if(near&&!n.stay&&P.mode==='walk'&&!RIDE&&!(n.dodge>0)&&(n.greetCd||0)<elapsed&&(n.x-P.x)**2+(n.z-P.z)**2<7){n.greetCd=elapsed+90;if(rng()<0.35){n.waveT=1.9;continue;}}
+    if(n.lostMode===1){n.h=lerpA(n.h,Math.atan2(P.x-n.x,P.z-n.z),1-Math.exp(-3*dt));if(near)animPerson(n.m,0,0);n.m.g.position.set(n.x,groundY(n.x,n.z),n.z);n.m.g.rotation.y=n.h;continue;}
     if(n.follow){
       // a child keeps to the side of its parent, hurrying to catch up and standing still when the parent stops
       const p=n.follow,fx=Math.sin(p.h),fz=Math.cos(p.h),tx=p.x+fz*0.75*n.side-fx*0.25,tz=p.z-fx*0.75*n.side-fz*0.25,dx=tx-n.x,dz=tz-n.z,d=Math.hypot(dx,dz);
@@ -5402,7 +5440,7 @@ function frame(now){
     const dT=Math.hypot(px-TOWER.x,pz-TOWER.z);
     if(!towerVisited&&dT<26){towerVisited=true;toast('<strong>Poldertoren</strong> (1959). 65.3 m tall, with a viewing platform at 43.4 m, a carillon of 48 bells and the turning figures at 12 m.',7000);}
     const name=zoneName(px,pz);if(name!==lastLoc){lastLoc=name;$('locName').textContent=name;}
-    updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updatePlaque(px,pz);updateBubble(dt);
+    updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updatePlaque(px,pz);updateBubble(dt);updateLost(dt);
     let pr='';
     const kE=TOUCH.on?'Tap: ':'<kbd>E</kbd> ';
     const nj=nearJob(px,pz);
@@ -5456,7 +5494,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({LOST,updateLost,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

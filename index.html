@@ -53,6 +53,7 @@ body.touch #mission{top:calc(14px + env(safe-area-inset-top,0px));bottom:auto;ma
 #lift{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;display:grid;place-items:center;transition:opacity .6s}
 #lift div{font:700 15px/1.5 var(--mono);color:#e9e2d2;text-align:center;letter-spacing:.06em}
 #lift b{display:block;font:800 44px/1 var(--display);color:var(--orange);margin-top:8px}
+#lift i{display:block;font:500 15px/1.45 var(--mono);font-style:normal;color:#bdb5a4;max-width:min(440px,84vw);margin:18px auto 0;min-height:4.4em;letter-spacing:0;transition:opacity .4s}
 #chat{position:fixed;left:50%;bottom:calc(112px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:9px 16px;font-size:15px;line-height:1.4;max-width:min(560px,calc(100% - 40px));text-align:center;pointer-events:none;animation:pop .3s ease-out}
 #chat b{color:#ffd23f;margin-right:6px}
 body.touch #chat{bottom:calc(150px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 340px);min-width:220px;font-size:14px}
@@ -179,7 +180,7 @@ body.touch #prompt{z-index:2;bottom:calc(20px + env(safe-area-inset-bottom,0px))
 <div id="toasts" aria-live="polite"></div>
 <div id="chat" class="panel" hidden></div>
 <div id="flash"></div>
-<div id="lift"><div>POLDERTOREN LIFT<b id="liftM">0 m</b></div></div>
+<div id="lift"><div>POLDERTOREN LIFT<b id="liftM">0 m</b><i id="liftF"></i></div></div>
 <div id="touch" hidden>
   <div id="joy" hidden><i></i></div>
   <div id="tbtns">
@@ -3223,9 +3224,15 @@ const RING_CP=(()=>{const out=[];let acc=0;for(let i=0;i<RING.length-1;i++){cons
 const RING_LEN=(()=>{let L=0;for(let i=0;i<RING.length-1;i++)L+=Math.hypot(RING[i+1][0]-RING[i][0],RING[i+1][1]-RING[i][1]);return L;})();
 const JOB_PARCEL=freeSpot(30,14,1.2,true),JOB_TAXI=(()=>{const n=nearestRoad(-22,-60,r=>r.c===0&&!!r.n);if(!n)return [-30,-60];const s=n.s,L=Math.hypot(s.bx-s.ax,s.bz-s.az)||1;const [d,qx,qz]=segDist(-22,-60,s.ax,s.az,s.bx,s.bz);return [qx-(s.bz-s.az)/L*(n.r.w/2-1.2),qz+(s.bx-s.ax)/L*(n.r.w/2-1.2)];})();
 // Dokter J.H. Jansencentrum, Urkerweg 1 (OSM node 2719213291, amenity=clinic): the kerb in front of it is the rush-ride drop-off
-const MED_SPOT=(()=>{const hx=-488.8,hz=231.0,n=(()=>{let b=null,bd=1e9;for(const sg of SEGS){const r=sg.r;if(!r.n||r.n.length<3||r.c!==0||r.polder)continue;const d=segDist(hx,hz,sg.ax,sg.az,sg.bx,sg.bz)[0];if(d<bd){bd=d;b={s:sg,r};}}return bd<80?b:null;})();const h={x:hx,z:hz,n:'1',st:'Urkerweg'};
-  if(!n)return {x:hx,z:hz-12,house:h,name:'the Jansen medical centre (Urkerweg 1)'};const s=n.s,[d,qx,qz]=segDist(hx,hz,s.ax,s.az,s.bx,s.bz),off=n.r.w/2+1.6;
-  return {x:qx+(hx-qx)/(d||1)*off,z:qz+(hz-qz)/(d||1)*off,house:h,name:'the Jansen medical centre (Urkerweg 1)',street:n.r.n};})();
+// the kerb in front of a real building (house = its address plate), on the nearest named town street
+function kerbSpot(hx,hz,h,name){const n=(()=>{let b=null,bd=1e9;for(const sg of SEGS){const r=sg.r;if(!r.n||r.n.length<3||r.c!==0||r.polder)continue;const d=segDist(hx,hz,sg.ax,sg.az,sg.bx,sg.bz)[0];if(d<bd){bd=d;b={s:sg,r};}}return bd<80?b:null;})();
+  if(!n)return {x:hx,z:hz-12,house:h,name};const s=n.s,[d,qx,qz]=segDist(hx,hz,s.ax,s.az,s.bx,s.bz),off=n.r.w/2+1.6;
+  return {x:qx+(hx-qx)/(d||1)*off,z:qz+(hz-qz)/(d||1)*off,house:h,name,street:n.r.n};}
+const MED_SPOT=kerbSpot(-488.8,231.0,{x:-488.8,z:231.0,n:'1',st:'Urkerweg'},'the Jansen medical centre (Urkerweg 1)');
+// Zuyderzee College, the Emmeloord site north-east of the centre (OSM way 1539834599, amenity=school): the student's drop-off
+const COLLEGE_SPOT=kerbSpot(370,-579,null,'the Zuyderzee College');
+// late-night kermis rides start at the kerb beside the fairground on De Deel
+const KERMIS_KERB=(()=>{const n=nearestRoad(122,-44,r=>!!r.n&&r.c===0&&!r.polder);if(!n)return {x:150,z:-30,street:'De Deel'};const s=n.s,[d,qx,qz]=segDist(122,-44,s.ax,s.az,s.bx,s.bz),off=n.r.w/2+1.4;return {x:qx+(122-qx)/(d||1)*off,z:qz+(-44-qz)/(d||1)*off,street:n.r.n};})();
 // the street point closest to the Poldertoren (the tourist's detour)
 const TOWER_PASS=(()=>{const n=nearestRoad(0,0,r=>!!r.n&&r.c!==2);if(!n)return [30,-40];const s=n.s,q=segDist(0,0,s.ax,s.az,s.bx,s.bz);return [q[1],q[2]];})();
 const JOBS=[
@@ -3276,6 +3283,16 @@ const FARES=[
    talk:['Everything is so straight here. Somebody really planned this town.','Is it true all of this used to be sea?','So much sky! You do not get that in the city.','Do the bells in that tower really play songs?'],
    fast:['Is this how everyone drives in the polder?','I would like to see the town, not a blur.'],crash:['Goodness! Is that normal here?','I did not come here for the bumper cars.'],
    happy:['Wonderful tour. I will tell my friends.','Thank you! What a nice little town.'],grumpy:['I think I preferred the train.','Remind me to walk next time.']},
+  {name:'Lotte',dest:'college',look:{shirt:'#f0a23b',pants:'#3b4a6b',skin:'#f1c7a5',hair:'#b5763a'},
+   hello:['Zuyderzee College please, I have a test first hour!','Hi! Can you take me to school? The bus just drove off without me.'],
+   talk:['If I fail this maths test my parents will take my phone.','Do you know what the derivative of x squared is? Never mind.','My bike chain broke on the way, of course today.','Everyone in my class has a scooter except me.'],
+   fast:['Haha, my mum would freak out.','Okay, okay, I want to get there alive though.'],crash:['Ah! My bag!','Careful, my laptop is in there!'],
+   happy:['Just in time! You are the best.','Thanks! Wish me luck.'],grumpy:['Great, now I am late AND carsick.','I could have walked. Almost.']},
+  {name:'Kevin',kermis:1,thrill:1,look:{shirt:'#2f2f3a',pants:'#1f2a44',skin:'#e7b48f',hair:'#d8b25a'},
+   hello:['Good evening, chauffeur! The kermis was amazing. Home please.','Hello! I won a giant banana on the shooting stand. It is coming with us.'],
+   talk:['I went on the swing ride four times. The world is still spinning.','Best smoked sausage of the year at that kermis.','My friends are still in the bumper cars. Lightweights, going home at midnight.','Is it me or is this taxi spinning too?'],
+   fast:['Wheee! Just like the rollercoaster!','Faster! No wait. Maybe not.'],slow:['This is slower than the Ferris wheel.','Come on, the night is short.'],crash:['Whoa, bumper cars!','Ha! Watch the banana!'],
+   happy:['You are a legend. Here, take a bit extra.','Best ride of the night, and I went on all of them.'],grumpy:['I feel worse than after the swing ride.','The banana did not enjoy that either.']},
 ];
 let chatTimer=0;
 function say(name,line,ms){const c=$('chat');c.innerHTML='<b>'+name+'</b>'+line;c.hidden=false;c.style.animation='none';void c.offsetWidth;c.style.animation='';clearTimeout(chatTimer);chatTimer=setTimeout(()=>{c.hidden=true;},ms||4000);if(AC&&!muted){const t0=AC.currentTime;for(let i=0;i<3;i++)tone(380+rng()*160,t0+i*0.07,0.05,0.025,'triangle');}}
@@ -3363,6 +3380,13 @@ function passengerLeaves(m,s,car){
   m.g.visible=true;actor(m,[{dur:0.5,face:'p'},{dur:2.2,face:'p',wave:1},{walk:1,x:hx,z:hz,max:12}]);
 }
 function doorSound(){if(!AC||muted)return;const t=AC.currentTime;noiseHit(t,0.12,0.22,420);noiseHit(t+0.02,0.06,0.12,1600,'bandpass',2);}
+// who gets in depends on the time: a late student on school-day mornings, kermis-goers late at night on kermis weekends
+function pickFare(hail){
+  const h=(gameMin%1440)/60,base=FARES.filter(f=>!f.dest&&!f.kermis);
+  if(GAME_DOW<5&&h>=7&&h<11&&rng()<0.4)return FARES.find(f=>f.dest==='college');
+  if(!hail&&KERMIS_UP&&(h>=21||h<2)&&rng()<0.5)return FARES.find(f=>f.kermis);
+  return base[Math.floor(Math.random()*base.length)];
+}
 function startJob(j){
   if(JOB)return;
   if((j.lvl||1)>level()){toast(`<strong>${j.name}</strong> unlocks at level ${j.lvl}. Do other jobs to level up.`,2600);return;}
@@ -3385,11 +3409,11 @@ function startJob(j){
     JOB={j,steps,i:0,limit:Math.round(d/6.5+40),pay:60};
   }else if(j.id==='taxi'){
     // passengers live all over town now: from the Centrum out to Emmelhage, Revelsant, De Zuidert or Bos en Gaard
-    const a=j.hail||streetSpot(380);j.hail=null;let b,k=0;do{b=streetSpot(rng()<0.6?2300:900);}while(Math.hypot(b.x-a.x,b.z-a.z)<300&&k++<40);
-    const who=j.who||FARES[Math.floor(Math.random()*FARES.length)];j.who=null;
-    if(who.rush)b=MED_SPOT;
-    steps=[{x:a.x,z:a.z,r:a.hailer?6:3.2,text:'Pick up '+who.name+' on '+a.street,slow:true,pick:true},
-           {x:b.x,z:b.z,r:3.4,house:b.house,text:(who.rush?'Rush ':'Drive ')+who.name+' to '+(who.rush?MED_SPOT.name:b.street),slow:true,drop:true,done:who.rush?'Mr Smit is at the medical centre.':'Passenger dropped off.'}];
+    const who=j.who||pickFare(!!j.hail);j.who=null;
+    const a=j.hail||(who.kermis?KERMIS_KERB:streetSpot(380));j.hail=null;let b,k=0;do{b=streetSpot(rng()<0.6?2300:900);}while(Math.hypot(b.x-a.x,b.z-a.z)<300&&k++<40);
+    if(who.rush)b=MED_SPOT;else if(who.dest==='college')b=COLLEGE_SPOT;
+    steps=[{x:a.x,z:a.z,r:a.hailer?6:3.2,text:'Pick up '+who.name+(who.kermis?' at the kermis on ':' on ')+a.street,slow:true,pick:true},
+           {x:b.x,z:b.z,r:3.4,house:b.house,text:(who.rush?'Rush ':'Drive ')+who.name+' to '+(b.name||b.street),slow:true,drop:true,done:who.rush?'Mr Smit is at the medical centre.':who.dest?who.name+' is at school.':'Passenger dropped off.'}];
     // the tourist wants to see the Poldertoren first: an extra step past the tower on De Deel
     if(who.tour&&Math.hypot(a.x,a.z)>150)steps.splice(1,0,{x:TOWER_PASS[0],z:TOWER_PASS[1],r:24,text:'Show '+who.name+' the Poldertoren first: drive past it on De Deel',ride:true,tour:true});
     // fare and time follow the real driving route (GPS over the road graph), not the straight line
@@ -3397,7 +3421,7 @@ function startJob(j){
     const leg=(x0,z0,x1,z1)=>rl(gpsRoute(x0,z0,x1,z1,true))||Math.hypot(x1-x0,z1-z0)*1.3;
     const d1=leg(px,pz,a.x,a.z);let d2=0;for(let i=1;i<steps.length;i++)d2+=leg(steps[i-1].x,steps[i-1].z,steps[i].x,steps[i].z);
     // rush rides: the time for the second leg is tight, but the fare is half as much again
-    const lim=who.rush?Math.round(d1/9.5+d2/13+25):Math.round((d1+d2)/9.5+35);
+    const lim=who.dest?Math.round(d1/9.5+d2/11+30):who.rush?Math.round(d1/9.5+d2/13+25):Math.round((d1+d2)/9.5+35);
     JOB={j,steps,i:0,limit:lim,pay:Math.round((45+d2/22)*(who.rush?1.5:1)),who,stars:5,routeKm:d2/1000,talkT:0,fastT:0,saidT:-99,crashT:-99};
     if(a.hailer){passenger=a.hailer;}else passenger=makePerson(who.look||{shirt:pick(SHIRTS),pants:'#333',skin:pick(SKINS),hair:pick(HAIRS)});
     passenger.g.position.set(a.x,0,a.z);
@@ -4054,6 +4078,10 @@ function playCarillon(hour){
   t+=0.8;const n=hour%12||12;for(let i=0;i<n;i++){bell(196,t,vol*1.3,4.5);t+=1.25;}
   if(d<90)ach('bells');
 }
+const LIFT_FACTS=['Finished in 1959, the Poldertoren was built as the water tower of the new Noordoostpolder.',
+  'Its carillon has 48 bells. They play a tune every full hour, then strike the hour.',
+  'From the ground to the very top the tower is 65.3 m tall.',
+  'Next stop: the visitor gallery at 43.4 m. On a clear day you can see far across the flat polder.'];
 function liftSound(){if(!AC||muted)return;const t=AC.currentTime;tone(1319,t,0.6,0.07,'sine');tone(1047,t+0.25,0.8,0.07,'sine');}
 function startTowerRide(){
   RIDE={tower:true,phase:'up',t:0,ang:TOWER_LIFT.a,pos:new THREE.Vector3(TOWER_LIFT.x,1.6,TOWER_LIFT.z)};P.m.g.visible=false;
@@ -4067,8 +4095,11 @@ function towerGalleryPos(a){
 function updateTowerRide(dt){
   const R=RIDE,TL=TOWER_LIFT;R.t+=dt;
   if(R.phase==='up'||R.phase==='down'){
-    const k=clamp((R.t-0.7)/5,0,1),e=k*k*(3-2*k),m=R.phase==='up'?e:1-e;$('liftM').textContent=Math.round(m*43.4)+' m';
-    if(R.t>6.2){
+    const LD=R.phase==='up'?11:5,k=clamp((R.t-0.7)/LD,0,1),e=k*k*(3-2*k),m=R.phase==='up'?e:1-e;$('liftM').textContent=Math.round(m*43.4)+' m';
+    // facts on the lift display on the way up (checked against OSM way 266435887 and the tower's Wikipedia article)
+    if(R.phase==='up'){const f=LIFT_FACTS[Math.min(LIFT_FACTS.length-1,Math.floor(m*LIFT_FACTS.length))];if($('liftF').textContent!==f)$('liftF').textContent=f;}
+    else if($('liftF').textContent)$('liftF').textContent='';
+    if(R.t>LD+1.2){
       if(R.phase==='up'){R.phase='top';R.t=0;camYaw=R.ang;camPitch=0.12;const [x,z]=towerGalleryPos(R.ang);R.pos.set(x,TL.floor+1.6,z);$('lift').style.opacity=0;liftSound();
         toast('<strong>Viewing platform, 43.4 m.</strong> '+(TOUCH.on?'Use the joystick to walk around the gallery, drag to look. Tap the prompt to go down.':'Walk around the gallery with <kbd>A</kbd>/<kbd>D</kbd>, drag to look. <kbd>E</kbd> takes the lift down.'),6000);}
       else{RIDE=null;P.x=TL.x;P.z=TL.z;P.y=0;P.vy=0;P.h=TL.a;camYaw=TL.a;camPitch=0.28;P.m.g.visible=true;P.m.g.position.set(P.x,0,P.z);$('lift').style.opacity=0;liftSound();}
@@ -5362,7 +5393,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

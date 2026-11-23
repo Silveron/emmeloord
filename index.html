@@ -2291,9 +2291,10 @@ function animRig(m,phase,amt){
   for(const n of ['idle','walk','run']){r.w[n]+=(tw[n]-r.w[n])*k;if(r.act[n])r.act[n].setEffectiveWeight(r.w[n]);}
   // drive the gait from distance travelled so the feet do not slide: one walk cycle is about 1.45 m, one run cycle about 2.5 m
   const sp=Math.max(spd,0.0);
-  r.cyc.walk=(r.cyc.walk+dt*sp/1.45)%1;r.cyc.run=m.air?0.3:(r.cyc.run+dt*sp/(m.hero?2.9:2.5))%1;r.cyc.idle=(r.cyc.idle+dt/ (r.act.idle?r.act.idle.getClip().duration:2))%1;
+  const ss=m.sc||1;r.cyc.walk=(r.cyc.walk+dt*sp/(1.45*ss))%1;r.cyc.run=m.air?0.3:(r.cyc.run+dt*sp/((m.hero?2.9:2.5)*ss))%1;r.cyc.idle=(r.cyc.idle+dt/ (r.act.idle?r.act.idle.getClip().duration:2))%1;
   for(const n of ['idle','walk','run'])if(r.act[n])r.act[n].time=r.cyc[n]*r.act[n].getClip().duration;
   r.mixer.update(0);
+  if(m.old){if(r.ab===undefined){r.ab=null;r.inst.traverse(b=>{if(!r.ab&&b.isBone&&/Abdomen|Spine/.test(b.name))r.ab=b;});r.ab0=r.ab?r.ab.rotation.x:0;}if(r.ab){if(r.ab0===undefined)r.ab0=r.ab.rotation.x;r.ab.rotation.x=r.ab0+0.22;}}
   if(m.wave)rigWave(m,dt);
 }
 /* waving: aim the right upper arm up and out, and swing the forearm from side to side (m.wave = 0..1).
@@ -2960,6 +2961,20 @@ for(let i=0;i<34;i++){
   const m=makePerson({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS)});
   const n0={zone,x:p[0],z:p[1]};const t=randPedPoint(n0);
   NPCS.push({zone,m,x:p[0],z:p[1],h:0,tx:t[0],tz:t[1],spd:rand(1.1,1.6),phase:rng()*6,stuck:0,lx:p[0],lz:p[1],dodge:0,dvx:0,dvz:0,wait:rand(0,3)});
+}
+/* people variety: some pedestrians are elderly (grey hair, muted clothes, slower, a slight stoop) and some walk with a child at their side */
+{
+  const adults=NPCS.filter(n=>n.zone);
+  for(const n of adults){if(rng()>0.2)continue;
+    const o=n.m.colours;o.hair=pick(['#cfcfcf','#e6e6e6','#9a9a9a']);o.shirt=pick(['#6b5b4b','#4a5a6b','#7b6a8a','#5a6b4a','#8a7a6a','#3f4a5a']);o.pants=pick(['#3a3a40','#4a4038','#2f3540']);
+    scene.remove(n.m.g);const i=PEOPLE.indexOf(n.m);if(i>=0)PEOPLE.splice(i,1);
+    n.m=makePerson(o);n.m.old=true;n.spd=rand(0.7,0.95);}
+  const parents=adults.filter(n=>!n.m.old).sort(()=>rng()-0.5).slice(0,7);
+  for(const p of parents){
+    const sc=rand(0.55,0.7),m=makePerson({shirt:pick(['#e8452c','#f2c12e','#3fa7d6','#7ac74f','#f28fad','#9b5de5','#ff9f1c']),pants:pick(['#2b3a55','#3a5a8a','#5a3a5a','#333']),skin:p.m.colours.skin,hair:pick(['#d8b25a','#5a3a1e','#2b1d14','#a0522d'])});
+    m.g.scale.setScalar(sc);m.sc=sc;
+    NPCS.push({child:true,follow:p,side:rng()<.5?-1:1,m,x:p.x+0.9,z:p.z,h:0,spd:p.spd,phase:rng()*6,stuck:0,lx:p.x,lz:p.z,dodge:0,dvx:0,dvz:0,wait:0});
+  }
 }
 
 // people waiting on the bus station platforms, facing the buses
@@ -4694,6 +4709,14 @@ function updateNPCs(dt){
       if(!n.m.rig&&n.m.ra)n.m.ra.rotation.x=n.m.wave?-2.6+Math.sin(n.waveT*9)*0.4:0;
       n.m.g.position.set(n.x,(n.stay?0.2:0)+groundY(n.x,n.z),n.z);n.m.g.rotation.y=n.h;if(n.waveT<=0)n.m.wave=0;continue;}
     if(near&&!n.stay&&P.mode==='walk'&&!RIDE&&!(n.dodge>0)&&(n.greetCd||0)<elapsed&&(n.x-P.x)**2+(n.z-P.z)**2<7){n.greetCd=elapsed+90;if(rng()<0.35){n.waveT=1.9;continue;}}
+    if(n.follow){
+      // a child keeps to the side of its parent, hurrying to catch up and standing still when the parent stops
+      const p=n.follow,fx=Math.sin(p.h),fz=Math.cos(p.h),tx=p.x+fz*0.75*n.side-fx*0.25,tz=p.z-fx*0.75*n.side-fz*0.25,dx=tx-n.x,dz=tz-n.z,d=Math.hypot(dx,dz);
+      if(d>9){n.x=tx;n.z=tz;}
+      const v=d>0.25?Math.min(d*2.4,6):0;
+      if(v>0){n.x+=dx/d*v*dt;n.z+=dz/d*v*dt;n.h=lerpA(n.h,Math.atan2(dx,dz),1-Math.exp(-8*dt));}else n.h=lerpA(n.h,p.h,1-Math.exp(-4*dt));
+      const r=collide(n.x,n.z,0.25);n.x=r.x;n.z=r.z;n.phase+=dt*v*2.1;
+      if(near)animPerson(n.m,n.phase,v>0.2?(v>3?1.3:0.9):0);n.m.g.position.set(n.x,groundY(n.x,n.z),n.z);n.m.g.rotation.y=n.h;continue;}
     if(n.wait>0){n.wait-=dt;animPerson(n.m,0,0);n.m.g.position.set(n.x,(n.stay?0.2:0)+groundY(n.x,n.z),n.z);continue;}
     let moving=true,spd=n.spd;
     let danger=null;

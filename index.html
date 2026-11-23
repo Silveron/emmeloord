@@ -2191,6 +2191,7 @@ function mergeParts(parts){
 const PERSON_GEO={};
 function personGeo(key,parts){return PERSON_GEO[key]||(PERSON_GEO[key]=mergeParts(parts));}
 function makePerson(o){
+  if(o.fem===undefined)personLook(o);
   const g=new THREE.Group();
   const add=(geo,parent)=>{const m=new THREE.Mesh(geo,PERSON_MAT);m.castShadow=true;parent.add(m);return m;};
   add(personGeo('b'+o.shirt+o.pants+o.skin+o.hair,[
@@ -2265,6 +2266,7 @@ function attachRig(m){
   m.rig={inst,mixer,act,w:{idle:1,walk:0,run:0},lastPhase:0,cyc:{walk:0,run:0,idle:0},id:PEOPLE.indexOf(m)};
   for(const c of [...m.g.children])if(c!==inst)c.visible=false;
   m.g.add(inst);
+  if(!m.hero&&m.colours.fem)dressRig(m);
   if(m.pose)rigPose(m,m.pose);
 }
 // static pose (cyclists sit): one frame of a clip
@@ -2303,6 +2305,7 @@ function animRig(m,phase,amt){
   const ss=m.sc||1;r.cyc.walk=(r.cyc.walk+dt*sp/(1.45*ss))%1;r.cyc.run=m.air?0.3:(r.cyc.run+dt*sp/((m.hero?2.9:2.5)*ss))%1;r.cyc.idle=(r.cyc.idle+dt/ (r.act.idle?r.act.idle.getClip().duration:2))%1;
   for(const n of ['idle','walk','run'])if(r.act[n])r.act[n].time=r.cyc[n]*r.act[n].getClip().duration;
   r.mixer.update(0);
+  if(m.kid){const B=rigBones(r);if(B.Head)B.Head.scale.setScalar(1.22);}
   if(m.old){if(r.ab===undefined){r.ab=null;r.inst.traverse(b=>{if(!r.ab&&b.isBone&&/Abdomen|Spine/.test(b.name))r.ab=b;});r.ab0=r.ab?r.ab.rotation.x:0;}if(r.ab){if(r.ab0===undefined)r.ab0=r.ab.rotation.x;r.ab.rotation.x=r.ab0+0.22;}}
   if(m.wave)rigWave(m,dt);
 }
@@ -2323,6 +2326,39 @@ function rigWave(m,dt){
   const w=Math.min(1,m.wave),sw=Math.sin(r.waveT*9);
   aimBone(B.UpperArmR,B.LowerArmR,_wd.set(_wc.x*0.55,0.83,_wc.z*0.55).normalize(),w);
   aimBone(B.LowerArmR,B.PalmR,_wd.set(_wc.x*(0.15+sw*0.45),1,_wc.z*(0.15+sw*0.45)).normalize(),w);
+}
+/* women and girls: the CC0 library has only the one realistic body, so a female look is built on the same rig:
+   longer hair (long, ponytail, bob or bun) on the head bone and a skirt or dress on the hips bone. Shapes are in the
+   character's own metres (feet at 0, facing +z; head centre about 0,1.63,0.04, eyes at z 0.12 to 0.15). */
+const FEM_STYLES=['long','pony','bob','bun','long','pony'];
+const SKIRTS=['#2b3a55','#5a3a5a','#7a2e3a','#3a4a3a','#24324a','#6b4f3a','#1e1e24'];
+function personLook(o){
+  o.fem='';o.skirt=null;if(o.hero||o.male)return o;
+  if(rng()<0.46){o.fem=pick(FEM_STYLES);if(!o.noSkirt&&rng()<0.5)o.skirt=rng()<0.35?o.shirt:pick(SKIRTS);}
+  return o;
+}
+const HAIR_GEO={},FEM_MATS={};
+function hairGeo(st){
+  if(HAIR_GEO[st])return HAIR_GEO[st];
+  const S=SPHERE,Y=CYL,L=[];
+  // a cap a little larger than the head, pushed back so it stays clear of the eyes
+  L.push([S,TM(0,1.655,-0.012,0.248,0.235,0.255)]);
+  if(st==='long'){L.push([Y,TM(0,1.49,-0.055,0.235,0.30,0.11)]);L.push([S,TM(0,1.345,-0.06,0.235,0.06,0.11)]);
+    L.push([Y,TM(-0.1,1.53,0.0,0.05,0.22,0.12)]);L.push([Y,TM(0.1,1.53,0.0,0.05,0.22,0.12)]);}
+  else if(st==='pony'){L.push([S,TM(0,1.66,-0.125,0.07,0.07,0.07)]);L.push([S,TM(0,1.53,-0.15,0.075,0.22,0.07,0.25)]);}
+  else if(st==='bob'){L.push([S,TM(0,1.585,-0.02,0.262,0.2,0.24)]);}
+  else if(st==='bun'){L.push([S,TM(0,1.725,-0.085,0.12,0.11,0.12)]);}
+  return HAIR_GEO[st]=mergeGeo(L);
+}
+const SKIRT_GEO=(()=>{const g=new THREE.CylinderGeometry(0.175,0.25,0.36,14,1,true);g.translate(0,0.75,0.015);g.scale(1,1,0.92);return g;})();
+function femMat(c){return FEM_MATS[c]||(FEM_MATS[c]=new THREE.MeshStandardMaterial({color:c,roughness:0.75,envMapIntensity:0.6,side:THREE.DoubleSide}));}
+function rigBones(r){if(!r.B){r.B={};r.inst.traverse(b=>{if(b.isBone)r.B[b.name]=b;});}return r.B;}
+function dressRig(m){
+  const r=m.rig,o=m.colours,B=rigBones(r);if(!B.Head)return;
+  for(const n in r.act)r.act[n].setEffectiveWeight(n==='idle'?1:0);r.mixer.update(0);
+  const put=(geo,col,bone)=>{const ms=new THREE.Mesh(geo,femMat(col));ms.castShadow=true;m.g.add(ms);m.g.updateMatrixWorld(true);bone.attach(ms);return ms;};
+  put(hairGeo(o.fem),o.hair,B.Head);
+  if(o.skirt&&B.Hips)put(SKIRT_GEO,o.skirt,B.Hips);
 }
 async function loadRigs(){
   try{
@@ -2981,7 +3017,7 @@ for(let i=0;i<34;i++){
   const parents=adults.filter(n=>!n.m.old).sort(()=>rng()-0.5).slice(0,7);
   for(const p of parents){
     const sc=rand(0.55,0.7),m=makePerson({shirt:pick(['#e8452c','#f2c12e','#3fa7d6','#7ac74f','#f28fad','#9b5de5','#ff9f1c']),pants:pick(['#2b3a55','#3a5a8a','#5a3a5a','#333']),skin:p.m.colours.skin,hair:pick(['#d8b25a','#5a3a1e','#2b1d14','#a0522d'])});
-    m.g.scale.setScalar(sc);m.sc=sc;
+    m.g.scale.setScalar(sc);m.sc=sc;m.kid=true;
     NPCS.push({child:true,follow:p,side:rng()<.5?-1:1,m,x:p.x+0.9,z:p.z,h:0,spd:p.spd,phase:rng()*6,stuck:0,lx:p.x,lz:p.z,dodge:0,dvx:0,dvz:0,wait:0});
   }
 }
@@ -3139,7 +3175,7 @@ const OMA_MAT=Lam({vertexColors:true,roughness:0.5,metalness:0.2});
     for(const z of [-0.52,0.52]){const w=new THREE.Mesh(OMA_WHEEL,OMA_MAT);w.position.set(0,0.36,z);w.castShadow=true;g.add(w);wheels.push(w);}
     {const fr=new THREE.Mesh(mergeCol(omaParts('#'+fm.color.getHexString(THREE.SRGBColorSpace))),OMA_MAT);fr.castShadow=true;g.add(fr);}
     // rider: reuse the person model, seated
-    const rider=makePerson({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS)});
+    const rider=makePerson({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1});
     scene.remove(rider.g);g.add(rider.g);rider.g.position.set(0,0.12,-0.22);rider.g.rotation.x=0.18;
     rider.la.rotation.x=-1.1;rider.ra.rotation.x=-1.1;rider.pose='sit';
     CYCLISTS.push({g,rider,wheels,q:v.q,node:v.node,lastE:v.lastE,extra:1.6,bike:true,x:v.x,z:v.z,h:v.h,speed:0,cruise:rand(4.2,5.6),phase:rng()*6,rang:0});
@@ -3272,47 +3308,47 @@ function jobPay(base,left,limit){return Math.round(base+Math.max(0,left)/limit*b
 /* taxi passengers: original characters with a few lines each. They talk during the ride, react to crashes and speed,
    and rate the ride (1-5 stars) at the end; the stars change the fare. 'thrill' passengers like it fast. */
 const FARES=[
-  {name:'Mrs Bakker',look:{shirt:'#7b5ea7',pants:'#3a3a48',skin:'#f1c7a5',hair:'#d8d8d8'},
+  {name:'Mrs Bakker',look:{shirt:'#7b5ea7',pants:'#3a3a48',skin:'#f1c7a5',hair:'#d8d8d8',fem:'bun',skirt:'#3a3a48'},
    hello:['Good evening, dear. Not too fast please, my knees are older than this polder.','Thank you for stopping. My daughter is expecting me for coffee.'],
    talk:['When I came here as a girl there was nothing but mud, sky and wind.','I still set my watch by the tower bells.','My late husband helped plant the trees along this road, you know.','Everything here was sea once. Imagine that.'],
    fast:['Driver! This is not the A6!','Goodness, slow down, I want to arrive in one piece.'],crash:['Oh! My handbag!','Mind the kerb, dear, mind the kerb!'],
    happy:['Lovely and smooth. Here is a little extra for you.','What a gentle driver. Give my regards to your mother.'],grumpy:['I will be taking the bus next time.','My heart is still racing.']},
-  {name:'Daan',thrill:1,look:{shirt:'#e8452c',pants:'#2a3550',skin:'#e0ac85',hair:'#3b2a1a'},
+  {name:'Daan',thrill:1,look:{shirt:'#e8452c',pants:'#2a3550',skin:'#e0ac85',hair:'#3b2a1a',male:1},
    hello:['Yo! My shift started five minutes ago, can we hurry?','Thanks. If I am late again the boss will kill me.'],
    talk:['I work at a snack bar. Free fries if you get me there on time.','Is this the quickest way? My GPS says left.','My scooter got a flat tyre on the Marknesserweg this morning.'],
    fast:['Yes! Go go go!','Now we are talking!'],slow:['My grandma drives faster than this.','We have green, mate.'],crash:['Haha, okay, maybe a bit less.','Whoa! Still alive.'],
    happy:['Legend. Tip is yours.','Made it! You should drive for a living. Oh wait.'],grumpy:['Late again. Thanks for nothing.','Next time I am taking my bike.']},
-  {name:'Sanne',look:{shirt:'#4fa3a5',pants:'#4fa3a5',skin:'#c68e6a',hair:'#6b4226'},
+  {name:'Sanne',look:{shirt:'#4fa3a5',pants:'#4fa3a5',skin:'#c68e6a',hair:'#6b4226',fem:'pony'},
    hello:['Home please. Twelve hours on my feet tonight.','Thank you. I am a nurse, just finished a long shift.'],
    talk:['Wake me if I fall asleep, will you?','Polder wind today. My bike would have been hopeless.','Quiet night, which is how I like it.'],
    fast:['Please, I have seen enough emergencies for one day.','Easy, I would rather not end up back at work.'],crash:['Ow! Careful!','Seriously? I just got off work.'],
    happy:['Perfect, thank you. Sleep well when your shift ends too.','That was relaxing. Thank you.'],grumpy:['That was not very restful.','I think I am more tired now.']},
-  {name:'Mr De Vries',look:{shirt:'#5a6b3b',pants:'#2f3b2a',skin:'#e9b996',hair:'#8a8a8a'},
+  {name:'Mr De Vries',look:{shirt:'#5a6b3b',pants:'#2f3b2a',skin:'#e9b996',hair:'#8a8a8a',male:1},
    hello:['Afternoon. The bulbs will not plant themselves, so let us go.','Thanks. My tractor is in for repairs, so here I am.'],
    talk:['Flat as a pancake, this polder. Best soil in the country though.','In April the fields out there are red and yellow as far as you can see.','My father farmed here when the land was brand new.','Rain tomorrow, they say. Good for the onions.'],
    fast:['Steady on, there are tractors about!','No need to hurry, the potatoes are not going anywhere.'],crash:['Careful, I have seeds in my coat!','Hey, mind the paintwork!'],
    happy:['Good, honest driving. Here, keep the change.','Fine ride. Come by at harvest time.'],grumpy:['I have ploughed straighter lines than you drive.','Hmph.']},
-  {name:'Yusuf',look:{shirt:'#2c6fbb',pants:'#222',skin:'#a8714d',hair:'#1b1b1b'},
+  {name:'Yusuf',look:{shirt:'#2c6fbb',pants:'#222',skin:'#a8714d',hair:'#1b1b1b',male:1},
    hello:['Thanks! Careful, there are eggs in this bag.','Great timing, these bags are heavy.'],
    talk:['The market on Thursday was busy. Best cheese on the Kettingplein.','I am cooking for the whole family tonight.','Do you know a good garage? My car makes a funny noise.'],
    fast:['The eggs! Think of the eggs!','Whoa, slow down, the shopping is sliding!'],crash:['...there go the eggs.','Oh no. The jar of pickles.'],
    happy:['Not one broken egg. Thank you!','Smooth ride, here is a tip.'],grumpy:['Omelette for dinner then, I suppose.','Half the shopping is on the floor.']},
-  {name:'Mr Smit',rush:1,thrill:1,look:{shirt:'#b23b3b',pants:'#2b2b2b',skin:'#e7b48f',hair:'#5a4632'},
+  {name:'Mr Smit',rush:1,thrill:1,look:{shirt:'#b23b3b',pants:'#2b2b2b',skin:'#e7b48f',hair:'#5a4632',male:1},
    hello:['The medical centre on the Urkerweg, quick! I sliced my thumb open cutting onions.','Please hurry to the Jansen centre, my thumb will not stop bleeding.'],
    talk:['Do not look at the tea towel. Just drive.','It is only a cut, it is only a cut...','Left here! Or right? You know the way, right?','Who cuts onions towards their thumb? Me, apparently.'],
    fast:['Yes, faster!','Good, keep going!'],slow:['Could we go a little faster? The towel is getting very red.','We have green! Go!'],crash:['Ow! Careful, I only need stitches in one place.','Watch it! I am already hurt enough.'],
    happy:['Made it! Thank you, really. Here, take this.','You are a hero. Keep the change.'],grumpy:['I could have walked faster with one hand.','The thumb is fine. My nerves are not.']},
-  {name:'Mr Visser',tour:1,tourLine:['There it is! The Poldertoren! Taller than I thought.','Look at those bells. Thank you for the detour!','Beautiful. Now I can say I have seen it. On we go.'],look:{shirt:'#d9cdb0',pants:'#5b4a3a',skin:'#f0c4a2',hair:'#c9b38a'},
+  {name:'Mr Visser',tour:1,tourLine:['There it is! The Poldertoren! Taller than I thought.','Look at those bells. Thank you for the detour!','Beautiful. Now I can say I have seen it. On we go.'],look:{shirt:'#d9cdb0',pants:'#5b4a3a',skin:'#f0c4a2',hair:'#c9b38a',male:1},
    hello:['First time in Emmeloord! Is that the famous tower?','Hello! I am visiting from Amsterdam. Show me the town.'],
    talk:['Everything is so straight here. Somebody really planned this town.','Is it true all of this used to be sea?','So much sky! You do not get that in the city.','Do the bells in that tower really play songs?'],
    fast:['Is this how everyone drives in the polder?','I would like to see the town, not a blur.'],crash:['Goodness! Is that normal here?','I did not come here for the bumper cars.'],
    happy:['Wonderful tour. I will tell my friends.','Thank you! What a nice little town.'],grumpy:['I think I preferred the train.','Remind me to walk next time.']},
-  {name:'Lotte',dest:'college',look:{shirt:'#f0a23b',pants:'#3b4a6b',skin:'#f1c7a5',hair:'#b5763a'},
+  {name:'Lotte',dest:'college',look:{shirt:'#f0a23b',pants:'#3b4a6b',skin:'#f1c7a5',hair:'#b5763a',fem:'pony'},
    hello:['Zuyderzee College please, I have a test first hour!','Hi! Can you take me to school? The bus just drove off without me.'],
    talk:['If I fail this maths test my parents will take my phone.','Do you know what the derivative of x squared is? Never mind.','My bike chain broke on the way, of course today.','Everyone in my class has a scooter except me.'],
    fast:['Haha, my mum would freak out.','Okay, okay, I want to get there alive though.'],crash:['Ah! My bag!','Careful, my laptop is in there!'],
    happy:['Just in time! You are the best.','Thanks! Wish me luck.'],grumpy:['Great, now I am late AND carsick.','I could have walked. Almost.']},
-  {name:'Kevin',kermis:1,thrill:1,look:{shirt:'#2f2f3a',pants:'#1f2a44',skin:'#e7b48f',hair:'#d8b25a'},
+  {name:'Kevin',kermis:1,thrill:1,look:{shirt:'#2f2f3a',pants:'#1f2a44',skin:'#e7b48f',hair:'#d8b25a',male:1},
    hello:['Good evening, chauffeur! The kermis was amazing. Home please.','Hello! I won a giant banana on the shooting stand. It is coming with us.'],
    talk:['I went on the swing ride four times. The world is still spinning.','Best smoked sausage of the year at that kermis.','My friends are still in the bumper cars. Lightweights, going home at midnight.','Is it me or is this taxi spinning too?'],
    fast:['Wheee! Just like the rollercoaster!','Faster! No wait. Maybe not.'],slow:['This is slower than the Ferris wheel.','Come on, the night is short.'],crash:['Whoa, bumper cars!','Ha! Watch the banana!'],
@@ -3406,8 +3442,10 @@ function passengerLeaves(m,s,car){
 function doorSound(){if(!AC||muted)return;const t=AC.currentTime;noiseHit(t,0.12,0.22,420);noiseHit(t+0.02,0.06,0.12,1600,'bandpass',2);}
 // who gets in depends on the time: a late student on school-day mornings, kermis-goers late at night on kermis weekends
 function pickFare(hail){
-  const h=(gameMin%1440)/60,base=FARES.filter(f=>!f.dest&&!f.kermis);
-  if(GAME_DOW<5&&h>=7&&h<11&&rng()<0.4)return FARES.find(f=>f.dest==='college');
+  const h=(gameMin%1440)/60;let base=FARES.filter(f=>!f.dest&&!f.kermis);
+  // a street hailer keeps their own body, so pick a passenger of the same sex (no "Mr Smit" with a ponytail)
+  const hm=hail&&hail.hailer;if(hm){const fm=!!hm.colours.fem,b2=base.filter(f=>!!(f.look&&f.look.fem)===fm);if(b2.length)base=b2;}
+  if(GAME_DOW<5&&h>=7&&h<11&&rng()<0.4&&!hm)return FARES.find(f=>f.dest==='college');
   if(!hail&&KERMIS_UP&&(h>=21||h<2)&&rng()<0.5)return FARES.find(f=>f.kermis);
   return base[Math.floor(Math.random()*base.length)];
 }
@@ -3433,7 +3471,7 @@ function startJob(j){
     JOB={j,steps,i:0,limit:Math.round(d/6.5+40),pay:60};
   }else if(j.id==='taxi'){
     // passengers live all over town now: from the Centrum out to Emmelhage, Revelsant, De Zuidert or Bos en Gaard
-    const who=j.who||pickFare(!!j.hail);j.who=null;
+    const who=j.who||pickFare(j.hail);j.who=null;
     const a=j.hail||(who.kermis?KERMIS_KERB:streetSpot(380));j.hail=null;let b,k=0;do{b=streetSpot(rng()<0.6?2300:900);}while(Math.hypot(b.x-a.x,b.z-a.z)<300&&k++<40);
     if(who.rush)b=MED_SPOT;else if(who.dest==='college')b=COLLEGE_SPOT;
     steps=[{x:a.x,z:a.z,r:a.hailer?6:3.2,text:'Pick up '+who.name+(who.kermis?' at the kermis on ':' on ')+a.street,slow:true,pick:true},
@@ -3725,7 +3763,7 @@ function makeVehicle(kind,x,z,h){
   }
   const m=new THREE.Mesh(mergeCol(L),VMAT);m.castShadow=true;body.add(m);
   // you, sitting on it: shown only while you ride
-  const rider=makePerson({shirt:'#ff7b1c',pants:'#24324a',skin:'#f1c9a5',hair:'#3a2616'});
+  const rider=makePerson({shirt:'#ff7b1c',pants:'#24324a',skin:'#f1c9a5',hair:'#3a2616',male:1});
   scene.remove(rider.g);body.add(rider.g);rider.g.position.set(0,seat[0],seat[1]);rider.la.rotation.x=rider.ra.rotation.x=-1.1;rider.pose='sit';rider.g.visible=false;
   if(rider.rig)rigPose(rider,'sit');
   const c={g,body,wheels,fronts,x,z,h,speed:0,steer:0,ai:null,color:'#fff',blockedT:0,impatient:0,honked:0,veh:kind,stats:VSTATS[kind],spots,cc,lean:kind!=='tractor',rider,
@@ -4346,8 +4384,8 @@ function lostEnd(ok){
   const L=LOST,c=L.n,p=L.p;if(!c)return;
   c.lostMode=0;c.follow=p;p.wait=ok?2.5:0;
   if(ok){p.waveT=2.2;showBubble(p,pick(['Thank you so much!','There you are!','Oh, thank you!']));cash+=25;$('cash').textContent='€'+cash;addXP(30,'lost child');ach('lost');
-    toast(`<strong>${L.name}</strong> is back with dad. He gives you <strong>+€25</strong> for your trouble.`,3600);jobSound(true);}
-  else toast(`${L.name} spotted dad in the distance and ran off to him.`,2600);
+    toast(`<strong>${L.name}</strong> is back with ${L.par}. ${L.par==='mum'?'She':'He'} gives you <strong>+€25</strong> for your trouble.`,3600);jobSound(true);}
+  else toast(`${L.name} spotted ${L.par} in the distance and ran off to ${L.par==='mum'?'her':'him'}.`,2600);
   L.n=null;L.p=null;L.phase=0;L.t=rand(150,260);
 }
 function updateLost(dt){
@@ -4358,15 +4396,16 @@ function updateLost(dt){
     const c=pick(cands),fx=Math.sin(P.h),fz=Math.cos(P.h),[x,z]=freeSpot(P.x+fx*9,P.z+fz*9,0.5,true);
     if(Math.hypot(x-P.x,z-P.z)>25)return;
     L.n=c;L.p=c.follow;L.phase=1;L.cry=0;L.left=200;L.name=pick(['Noor','Sem','Lieke','Finn','Tess','Bram','Julia','Milan']);
-    c.follow=null;c.lostMode=1;c.x=x;c.z=z;L.p.wait=1e9;
+    c.follow=null;c.lostMode=1;c.x=x;c.z=z;L.p.wait=1e9;L.par=L.p.m.colours.fem?'mum':'dad';
     toast('You hear a child crying close by.',2600);return;
   }
   const c=L.n,p=L.p,dP=Math.hypot(c.x-P.x,c.z-P.z);L.left-=dt;
   if(L.phase===1){
-    L.cry-=dt;if(L.cry<0){L.cry=3.2;showBubble(c,pick(['Daddy?','*sniff*','Dad? Where are you?','Boohoo...']));}
+    L.cry-=dt;if(L.cry<0){L.cry=3.2;showBubble(c,L.par==='mum'?pick(['Mummy?','*sniff*','Mum? Where are you?','Boohoo...']):pick(['Daddy?','*sniff*','Dad? Where are you?','Boohoo...']));}
     if(dP<2.6){L.phase=2;L.left=240;c.lostMode=0;c.follow=P;const col=SHIRT_NAMES[p.m.colours.shirt]||'bright';
-      say(L.name,`I can't find my dad! He has a ${col} shirt. We were near ${streetName(p.x,p.z)}.`,5200);
-      toast(`Take <strong>${L.name}</strong> to dad: a man in a <strong>${col} shirt</strong> near ${streetName(p.x,p.z)}. ${L.name} follows you.`,5200);}
+      const mum=L.par==='mum',top=mum&&p.m.colours.skirt===p.m.colours.shirt?'dress':'shirt';
+      say(L.name,`I can't find my ${L.par}! ${mum?'She':'He'} has a ${col} ${top}. We were near ${streetName(p.x,p.z)}.`,5200);
+      toast(`Take <strong>${L.name}</strong> to ${L.par}: a ${mum?'woman':'man'} in a <strong>${col} ${top}</strong> near ${streetName(p.x,p.z)}. ${L.name} follows you.`,5200);}
     else if(dP>70||L.left<0)lostEnd(false);
     return;
   }
@@ -4518,7 +4557,7 @@ const ACH_LIST=[
   ['repair','Good as new','Get your car repaired at the garage'],
   ['stars5','Five stars','Get five stars from a taxi passenger'],
   ['horn','Polder trumpet','Honk five times in a row in town'],
-  ['lost','Found you!','Bring a lost child back to their dad'],
+  ['lost','Found you!','Bring a lost child back to their mum or dad'],
 ];
 const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
 function ach(id){

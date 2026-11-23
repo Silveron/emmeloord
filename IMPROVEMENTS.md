@@ -40,7 +40,7 @@ Problems: none open. The women share the man's body (only hair and skirt differ,
 1. A slimmer build for women (narrower shoulders by scaling the shoulder bones) and a few more clothes: trousers in other colours, coats in autumn and winter.
 2. Bike parking at the Zuyderzee College: pupils lock their bike in a rack and walk in, instead of vanishing after 25 s.
 3. A taxi ride for a parent with a child (two passengers, the child in the back).
-4. More kermis night life: a queue at the snack stand, oliebollen stand smell... (sound of frying, a short announcer line).
+4. More kermis night life: a queue at the snack stand with the sound of frying, and a short announcer line at the rides.
 5. Seasonal clothes: scarves and coats when the season is winter.
 
 ## 2026-11-23 (run 01:17)

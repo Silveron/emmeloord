@@ -42,7 +42,7 @@ Hard crashes into walls, trees or other cars damage the car you drive (the bar u
 
 ## Achievements
 
-23 achievements (first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
+25 achievements (first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
 
 ## Saving
 

@@ -14,6 +14,34 @@ No open bugs were left by the 06:45 run. Its "next ideas" list is the base for t
 5. **Phone check** (mobile/bugs): the pause menu with the taxi stats on a small sideways phone.
 6. Leftovers if there is time: more ambient sounds, small polish.
 
+### Done
+- **Tower facts in the lift** (content): the lift display shows four facts on the way up (finished 1959 as the water tower of the Noordoostpolder, 48-bell carillon, 65.3 m to the top, gallery at 43.4 m), all from the plaque facts checked in the last run. The ride up now takes 11 s instead of 5 s so the facts can be read; the ride down stays 5 s.
+- **New taxi passengers** (gameplay/content): Lotte, a pupil who missed her bus, on school-day mornings (07:00 to 11:00) to the Zuyderzee College. Drop-off is the kerb of Professor ter Veenstraat along the north edge of the school grounds, OSM way 1539834599 (amenity=school, name=Zuyderzee College, polygon x 330 to 427, z -540 to -661 in game metres). Kevin, a kermis-goer with a giant banana, is picked up beside the fair on De Deel late at night (21:00 to 02:00) on kermis weekends. Passengers are now chosen by time of day (pickFare).
+- **People variety** (graphics): about 1 in 5 pedestrians is elderly (grey or white hair, muted clothes, slower walk, slight stoop via the Abdomen bone), and 7 adults walk with a child at their side (scaled 0.55 to 0.7, brightly dressed, stride length scaled so feet do not slide). Children are home between 21:00 and 07:00.
+- **Honk reactions** (gameplay/sound): the nearest pedestrian within 12 m calls something back in a speech bubble ("Hey!", "Watch it!", "Hello to you too!"), a cyclist nearby rings their bell back, taxi passengers comment on honking. New achievement "Polder trumpet" (honk five times in a row in town).
+- **Pause menu on sideways phones** (mobile/bug): on a 667x375 phone the "New game" and "Achievements" buttons were cut off below the screen. The pause card is now wider and flatter on short screens (five stat columns, smaller buttons) and everything fits.
+- **Lost child** (gameplay): by day, while you walk around without a job, a child who lost their dad sometimes stands crying nearby ("Daddy?"). Walk up to them: they name the colour of dad's shirt and the street, then follow you. Bring them to dad (he waits where they lost him) for €25, 30 XP and the achievement "Found you!" (26 achievements in total). Driving off or taking a job ends it; the child runs back to dad.
+
+### Report for Ron
+Tonight's run (01:17) added 7 improvements, each tested in headless Chromium (no console errors; walking, driving, the new taxi rides, honking and the lost-child mission scripted; screenshots checked) and pushed straight to `main`:
+- Two new taxi passengers: a pupil late for the Zuyderzee College (real OSM spot) on school mornings, and a kermis-goer going home late at night.
+- The Poldertoren lift shows tower facts on the way up.
+- More varied people: elderly people with grey hair who walk slower, and children walking beside their parents (home in bed at night).
+- Honking gets a reaction: speech bubbles, cyclists ring back, passengers comment.
+- New mini-mission: help a lost child find their dad.
+- Pause menu fixed on small sideways phones (buttons were cut off).
+
+Screenshots in the project files under `runs/`: `2026-11-23-lost-child.png` (a dad in a blue shirt waving "There you are!" on Lange Nering), `2026-11-23-people-variety.png` (a parent with a child and a grey-haired man on Lange Nering), `2026-11-23-honk-bubble.png` ("Hey!" bubble), `2026-11-23-lift-facts.png`, `2026-11-23-phone-pause.png`.
+
+Problems: none open. All people still use the same CC0 male body, so "dad" is always a man and children are scaled-down adults; a real child or female model would look better. Headless play still runs at a few frames per second, so the missions were driven by script.
+
+### Next ideas (for the next run)
+1. A second CC0 body (woman, child) for people variety, so children and mums look right (check the npm asset library for Quaternius characters).
+2. A minimap hint for the lost child mission after a minute (dad's dot appears) if the player cannot find him.
+3. School run: on school-day mornings, children with backpacks cycling towards the real school spots in OSM.
+4. More kermis night life: queue at the snack stand, people walking home from the fair after 23:30.
+5. Check the speech bubble and chat on a phone in portrait mode.
+
 ## 2026-11-22 (run 06:45)
 
 ### Plan (prioritized)

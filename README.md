@@ -42,7 +42,7 @@ Hard crashes into walls, trees or other cars damage the car you drive (the bar u
 
 ## Achievements
 
-25 achievements (first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
+26 achievements (first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
 
 ## Saving
 
@@ -63,13 +63,14 @@ Finishing faster pays more cash. **R** cancels a job.
 ## What's in town
 
 - **Tower plaque**: a bronze plaque beside the tower door; walk up to it to read about the tower.
-- **Friendly town**: passers-by sometimes wave hello when you walk right past them. Some are elderly (grey hair, a slower walk) and some walk with a child at their side. Honk (**H**) near people and the nearest one calls something back in a speech bubble; cyclists ring their bell, and taxi passengers have an opinion about it.
-- **Lost child**: by day, while you walk around without a job, you may hear a child crying nearby. Walk up to them: they tell you the colour of their dad's shirt and the street where they lost him, then follow you. Find dad for a small reward.
+- **Friendly town**: passers-by sometimes wave hello when you walk right past them. Men and women (long hair, ponytails, bobs, buns, skirts and dresses), elderly people (grey hair, a slower walk) and parents with a child at their side. Honk (**H**) near people and the nearest one calls something back in a speech bubble; cyclists ring their bell, and taxi passengers have an opinion about it.
+- **Lost child**: by day, while you walk around without a job, you may hear a child crying nearby. Walk up to them: they tell you what their mum or dad is wearing and the street where they got lost, then follow you. Find the parent for a small reward; after a minute the child remembers the way and the parent shows as a pink dot on the minimap.
 - **Poldertoren lift**: walk to the tower door facing De Deel and press **E** to ride the lift up to the viewing platform at 43.4 m. The lift display shows tower facts on the way up. Walk around the gallery with A/D (or the joystick), drag to look, press E to go back down.
 - **Carillon**: from 08:00 to 22:00 the tower's bells play a short tune on every full hour and then strike the hour. You hear it from about 700 m away.
 - The Poldertoren (1959, 65 m to the top of the weather vane): octagonal brick shaft with white concrete ribs and bands, the glass case with the turning figures (mammoth, caveman, cog ship, pioneer, combine harvester, factory) above the door facing De Deel, four clocks that show the game time, the visitor platform and the open crown with its 48-bell carillon.
 - De Deel with market stalls, bikes and benches; shops along Lange Nering and Korte Nering; Lange and Korte Achterzijde.
-- Cyclists riding the ring roads (they ring their bell if you block the way).
+- Kermis weekends on De Deel: when the rides close at 23:30 the visitors walk home into town, chatting about their night.
+- Cyclists riding the ring roads (they ring their bell if you block the way). On school-day mornings pupils with backpacks cycle to the Zuyderzee College, and ride home again after school.
 - A ring road with traffic, and Lemsterweg, Urkerweg, Marknesserweg and Espelerlaan leading out to tulip fields, farms and wind turbines.
 - Polder weather: rain showers roll in now and then, with grey skies, falling rain and the sound of it.
 - A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights.

@@ -4115,14 +4115,17 @@ const KERMIS=(()=>{
   const people=[];
   for(let i=0;i<12;i++){const p=[...W(rand(-22,19),rand(-2.2,2.2))];
     const m=makePerson({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS)});m.g.visible=false;
-    const nn={zone,m,x:p[0],z:p[1],h:0,tx:p[0],tz:p[1],spd:rand(0.8,1.25),phase:rng()*6,stuck:0,lx:p[0],lz:p[1],dodge:0,dvx:0,dvz:0,wait:rand(0,4),kermis:true};
+    const nn={zone,m,x:p[0],z:p[1],h:0,tx:p[0],tz:p[1],spd:rand(0.8,1.25),phase:rng()*6,stuck:0,lx:p[0],lz:p[1],dodge:0,dvx:0,dvz:0,wait:rand(0,4),kermis:true,home0:{zone,x:p[0],z:p[1]}};
     NPCS.push(nn);people.push(nn);}
   for(const c of cols)c.off=true;
   const fwBoard=W(13,-8.6);
   LANDMARKS.push({name:'Kermis',x:K.cx,z:K.cz,r:30});
-  return {root,cols,people,S,w:0,mus:0,bar:0,board:{x:fwBoard[0],z:fwBoard[1]},cx:K.cx,cz:K.cz};
+  return {root,cols,people,S,w:0,mus:0,bar:0,board:{x:fwBoard[0],z:fwBoard[1]},cx:K.cx,cz:K.cz,ends:[W(-27,0),W(24,0)]};
 })();
 function addColliderR(c){addCollider(c);return c;}
+// a spot in town 80 to 220 m from the fair, for visitors walking home
+function kermisHomeward(){const K=KERMIS;for(let k=0;k<60;k++){const z=pickZone(),p=zonePoint(z);if(!p)continue;const d=Math.hypot(p[0]-K.cx,p[1]-K.cz);if(d>80&&d<220)return {z,p};}return {z:PEDZONES[0],p:[K.cx+120,K.cz]};}
+const KERMIS_BYE=['What a night!','My feet are killing me.','Same time next year!','Who has the bike keys?','I still taste the oliebollen.','That wheel was SO high.','Shh, people are sleeping.'];
 let KERMIS_UP=null,KERMIS_OPEN=false,RIDE=null;
 // a little waltz for the fairground organ (an original tune): [semitones above C5, beats], 8 bars of 3/4
 const KTUNE=(()=>{const T=[[4,1],[7,1],[7,1],[5,1],[4,1],[2,1],[0,2],[4,1],[2,3],[2,1],[5,1],[5,1],[4,1],[2,1],[0,1],[-1,2],[2,1],[0,3]];let b=0;return T.map(([s,l])=>{const o={s,b,l};b+=l;return o;});})();
@@ -4224,7 +4227,11 @@ function endWheelRide(){RIDE=null;P.m.g.visible=true;camPitch=0.28;toast('That w
 function updateKermis(dt){
   const K=KERMIS,h=(gameMin%1440)/60,up=GAME_DOW>=4,open=up&&h>=12&&h<23.5;
   if(up!==KERMIS_UP){KERMIS_UP=up;K.root.visible=up;for(const c of K.cols)c.off=!up;for(const m of KERMIS_CARS.meshes)m.visible=!up;for(const c of KERMIS_CARS.cols)c.off=up;}
-  if(open!==KERMIS_OPEN){KERMIS_OPEN=open;for(const n of K.people)n.m.g.visible=open;}
+  if(open!==KERMIS_OPEN){const was=KERMIS_OPEN;KERMIS_OPEN=open;
+    // closing time at 23:30: the visitors do not vanish, they walk off into town in small groups
+    if(was&&!open&&up&&h>=23)for(const n of K.people){const t=kermisHomeward(),e=K.ends[Math.hypot(t.p[0]-K.ends[0][0],t.p[1]-K.ends[0][1])<Math.hypot(t.p[0]-K.ends[1][0],t.p[1]-K.ends[1][1])?0:1];
+      n.leaving=rand(80,110);n.zone=t.z;n.tx=e[0]+rand(-1.5,1.5);n.tz=e[1]+rand(-1.5,1.5);n.next=t.p;n.wait=rand(0,5);n.said=0;}
+    else for(const n of K.people){n.leaving=0;n.next=null;n.m.g.visible=open;if(open){n.zone=n.home0.zone;n.x=n.tx=n.home0.x;n.z=n.tz=n.home0.z;}}}
   kermisMusic(dt);
   if(!up)return;
   K.w+=((open?1:0)-K.w)*Math.min(1,dt*0.35);
@@ -4864,7 +4871,10 @@ function updateNPCs(dt){
   const cx=camera.position.x,cz=camera.position.z,far2=(GFX===2?210:GFX===1?160:120)**2;
   for(const n of NPCS){
     if(n.market&&!MARKET_ON)continue;
-    if(n.kermis&&!KERMIS_OPEN)continue;
+    if(n.kermis&&!KERMIS_OPEN){
+      if(!(n.leaving>0))continue;
+      n.leaving-=dt;if(n.leaving<=0){n.m.g.visible=false;continue;}
+      if(!n.said&&(n.x-P.x)**2+(n.z-P.z)**2<120&&!BUBBLE.sp.visible){n.said=1;if(rng()<0.5)showBubble(n,pick(KERMIS_BYE));}}
     // children are home in bed at night
     const near=(n.x-cx)**2+(n.z-cz)**2<far2&&!(n.child&&KIDS_IN&&LOST.n!==n);if(n.m.g.visible!==near)n.m.g.visible=near;
     if(!near&&n.stay)continue;
@@ -4897,7 +4907,8 @@ function updateNPCs(dt){
     if(n.dodge>0){n.dodge-=dt;n.x+=n.dvx*dt;n.z+=n.dvz*dt;n.h=Math.atan2(n.dvx,n.dvz);spd=5.5;}
     else{
       const dx=n.tx-n.x,dz=n.tz-n.z,d=Math.hypot(dx,dz);
-      if(d<1){const t=randPedPoint(n);n.tx=t[0];n.tz=t[1];n.wait=rng()<.4?rand(1,5):0;moving=false;}
+      if(d<1&&n.next){n.tx=n.next[0];n.tz=n.next[1];n.next=null;}
+      else if(d<1){const t=randPedPoint(n);n.tx=t[0];n.tz=t[1];n.wait=rng()<.4?rand(1,5):0;moving=false;}
       else{n.h=lerpA(n.h,Math.atan2(dx,dz),1-Math.exp(-6*dt));n.x+=Math.sin(n.h)*n.spd*dt;n.z+=Math.cos(n.h)*n.spd*dt;}
     }
     const r=collide(n.x,n.z,0.35);n.x=r.x;n.z=r.z;

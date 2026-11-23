@@ -14,6 +14,33 @@ No open bugs were left by the 06:45 run. Its "next ideas" list is the base for t
 5. **Parent and child taxi ride** (gameplay): a fare with two passengers, the child in the back.
 6. Leftovers: polish, phone checks.
 
+### Done
+- **Slimmer build for women** (graphics/people): the walk clips animate the shoulder bones' positions, so after each animation update the shoulders of women and girls are pulled in towards the spine (16% narrower, chest and arms follow the skin). Also applied to seated poses.
+- **Winter and autumn clothes** (graphics/seasons): every pedestrian gets a knitted scarf (neck bone) and about half a woolly hat with a bobble (head bone, not over a bun) in one matching colour. Winter: 80% wear them; autumn: 30% wear only the scarf; spring and summer: none. Switches with the season button straight away. Meshes are hidden when not worn, so no extra cost in summer.
+- **Oliebollen queue** (content/sound): up to four fair-goers line up at the oliebollen stall while the kermis is open; every 6 to 11 s the one at the front orders (speech bubble when you are within 15 m: "A bag of oliebollen, please!"), walks off and someone else joins the back. Frying crackles come from the stall within 26 m.
+- **Buy oliebollen yourself** (gameplay): at the counter press E to buy a bag for €3; jumping the queue earns a remark from the front of the line. New achievement "Powdered sugar" (27 in total).
+- **Zuyderzee College bike park** (content/gameplay): at the real spot from OSM (way 1314839846, amenity=bicycle_parking, the courtyard south of the school building, x 378 to 417, z -644 to -658): grey paved floor, two rows of steel hoops (76 places, one draw call), a walkway to the door (OSM entrance node 12169881309) and 20 bikes on school days from 07:40 to 16:40 (one merged mesh). On the morning school run 80% of the pupils now ride via the end of Hendric Stevinlaan into the bike park, lock their bike in a free spot, and walk to the door. After school they walk back out, wheel the bike out and ride home. No grass blades poke through the paving.
+- **Taxi: mum and child** (gameplay): new fare Mrs Jansen with her daughter Noor (only between 07:30 and 20:30). Noor waits beside her mum at the kerb, gets in the back, chats from the back seat ("Are we there yet?", "Can you honk? Please please please?") and walks home with her mum after the ride.
+
+### Report for Ron
+This lunchtime run (11:52) added 6 improvements, each tested in headless Chromium (no console errors; the people line-up, kermis queue, buying oliebollen, the bike park morning and afternoon and the mum-and-child taxi ride scripted and checked with screenshots) and pushed straight to `main`:
+- Women have a slimmer build (narrower shoulders).
+- In winter people wear scarves and woolly hats; in autumn some wear a scarf.
+- At the kermis people queue for oliebollen, you hear the fat crackle, and you can buy a bag yourself (new achievement).
+- The Zuyderzee College has its bike park at the real OpenStreetMap spot: pupils park their bike there in the morning, walk in, and ride home after school.
+- New taxi passengers: a mum with her daughter, who talks from the back seat.
+
+Screenshots in the project files under `runs/`: `2026-11-23c-winter-scarves.png` (a row of people on De Deel in winter with scarves and woolly hats), `2026-11-23c-oliebollen-queue.png` (three people queueing at the oliebollen stall, "A bag of oliebollen, please!"), `2026-11-23c-college-bike-park.png` (the bike park behind the college with rows of hoops and parked bikes), `2026-11-23c-taxi-mum-and-child.png` (Mrs Jansen and Noor waiting in the taxi marker on De Deel).
+
+Problems: none open. The scarves and hats are simple shapes (a ring and a cap), and the narrower shoulders are only a small change; women still share the man's body. The bike park is reached across the school grounds without a real path in the game data, so pupils ride over the grass for the last 20 m.
+
+### Next ideas (for the next run)
+1. A path from Hendric Stevinlaan to the bike park (OSM footway near x 432) drawn as paving, so pupils do not ride over grass.
+2. Winter coats: darker, longer tops in winter (would need the shirt colour kept for the lost-child hints).
+3. Eating the oliebollen: a short animation or powdered sugar on the player's shirt for a minute.
+4. More families: a dad with two children on the taxi, children on the back seat of parents' bikes (bakfiets).
+5. Check performance on a phone with the extra scarves and hats in winter (draw calls near crowds).
+
 ## 2026-11-23 (run 06:45)
 
 ### Plan (prioritized)

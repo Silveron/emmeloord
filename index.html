@@ -4773,13 +4773,16 @@ function walkPlayer(dt){
   animPerson(P.m,P.phase,l>0?(spd>5?1.25:1):0);
   P.gy=groundY(P.x,P.z,P.gy||0);P.m.g.position.set(P.x,P.y+P.gy,P.z);P.m.g.rotation.y=P.h;
 }
+let KIDS_IN=false;
 function updateNPCs(dt){
+  {const h=(gameMin%1440)/60;KIDS_IN=h<7||h>=21;}
   // people far from the camera are only a few pixels tall: hide them (one draw call each) and skip their animation
   const cx=camera.position.x,cz=camera.position.z,far2=(GFX===2?210:GFX===1?160:120)**2;
   for(const n of NPCS){
     if(n.market&&!MARKET_ON)continue;
     if(n.kermis&&!KERMIS_OPEN)continue;
-    const near=(n.x-cx)**2+(n.z-cz)**2<far2;if(n.m.g.visible!==near)n.m.g.visible=near;
+    // children are home in bed at night
+    const near=(n.x-cx)**2+(n.z-cz)**2<far2&&!(n.child&&KIDS_IN&&LOST.n!==n);if(n.m.g.visible!==near)n.m.g.visible=near;
     if(!near&&n.stay)continue;
     // now and then a passer-by waves hello when you walk right past them
     if(n.waveT>0){n.waveT-=dt;n.m.wave=n.waveT>0.3?1:0;n.h=lerpA(n.h,Math.atan2(P.x-n.x,P.z-n.z),1-Math.exp(-8*dt));animPerson(n.m,0,0);

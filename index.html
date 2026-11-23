@@ -2275,12 +2275,14 @@ function attachRig(m){
   for(const c of [...m.g.children])if(c!==inst)c.visible=false;
   m.g.add(inst);
   if(!m.hero&&(m.colours.fem||m.colours.bag))dressRig(m);
+  if(!m.hero)wrapRig(m);
   if(m.pose)rigPose(m,m.pose);
 }
 // static pose (cyclists sit): one frame of a clip
 function rigPose(m,name){
   const bench=name==='bench';if(bench)name='sit';
   const r=m.rig;if(!r||!r.act[name])return;for(const n in r.act)r.act[n].setEffectiveWeight(n===name?1:0);r.act[name].time=r.act[name].getClip().duration*0.5;r.mixer.update(0);r.posed=true;
+  if(m.colours&&m.colours.fem)femShape(r);
   if(m.kid){const B=rigBones(r);if(B.Head)B.Head.scale.setScalar(m.kid===true?1.22:m.kid);}
   if(bench){// on a bench: hips on the seat, legs over the front edge
     m.g.position.y=0;const B={};r.inst.traverse(b=>{if(b.isBone)B[b.name]=b;});
@@ -2315,6 +2317,7 @@ function animRig(m,phase,amt){
   for(const n of ['idle','walk','run'])if(r.act[n])r.act[n].time=r.cyc[n]*r.act[n].getClip().duration;
   r.mixer.update(0);
   if(m.kid){const B=rigBones(r);if(B.Head)B.Head.scale.setScalar(m.kid===true?1.22:m.kid);}
+  if(m.colours&&m.colours.fem)femShape(r);
   if(m.old){if(r.ab===undefined){r.ab=null;r.inst.traverse(b=>{if(!r.ab&&b.isBone&&/Abdomen|Spine/.test(b.name))r.ab=b;});r.ab0=r.ab?r.ab.rotation.x:0;}if(r.ab){if(r.ab0===undefined)r.ab0=r.ab.rotation.x;r.ab.rotation.x=r.ab0+0.22;}}
   if(m.wave)rigWave(m,dt);
 }
@@ -2362,6 +2365,9 @@ function hairGeo(st){
 const SKIRT_GEO=(()=>{const g=new THREE.CylinderGeometry(0.175,0.25,0.36,14,1,true);g.translate(0,0.75,0.015);g.scale(1,1,0.92);return g;})();
 const BAG_GEO=mergeGeo([[new THREE.BoxGeometry(0.27,0.34,0.13),TM(0,1.17,-0.175)],[new THREE.BoxGeometry(0.22,0.12,0.05),TM(0,1.08,-0.255)]]);
 function femMat(c){return FEM_MATS[c]||(FEM_MATS[c]=new THREE.MeshStandardMaterial({color:c,roughness:0.75,envMapIntensity:0.6,side:THREE.DoubleSide}));}
+/* a slimmer build for women: the walk clips animate the shoulder bones' positions, so after each mixer update the shoulders
+   are pulled in towards the spine (the skinned chest and arms follow) */
+function femShape(r){const B=rigBones(r);for(const n of ['ShoulderL','ShoulderR'])if(B[n]){B[n].position.x*=0.84;B[n].position.z*=0.9;}}
 function rigBones(r){if(!r.B){r.B={};r.inst.traverse(b=>{if(b.isBone)r.B[b.name]=b;});}return r.B;}
 function dressRig(m){
   const r=m.rig,o=m.colours,B=rigBones(r);if(!B.Head)return;
@@ -2371,6 +2377,26 @@ function dressRig(m){
   if(o.skirt&&B.Hips)put(SKIRT_GEO,o.skirt,B.Hips);
   if(o.bag&&(B.Torso||B.Abdomen))put(BAG_GEO,o.bag,B.Torso||B.Abdomen);
 }
+/* winter and autumn wear: a knitted scarf on the neck bone and a woolly hat with a bobble on the head bone, shown by season
+   (winter: most people wear a scarf and half a hat; autumn: some a scarf). Matching colours, made once per person. */
+const KNIT=['#b8322c','#2e4a7a','#e0b43a','#3d6b4a','#d9d2c4','#5a2f4a','#c8642a','#2b2b30','#7a8ea6'];
+const WARM=[];
+let SCARF_GEO=null,HAT_GEO=null;
+function warmGeo(){if(SCARF_GEO)return;SCARF_GEO=(()=>{const t=new THREE.TorusGeometry(0.088,0.036,6,16);t.rotateX(Math.PI/2);t.scale(1,1.25,1.05);t.translate(0,1.465,0.005);
+  const tail=new THREE.BoxGeometry(0.075,0.24,0.028);tail.rotateZ(0.08);tail.translate(0.055,1.35,0.112);
+  return mergeGeo([[t,new THREE.Matrix4()],[tail,new THREE.Matrix4()]]);})();
+HAT_GEO=(()=>{const top=new THREE.SphereGeometry(0.5,14,7,0,Math.PI*2,0,Math.PI/2);
+  return mergeGeo([[top,TM(0,1.675,-0.012,0.27,0.3,0.28)],[CYL,TM(0,1.682,-0.012,0.276,0.05,0.286)],[SPHERE,TM(0,1.83,-0.02,0.07,0.065,0.07)]]);})();}
+function wrapRig(m){
+  const r=m.rig,o=m.colours,B=rigBones(r);if(!B.Neck||!B.Head||m.hero)return;
+  warmGeo();const w={m,u:rng(),hat:o.fem!=='bun'&&rng()<0.55,sc:null,ht:null};
+  const col=o.knit||(o.knit=pick(KNIT));
+  for(const n in r.act)r.act[n].setEffectiveWeight(n==='idle'?1:0);r.mixer.update(0);
+  const put=(geo,bone)=>{const ms=new THREE.Mesh(geo,femMat(col));ms.castShadow=true;m.g.add(ms);m.g.updateMatrixWorld(true);bone.attach(ms);return ms;};
+  w.sc=put(SCARF_GEO,B.Neck);if(w.hat)w.ht=put(HAT_GEO,B.Head);
+  WARM.push(w);setWarm(w);
+}
+function setWarm(w){const s=SEASON_NOW;w.sc.visible=s==='winter'?w.u<0.8:s==='autumn'&&w.u<0.3;if(w.ht)w.ht.visible=s==='winter'&&w.u<0.8;}
 async function loadRigs(){
   try{
     if(!THREE.GLTFLoader)await loadScriptOnce('assets/lib/GLTFLoader.js');
@@ -4128,8 +4154,31 @@ const KERMIS=(()=>{
   for(const c of cols)c.off=true;
   const fwBoard=W(13,-8.6);
   LANDMARKS.push({name:'Kermis',x:K.cx,z:K.cz,r:30});
-  return {root,cols,people,S,w:0,mus:0,bar:0,board:{x:fwBoard[0],z:fwBoard[1]},cx:K.cx,cz:K.cz,ends:[W(-27,0),W(24,0)]};
+  // the queue at the oliebollen stall (the first stall on the north side of the lane): front of the line at the counter, the rest
+  // trailing out into the lane; everyone faces the counter
+  const queue={slots:[W(-18,-2.9),W(-17.7,-2.1),W(-17.35,-1.35),W(-17,-0.6)],face:W(-18,-4.8),line:[],fillT:2,serveT:6,served:null,leaveT:0,fry:0};
+  return {root,cols,people,S,w:0,mus:0,bar:0,queue,board:{x:fwBoard[0],z:fwBoard[1]},cx:K.cx,cz:K.cz,ends:[W(-27,0),W(24,0)]};
 })();
+/* snack stand queue: up to four fair-goers line up at the oliebollen stall; every few seconds the one at the front orders
+   (a speech bubble when you are close), then walks off and someone else joins the back. Frying crackles near the stall. */
+const SNACK_ORDERS=['A bag of oliebollen, please!','Six oliebollen, extra powdered sugar.','Two apple fritters, please.','Oliebollen with raisins?','Can I pay by card?','One for now, ten to take home.'];
+function snackQueue(dt){
+  const K=KERMIS,Q=K.queue;
+  if(Q.line.length<4){Q.fillT-=dt;if(Q.fillT<=0){Q.fillT=rand(3,8);const c=K.people.filter(n=>!(n.qslot>=0)&&!(n.leaving>0)&&n!==Q.served&&n!==LOST.n);if(c.length){const n=pick(c);n.qslot=Q.line.length;Q.line.push(n);}}}
+  const f=Q.line[0];
+  if(f&&!Q.served&&Math.hypot(f.x-Q.slots[0][0],f.z-Q.slots[0][1])<0.3){Q.serveT-=dt;
+    if(Q.serveT<=0){Q.served=f;Q.leaveT=2.6;Q.serveT=rand(6,11);if((f.x-P.x)**2+(f.z-P.z)**2<15*15&&!BUBBLE.sp.visible)showBubble(f,pick(SNACK_ORDERS));}}
+  if(Q.served){Q.leaveT-=dt;if(Q.leaveT<=0){const n=Q.served;Q.served=null;Q.line.shift();n.qslot=-1;const t=randPedPoint(n);n.tx=t[0];n.tz=t[1];n.wait=0;Q.line.forEach((m,i)=>m.qslot=i);}}
+  // frying: short bright crackles from the fat, more often the closer you are
+  if(AC&&!muted&&started){const d=Math.hypot(camera.position.x-Q.face[0],camera.position.z-Q.face[1]);
+    if(d<26){Q.fry-=dt;if(Q.fry<=0){Q.fry=rand(0.04,0.16);const v=0.03*(1-d/26),t=AC.currentTime;noiseHit(t,rand(0.015,0.05),v*rand(0.3,1),rand(3500,7500),'highpass');if(rng()<0.25)noiseHit(t,0.35,v*0.35,5200,'bandpass',0.8);}}}
+}
+function queuePerson(n,dt,near){
+  const Q=KERMIS.queue,s=Q.slots[n.qslot],dx=s[0]-n.x,dz=s[1]-n.z,d=Math.hypot(dx,dz);let v=0;
+  if(d>0.12){v=Math.min(n.spd,d*2.2);n.h=lerpA(n.h,Math.atan2(dx,dz),1-Math.exp(-6*dt));n.x+=dx/d*v*dt;n.z+=dz/d*v*dt;}
+  else n.h=lerpA(n.h,Math.atan2(Q.face[0]-n.x,Q.face[1]-n.z),1-Math.exp(-4*dt));
+  n.phase+=dt*v*2.1;if(near)animPerson(n.m,n.phase,v>0.15?0.9:0);n.m.g.position.set(n.x,groundY(n.x,n.z),n.z);n.m.g.rotation.y=n.h;
+}
 function addColliderR(c){addCollider(c);return c;}
 // a spot in town 80 to 220 m from the fair, for visitors walking home
 function kermisHomeward(){const K=KERMIS;for(let k=0;k<60;k++){const z=pickZone(),p=zonePoint(z);if(!p)continue;const d=Math.hypot(p[0]-K.cx,p[1]-K.cz);if(d>80&&d<220)return {z,p};}return {z:PEDZONES[0],p:[K.cx+120,K.cz]};}
@@ -4236,12 +4285,14 @@ function updateKermis(dt){
   const K=KERMIS,h=(gameMin%1440)/60,up=GAME_DOW>=4,open=up&&h>=12&&h<23.5;
   if(up!==KERMIS_UP){KERMIS_UP=up;K.root.visible=up;for(const c of K.cols)c.off=!up;for(const m of KERMIS_CARS.meshes)m.visible=!up;for(const c of KERMIS_CARS.cols)c.off=up;}
   if(open!==KERMIS_OPEN){const was=KERMIS_OPEN;KERMIS_OPEN=open;
+    for(const n of K.people)n.qslot=-1;K.queue.line.length=0;K.queue.served=null;
     // closing time at 23:30: the visitors do not vanish, they walk off into town in small groups
     if(was&&!open&&up&&h>=23)for(const n of K.people){const t=kermisHomeward(),e=K.ends[Math.hypot(t.p[0]-K.ends[0][0],t.p[1]-K.ends[0][1])<Math.hypot(t.p[0]-K.ends[1][0],t.p[1]-K.ends[1][1])?0:1];
       n.leaving=rand(80,110);n.zone=t.z;n.tx=e[0]+rand(-1.5,1.5);n.tz=e[1]+rand(-1.5,1.5);n.next=t.p;n.wait=rand(0,5);n.said=0;}
     else for(const n of K.people){n.leaving=0;n.next=null;n.m.g.visible=open;if(open){n.zone=n.home0.zone;n.x=n.tx=n.home0.x;n.z=n.tz=n.home0.z;}}}
   kermisMusic(dt);
   if(!up)return;
+  if(KERMIS_OPEN)snackQueue(dt);
   K.w+=((open?1:0)-K.w)*Math.min(1,dt*0.35);
   const cam=camera.position;if(Math.hypot(cam.x-K.cx,cam.z-K.cz)>480&&!RIDE)return;
   const S=K.S,w=K.w;
@@ -4893,6 +4944,7 @@ function updateNPCs(dt){
     // children are home in bed at night
     const near=(n.x-cx)**2+(n.z-cz)**2<far2&&!(n.child&&KIDS_IN&&LOST.n!==n);if(n.m.g.visible!==near)n.m.g.visible=near;
     if(!near&&n.stay)continue;
+    if(n.qslot>=0&&KERMIS_OPEN){queuePerson(n,dt,near);continue;}
     // now and then a passer-by waves hello when you walk right past them
     if(n.waveT>0){n.waveT-=dt;n.m.wave=n.waveT>0.3?1:0;n.h=lerpA(n.h,Math.atan2(P.x-n.x,P.z-n.z),1-Math.exp(-8*dt));animPerson(n.m,0,0);
       if(!n.m.rig&&n.m.ra)n.m.ra.rotation.x=n.m.wave?-2.6+Math.sin(n.waveT*9)*0.4:0;
@@ -5603,6 +5655,7 @@ function applySeason(){
   for(const k of ['card','leaf']){const m=SEASON_MATS[k];if(!m)continue;m.color.setRGB(...T);m.visible=SEASON_NOW!=='winter';}
   GRASS_MATS.forEach((m,i)=>{m.color.copy(GRASS_BASE[i]).multiply(new THREE.Color(...G));if(m.userData.photoTint)m.color.multiply(m.userData.photoTint);});
   if(SEASON_NOW!=='winter')SNOW=0;
+  for(const w of WARM)setWarm(w);
   if($('pseason'))$('pseason').textContent='Season: '+SEASON_NL[SEASON_SET]+(SEASON_SET==='auto'?' ('+SEASON_NL[SEASON_NOW]+')':'');
 }
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}

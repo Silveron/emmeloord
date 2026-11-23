@@ -2266,13 +2266,14 @@ function attachRig(m){
   m.rig={inst,mixer,act,w:{idle:1,walk:0,run:0},lastPhase:0,cyc:{walk:0,run:0,idle:0},id:PEOPLE.indexOf(m)};
   for(const c of [...m.g.children])if(c!==inst)c.visible=false;
   m.g.add(inst);
-  if(!m.hero&&m.colours.fem)dressRig(m);
+  if(!m.hero&&(m.colours.fem||m.colours.bag))dressRig(m);
   if(m.pose)rigPose(m,m.pose);
 }
 // static pose (cyclists sit): one frame of a clip
 function rigPose(m,name){
   const bench=name==='bench';if(bench)name='sit';
   const r=m.rig;if(!r||!r.act[name])return;for(const n in r.act)r.act[n].setEffectiveWeight(n===name?1:0);r.act[name].time=r.act[name].getClip().duration*0.5;r.mixer.update(0);r.posed=true;
+  if(m.kid){const B=rigBones(r);if(B.Head)B.Head.scale.setScalar(m.kid===true?1.22:m.kid);}
   if(bench){// on a bench: hips on the seat, legs over the front edge
     m.g.position.y=0;const B={};r.inst.traverse(b=>{if(b.isBone)B[b.name]=b;});
     if(B.Hips){m.g.updateMatrixWorld(true);const h=m.g.worldToLocal(B.Hips.getWorldPosition(new THREE.Vector3()));r.inst.position.y+=0.66-h.y;r.inst.position.z-=h.z+0.12;}
@@ -2305,7 +2306,7 @@ function animRig(m,phase,amt){
   const ss=m.sc||1;r.cyc.walk=(r.cyc.walk+dt*sp/(1.45*ss))%1;r.cyc.run=m.air?0.3:(r.cyc.run+dt*sp/((m.hero?2.9:2.5)*ss))%1;r.cyc.idle=(r.cyc.idle+dt/ (r.act.idle?r.act.idle.getClip().duration:2))%1;
   for(const n of ['idle','walk','run'])if(r.act[n])r.act[n].time=r.cyc[n]*r.act[n].getClip().duration;
   r.mixer.update(0);
-  if(m.kid){const B=rigBones(r);if(B.Head)B.Head.scale.setScalar(1.22);}
+  if(m.kid){const B=rigBones(r);if(B.Head)B.Head.scale.setScalar(m.kid===true?1.22:m.kid);}
   if(m.old){if(r.ab===undefined){r.ab=null;r.inst.traverse(b=>{if(!r.ab&&b.isBone&&/Abdomen|Spine/.test(b.name))r.ab=b;});r.ab0=r.ab?r.ab.rotation.x:0;}if(r.ab){if(r.ab0===undefined)r.ab0=r.ab.rotation.x;r.ab.rotation.x=r.ab0+0.22;}}
   if(m.wave)rigWave(m,dt);
 }
@@ -2351,14 +2352,16 @@ function hairGeo(st){
   return HAIR_GEO[st]=mergeGeo(L);
 }
 const SKIRT_GEO=(()=>{const g=new THREE.CylinderGeometry(0.175,0.25,0.36,14,1,true);g.translate(0,0.75,0.015);g.scale(1,1,0.92);return g;})();
+const BAG_GEO=mergeGeo([[new THREE.BoxGeometry(0.27,0.34,0.13),TM(0,1.17,-0.175)],[new THREE.BoxGeometry(0.22,0.12,0.05),TM(0,1.08,-0.255)]]);
 function femMat(c){return FEM_MATS[c]||(FEM_MATS[c]=new THREE.MeshStandardMaterial({color:c,roughness:0.75,envMapIntensity:0.6,side:THREE.DoubleSide}));}
 function rigBones(r){if(!r.B){r.B={};r.inst.traverse(b=>{if(b.isBone)r.B[b.name]=b;});}return r.B;}
 function dressRig(m){
   const r=m.rig,o=m.colours,B=rigBones(r);if(!B.Head)return;
   for(const n in r.act)r.act[n].setEffectiveWeight(n==='idle'?1:0);r.mixer.update(0);
   const put=(geo,col,bone)=>{const ms=new THREE.Mesh(geo,femMat(col));ms.castShadow=true;m.g.add(ms);m.g.updateMatrixWorld(true);bone.attach(ms);return ms;};
-  put(hairGeo(o.fem),o.hair,B.Head);
+  if(o.fem)put(hairGeo(o.fem),o.hair,B.Head);
   if(o.skirt&&B.Hips)put(SKIRT_GEO,o.skirt,B.Hips);
+  if(o.bag&&(B.Torso||B.Abdomen))put(BAG_GEO,o.bag,B.Torso||B.Abdomen);
 }
 async function loadRigs(){
   try{
@@ -2900,7 +2903,7 @@ function recycleTraffic(dt){
     c.x=v.x;c.z=v.z;c.h=v.h;c.speed=0;Object.assign(c.ai,{q:v.q,node:v.node,lastE:v.lastE});n++;
   }
   for(const b of CYCLISTS){
-    if(n>=3||Math.hypot(b.x-px,b.z-pz)<500)continue;
+    if(b.pupil||n>=3||Math.hypot(b.x-px,b.z-pz)<500)continue;
     const v={q:[],extra:1.6,bike:true};if(!spawnOnNetwork(v,440,0,240))continue;
     b.x=v.x;b.z=v.z;b.h=v.h;b.speed=0;b.q=v.q;b.node=v.node;b.lastE=v.lastE;n++;
   }
@@ -3165,30 +3168,71 @@ function checkRedLights(t){
 const CYCLISTS=[];
 const OMA_MAT=Lam({vertexColors:true,roughness:0.5,metalness:0.2});
 {
-  const tire=new THREE.TorusGeometry(0.34,0.045,6,18),tireMat=lm('#1d1d1d'),tube=new THREE.BoxGeometry(0.05,0.05,1);
   for(let i=0;i<12;i++){
     const v={q:[],extra:1.6,bike:true};
     if(!spawnOnNetwork(v,450,0))continue;
-    const g=new THREE.Group();scene.add(g);
-    const fm=lm(pick(['#1f3d5a','#222','#7a1f1f','#2d5a3a','#d9d4c8','#ff7b1c','#6a3b7a']));
-    const wheels=[];
-    for(const z of [-0.52,0.52]){const w=new THREE.Mesh(OMA_WHEEL,OMA_MAT);w.position.set(0,0.36,z);w.castShadow=true;g.add(w);wheels.push(w);}
-    {const fr=new THREE.Mesh(mergeCol(omaParts('#'+fm.color.getHexString(THREE.SRGBColorSpace))),OMA_MAT);fr.castShadow=true;g.add(fr);}
-    // rider: reuse the person model, seated
-    const rider=makePerson({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1});
-    scene.remove(rider.g);g.add(rider.g);rider.g.position.set(0,0.12,-0.22);rider.g.rotation.x=0.18;
-    rider.la.rotation.x=-1.1;rider.ra.rotation.x=-1.1;rider.pose='sit';
-    CYCLISTS.push({g,rider,wheels,q:v.q,node:v.node,lastE:v.lastE,extra:1.6,bike:true,x:v.x,z:v.z,h:v.h,speed:0,cruise:rand(4.2,5.6),phase:rng()*6,rang:0});
+    const o=makeBikeRider({shirt:pick(SHIRTS),pants:pick(['#2b3a55','#333','#5a4a3a','#1e2a38']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1});
+    CYCLISTS.push(Object.assign(o,{q:v.q,node:v.node,lastE:v.lastE,extra:1.6,bike:true,x:v.x,z:v.z,h:v.h,speed:0,cruise:rand(4.2,5.6),phase:rng()*6,rang:0}));
+  }
+}
+// an omafiets with a seated rider (sc scales the rider, for teenagers)
+function makeBikeRider(look,sc){
+  const g=new THREE.Group();scene.add(g);
+  const fm=pick(['#1f3d5a','#222','#7a1f1f','#2d5a3a','#d9d4c8','#ff7b1c','#6a3b7a']);
+  const wheels=[];
+  for(const z of [-0.52,0.52]){const w=new THREE.Mesh(OMA_WHEEL,OMA_MAT);w.position.set(0,0.36,z);w.castShadow=true;g.add(w);wheels.push(w);}
+  {const fr=new THREE.Mesh(mergeCol(omaParts(fm)),OMA_MAT);fr.castShadow=true;g.add(fr);}
+  // rider: reuse the person model, seated
+  const rider=makePerson(look);
+  scene.remove(rider.g);g.add(rider.g);rider.g.position.set(0,0.12,-0.22);rider.g.rotation.x=0.18;
+  if(sc){rider.g.scale.setScalar(sc);rider.g.position.y+=0.86*(1-sc);rider.sc=sc;}
+  rider.la.rotation.x=-1.1;rider.ra.rotation.x=-1.1;rider.pose='sit';
+  return {g,rider,wheels};
+}
+/* school run: on school-day mornings pupils with backpacks cycle to the Zuyderzee College (OSM way 1539834599, drop-off kerb
+   COLLEGE_SPOT on Professor ter Veenstraat), and after school they ride home again. They start out of sight near the player. */
+const PUPILS=[];
+for(let i=0;i<7;i++){
+  const o=makeBikeRider({shirt:pick(['#2c6fbb','#e8452c','#222','#f2f0ea','#7ac74f','#9b5de5','#3fa7d6','#f28fad','#555']),pants:pick(['#2b3a55','#1e2a38','#333','#3a5a8a']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1,bag:pick(['#1f3d5a','#c0392b','#222','#e6b422','#2e7d4f','#8e44ad'])},rand(0.84,0.92));
+  o.rider.kid=1.1;o.g.visible=false;
+  const b=Object.assign(o,{q:[[-5000,-5000]],x:-5000,z:-5000,h:0,speed:0,cruise:rand(4.6,5.8),phase:rng()*6,rang:0,pupil:true,off:true,arrT:0});
+  CYCLISTS.push(b);PUPILS.push(b);
+}
+function schoolMode(){const h=(gameMin%1440)/60;if(GAME_DOW>=5)return 0;if(h>=7.3&&h<8.55)return 1;if(h>=14.9&&h<16.4)return 2;return 0;}
+let PUPIL_T=0;
+function updatePupils(dt){
+  PUPIL_T-=dt;if(PUPIL_T>0)return;PUPIL_T=1.2;
+  const mode=started?schoolMode():0,px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z,C=COLLEGE_SPOT;
+  for(const b of PUPILS){
+    if(!b.off){
+      const far=Math.hypot(b.x-px,b.z-pz);
+      // parked at school (or home): wait a little, then go once nobody is looking
+      if(b.arrT>0)b.arrT+=1.2;
+      if(far>650||(!mode&&far>120)||(b.arrT>25&&far>40)){b.off=true;b.g.visible=false;b.x=b.z=-5000;b.q=[[-5000,-5000]];b.arrT=0;}
+      continue;}
+    if(!mode||rng()>0.3)continue;
+    const v={q:[],extra:1.6,bike:true};if(!spawnOnNetwork(v,380,0,110))continue;
+    let tx=C.x,tz=C.z;
+    if(mode===2){const dx=v.x-C.x,dz=v.z-C.z,L=Math.hypot(dx,dz)||1;tx=v.x+dx/L*600;tz=v.z+dz/L*600;}
+    else if(Math.hypot(v.x-C.x,v.z-C.z)<150)continue;
+    const r=gpsRoute(v.x,v.z,tx,tz,false);if(!r||r.length<3)continue;
+    // keep to the right-hand side of the street
+    const q=[];for(let i=1;i<r.length;i++){const a=r[i-1],c=r[i],L=Math.hypot(c[0]-a[0],c[1]-a[1]);if(L<0.5)continue;q.push([c[0]-(c[1]-a[1])/L*1.8,c[1]+(c[0]-a[0])/L*1.8]);}
+    if(q.length<2)continue;
+    b.q=q;b.x=v.x;b.z=v.z;b.h=Math.atan2(q[0][0]-v.x,q[0][1]-v.z);b.speed=0;b.off=false;b.arrT=0;b.g.visible=true;
   }
 }
 function bikeBell(){if(!AC||muted)return;const t=AC.currentTime;for(const d of [0,0.16]){tone(2350,t+d,0.35,0.06,'sine');tone(3700,t+d,0.2,0.025,'sine');}}
 function updateCyclists(dt,t){
+  updatePupils(dt);
   for(const b of CYCLISTS){
-    if(b.q.length<4)extendRoute(b,b.extra,520);
+    if(b.off)continue;
+    if(b.q.length<4&&!b.pupil)extendRoute(b,b.extra,520);
     let tg=b.q[0];while(b.q.length>1&&Math.hypot(tg[0]-b.x,tg[1]-b.z)<3.5){b.q.shift();tg=b.q[0];}
     const dx=tg[0]-b.x,dz=tg[1]-b.z,dist=Math.hypot(dx,dz);
-    const diff=wrapA(Math.atan2(dx,dz)-b.h);
-    let target=Math.abs(diff)>0.4?2.5:b.cruise;
+    const end=b.pupil&&b.q.length===1&&dist<4;if(end&&!b.arrT)b.arrT=0.01;
+    const diff=end?0:wrapA(Math.atan2(dx,dz)-b.h);
+    let target=end?0:Math.abs(diff)>0.4?2.5:b.cruise;
     const fx=Math.sin(b.h),fz=Math.cos(b.h);
     const look=(ox,oz)=>{const rx=ox-b.x,rz=oz-b.z,al=rx*fx+rz*fz,lat=-rx*fz+rz*fx;if(al>0&&al<7&&Math.abs(lat)<1.6)target=Math.min(target,Math.max(0,(al-2.6)*1.2));};
     for(const c of CARS)look(c.x,c.z);

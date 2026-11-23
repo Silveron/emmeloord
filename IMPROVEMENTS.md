@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-23 (run 06:45)
+
+### Plan (prioritized)
+No open bugs were left by the 01:17 run. Its "next ideas" list is the base for this morning:
+
+1. **Women and girls** (graphics/people variety): the CC0 asset library has no Quaternius woman or child body (only chunky Kenney mini figures, which would clash with the style), so build a female look on the existing rig: long hair, ponytail or bob attached to the head bone, skirts and dresses on the hips, slightly slimmer build. Children get a larger head so they read as children, not small adults. Mums walk with children too; the lost child mission then talks about "mum" or "dad".
+2. **Lost child hint** (gameplay): after a minute without finding the parent, their dot appears on the minimap.
+3. **School run** (gameplay/content): on school-day mornings, pupils with backpacks cycle towards the Zuyderzee College (OSM way 1539834599).
+4. **Kermis night life** (content): fair-goers walk home from the kermis after the rides close at 23:30.
+5. **Phone portrait check** (mobile/bugs): speech bubble and chat on a portrait phone.
+6. Leftovers if there is time: ambient sounds, small polish.
+
 ## 2026-11-23 (run 01:17)
 
 ### Plan (prioritized)

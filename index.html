@@ -5592,6 +5592,8 @@ function updateNPCs(dt){
       if(!n.said&&(n.x-P.x)**2+(n.z-P.z)**2<120&&!BUBBLE.sp.visible){n.said=1;if(rng()<0.5)showBubble(n,pick(KERMIS_BYE));}}
     // children are home in bed at night
     const near=(n.x-cx)**2+(n.z-cz)**2<far2&&!(n.child&&KIDS_IN&&LOST.n!==n);if(n.m.g.visible!==near)n.m.g.visible=near;
+    // only people near the camera cast a shadow (small shadows far off are barely seen but cost a skinned draw each)
+    if(near){const cs=(n.x-cx)**2+(n.z-cz)**2<(GFX===2?40*40:28*28);if(cs!==n.cs||n.m.rig!==n.csr){n.cs=cs;n.csr=n.m.rig;n.m.g.traverse(o=>{if(o.isMesh)o.castShadow=cs;});}}
     if(!near&&n.stay)continue;
     if(n.qslot>=0&&KERMIS_OPEN){queuePerson(n,dt,near);continue;}
     // now and then a passer-by waves hello when you walk right past them
@@ -5641,6 +5643,8 @@ let FAR_WHEELS=null,_cp=null;
 function carLOD(c){
   if(!c.lodHide||c.veh||c.bus)return;
   if(!_cp)_cp=camera.position;const d2=(c.x-_cp.x)**2+(c.z-_cp.z)**2,k=GFX===0?0.5:GFX===1?0.8:1,far=c===P.car?false:c.far?d2>78*78*k*k:d2>88*88*k*k;
+  // wheel shadows hardly show past the car's own shadow: only close cars (and yours) cast them
+  const ws=c===P.car||d2<26*26;if(ws!==c.ws){c.ws=ws;for(const w of c.wheels)w.castShadow=ws;}
   if(far===c.far)return;c.far=far;
   if(!c.farW){if(!FAR_WHEELS)FAR_WHEELS=mergeGeo([-1,1].flatMap(sx=>[1.38,-1.38].map(sz=>[CARPARTS.wheel,TM(sx*.9,.38,sz)])));c.farW=new THREE.Mesh(FAR_WHEELS,WHEEL_MAT);c.g.add(c.farW);}
   c.farW.visible=far;for(const o of c.lodHide)o.visible=!far;

@@ -1620,7 +1620,7 @@ function iceDepth(x,z){if(onBridge(x,z))return -1;for(const w of WATER){const b=
   let d=1e9;for(let i=0,j=w.length-1;i<w.length;j=i++){d=Math.min(d,segDist(x,z,w[j][0],w[j][1],w[i][0],w[i][1])[0]);if(d<0.01)break;}return d;}return -1;}
 // the height of the sloping bank and then the ice (matching the bank geometry of the sunken canals)
 function iceH(d){if(d<1.3)return (WATER_Y+0.35)*d/1.3;if(d<1.75)return Math.max(WATER_Y,WATER_Y+0.35-0.4*(d-1.3)/0.45);return WATER_Y+0.03;}
-function setIce(on){ICE=on;if(on&&!ZOPIE.g&&typeof TOWER!=='undefined')buildZopie();if(ZOPIE.g)ZOPIE.g.visible=on;WATER_U.uIce.value=on?1:0;waterMat.roughness=on?0.42:0.06;waterMat.envMapIntensity=on?0.35:0.72;if(!on)for(const k of SKATE.list){k.on=false;k.m.g.visible=false;}}
+function setIce(on){ICE=on;if(on&&!ZOPIE.g&&typeof TOWER!=='undefined')buildZopie();if(ZOPIE.g)ZOPIE.g.visible=on;WATER_U.uIce.value=on?1:0;waterMat.roughness=on?0.42:0.06;waterMat.envMapIntensity=on?0.35:0.72;if(!on){for(const k of SKATE.list){k.on=false;k.m.g.visible=false;}SKATES.on=false;SKBLADES.count=0;}}
 const SKATE={list:[],t:0,made:false};
 function skateAxis(w){if(w.ax)return w.ax;let mx=0,mz=0;for(const p of w){mx+=p[0];mz+=p[1];}mx/=w.length;mz/=w.length;let a=0,b=0,c=0;for(const p of w){const dx=p[0]-mx,dz=p[1]-mz;a+=dx*dx;b+=dx*dz;c+=dz*dz;}return w.ax=0.5*Math.atan2(2*b,a-c);}
 // a point well inside the ice: 1.6 m clear of the bank on every side and not under a bridge
@@ -1650,7 +1650,7 @@ function updateSkaters(dt,t){
     k.phase+=dt*k.v*0.55;const m=k.m;m.skate=k;animPerson(m,k.phase,1);
     // the scrape of the blades on every push-off, when you are close
     const st=Math.floor(k.phase*1.4/Math.PI);if(st!==k.st){k.st=st;const d=Math.hypot(k.x-px,k.z-pz);if(AC&&!muted&&d<28)noiseHit(AC.currentTime,0.42,0.05*(1-d/28),3200+rng()*900,'bandpass',0.9);}
-    m.g.position.set(k.x+Math.cos(k.h)*Math.sin(k.phase*1.4)*0.25,WATER_Y+0.04,k.z-Math.sin(k.h)*Math.sin(k.phase*1.4)*0.25);
+    m.g.position.set(k.x+Math.cos(k.h)*Math.sin(k.phase*1.4)*0.25,WATER_Y+0.09,k.z-Math.sin(k.h)*Math.sin(k.phase*1.4)*0.25);
     m.g.rotation.set(0,k.h,0);m.g.rotation.order='YXZ';m.g.rotation.z=Math.sin(k.phase*1.4)*0.12;
   }
 }
@@ -1677,7 +1677,46 @@ function buildZopie(){
   for(let i=0;i<5;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.04,0.1,8),white);c.position.set(-0.5+i*0.12,1.05,-0.1);g.add(c);}
   // the man behind the counter
   const m=makePerson({shirt:'#2e4a7a',pants:'#2b2b30',skin:'#e7b48f',hair:'#7a6a5a',male:1});m.g.position.set(0,0,0.75);m.g.rotation.y=Math.PI;scene.remove(m.g);g.add(m.g);ZOPIE.m=m;
+  // a skate rack beside the stall: a low bench with pairs of black skates (rent them with E)
+  B(wood,1.3,0.06,0.42,2.15,0.48,0.25);for(const x of [1.6,2.7])B(wood,0.06,0.45,0.36,x,0.225,0.25);
+  const boot=Lam({color:'#1c1c20',roughness:0.6}),steel=Lam({color:'#c9ced4',metalness:0.85,roughness:0.3});
+  for(let i=0;i<4;i++){const x=1.68+i*0.31;for(const dz of [-0.07,0.07]){B(boot,0.08,0.11,0.24,x+dz*0.4,0.57,0.25+dz);B(steel,0.012,0.03,0.36,x+dz*0.4,0.5,0.25+dz);}}
+  const rs=canvasTex(256,64,(c,W,H)=>{c.fillStyle='#f6f1e4';c.fillRect(0,0,W,H);c.fillStyle='#2e4a7a';c.font='700 28px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('SKATES €5',W/2,H/2+2);});
+  const rm=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.22),new THREE.MeshStandardMaterial({map:rs,roughness:0.9,side:THREE.DoubleSide}));rm.position.set(2.15,0.85,0.25);rm.rotation.y=Math.PI;g.add(rm);
+  const sp=new THREE.Mesh(OMA_BOX,wood);sp.scale.set(0.05,0.4,0.05);sp.position.set(2.15,0.62,0.25);g.add(sp);
   g.updateMatrixWorld(true);
+}
+/* skates: rent a pair at the rack beside the koek-en-zopie stall (€5). On the ice you skate: faster, with a long
+   gliding stride, leaning forward, and the blades scrape. Off the ice you can still 'klunen' (walk on your skates) slowly.
+   Blades are drawn under the feet of every skater (one instanced mesh). */
+const SKATES={on:false,said:0};
+function rackSpot(){const g=ZOPIE.g,a=g.rotation.y,c=Math.cos(a),s=Math.sin(a);const lx=2.15,lz=-0.35;return [ZOPIE.x+lx*c+lz*s,ZOPIE.z-lx*s+lz*c];}
+function nearSkates(px,pz){if(!ICE||!ZOPIE.g||!ZOPIE.g.visible||P.mode!=='walk')return false;const [x,z]=rackSpot();return Math.hypot(px-x,pz-z)<1.5;}
+function rentSkates(){
+  if(SKATES.on){SKATES.on=false;P.m.skate=null;toast('You hand the skates back.',1800);return;}
+  if(cash<5){toast('Skates cost €5 to rent.',2000);return;}
+  cash-=5;$('cash').textContent='€'+cash;coinSound();SKATES.on=true;ach('skate');
+  say('Koek en zopie',pick(['There you are, size 43. Push off with one foot, glide on the other!','Good skates, freshly sharpened. Mind the bridges!','Lean forward and keep your knees bent. Off you go!']),4200);
+}
+const SKBLADES=(()=>{const g=mergeCol([[new THREE.BoxGeometry(0.014,0.035,0.4),TM(0,-0.012,0.05),'#c9ced4'],[new THREE.BoxGeometry(0.02,0.03,0.05),TM(0,0.012,-0.05),'#2a2a2e'],[new THREE.BoxGeometry(0.02,0.03,0.05),TM(0,0.012,0.13),'#2a2a2e']]);
+  const im=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({vertexColors:true,metalness:0.7,roughness:0.35}),20);im.count=0;im.frustumCulled=false;im.castShadow=true;scene.add(im);return im;})();
+const _bq=new THREE.Quaternion(),_bv=new THREE.Vector3(),_bs=new THREE.Vector3(1,1,1),_bm=new THREE.Matrix4();
+function placeBlades(list){
+  let i=0;for(const m of list){if(!m.rig||!m.g.visible)continue;const B=rigBones(m.rig),sc=m.g.scale.x;_bs.setScalar(sc);
+    _bq.setFromAxisAngle(_dy,m.g.rotation.y);
+    for(const f of ['FootL','FootR']){const b=B[f];if(!b||i>=20)continue;b.getWorldPosition(_bv);_bv.y=Math.max(_bv.y-0.03*sc,m.g.position.y+0.005);_bm.compose(_bv,_bq,_bs);SKBLADES.setMatrixAt(i++,_bm);}}
+  SKBLADES.count=i;SKBLADES.instanceMatrix.needsUpdate=true;
+}
+function updateBlades(){if(!ICE){SKBLADES.count=0;return;}const L=[];for(const k of SKATE.list)if(k.on)L.push(k.m);if(SKATES.on&&P.mode==='walk'&&!RIDE)L.push(P.m);placeBlades(L);}
+const OOPS=['Whoa!','Oof!','Ouch, my backside!','Bambi on ice...','That was not elegant.'];
+function slipOver(sv){
+  P.fall=2.2;const k=0.55;P.ivx*=k;P.ivz*=k;P.vy=0;P.falls=(P.falls||0)+1;ach('bambi');
+  toast(pick(OOPS)+' You slipped on the ice.',1800);
+  if(AC&&!muted){const t=AC.currentTime;noiseHit(t,0.25,0.07,2600,'bandpass',0.8);noiseHit(t+0.32,0.3,0.22,140,'lowpass',1);tone(110,t+0.32,0.18,0.12,'sine');}
+  // people nearby have a laugh
+  if(!BUBBLE.sp.visible){let best=null,bd=14;for(const n of NPCS){const d=Math.hypot(n.x-P.x,n.z-P.z);if(d<bd&&n.m.g.visible){bd=d;best=n;}}
+    for(const k of SKATE.list)if(k.on){const d=Math.hypot(k.x-P.x,k.z-P.z);if(d<bd){bd=d;best={x:k.x,z:k.z,m:k.m};}}
+    if(best)showBubble(best,pick(['Haha! Are you all right?','Knees bent next time!','Oops! Need a hand?','Elfstedentocht is not for you, eh?']));}
 }
 function nearZopie(px,pz){if(!ICE||!ZOPIE.g||!ZOPIE.g.visible||P.mode!=='walk')return false;const g=ZOPIE.g,fx=-Math.sin(g.rotation.y),fz=-Math.cos(g.rotation.y);return Math.hypot(px-(ZOPIE.x+fx*0.9),pz-(ZOPIE.z+fz*0.9))<1.6;}
 function buyZopie(){
@@ -2402,7 +2441,7 @@ function animRig(m,phase,amt){
   if(m.old){if(r.ab===undefined){r.ab=null;r.inst.traverse(b=>{if(!r.ab&&b.isBone&&/Abdomen|Spine/.test(b.name))r.ab=b;});r.ab0=r.ab?r.ab.rotation.x:0;}if(r.ab){if(r.ab0===undefined)r.ab0=r.ab.rotation.x;r.ab.rotation.x=r.ab0+0.22;}}
   if(m.wave)rigWave(m,dt);
   if(m.eat)rigEat(m);
-  if(m.skate)rigSkate(m,m.skate);
+  if(m.skate)rigSkate(m,m.skate);else if(r.skAb){const B=rigBones(r);if(B.Abdomen)B.Abdomen.rotation.x=r.ab0;r.skAb=false;}
 }
 /* waving: aim the right upper arm up and out, and swing the forearm from side to side (m.wave = 0..1).
    Bones are aimed in world space so it works whatever the rig's local bone axes are. */
@@ -2435,7 +2474,7 @@ function rigEat(m){
 }
 // skating pose, applied right after the animation update: lean forward, and some skate with their hands behind their back
 function rigSkate(m,k){
-  const B=rigBones(m.rig),r=m.rig;if(B.Abdomen){if(r.ab0===undefined)r.ab0=B.Abdomen.rotation.x;B.Abdomen.rotation.x=r.ab0+0.32;}
+  const B=rigBones(m.rig),r=m.rig;if(B.Abdomen){if(r.ab0===undefined)r.ab0=B.Abdomen.rotation.x;B.Abdomen.rotation.x=r.ab0+(k.lean??0.32);r.skAb=true;}
   if(k.back&&B.UpperArmL&&B.UpperArmR&&B.LowerArmL&&B.LowerArmR){const fx=Math.sin(k.h),fz=Math.cos(k.h),rx=Math.cos(k.h),rz=-Math.sin(k.h);
     aimBone(B.UpperArmL,B.LowerArmL,_wd.set(-fx*0.6+rx*0.1,-0.8,-fz*0.6+rz*0.1).normalize(),1);aimBone(B.UpperArmR,B.LowerArmR,_wd.set(-fx*0.6-rx*0.1,-0.8,-fz*0.6-rz*0.1).normalize(),1);
     aimBone(B.LowerArmL,B.WristL||B.PalmL||B.LowerArmL.children[0],_wd.set(rx*0.6-fx*0.6,0.15,rz*0.6-fz*0.6).normalize(),1);
@@ -4956,6 +4995,8 @@ const ACH_LIST=[
   ['lost','Found you!','Bring a lost child back to their mum or dad'],
   ['olie','Powdered sugar','Buy a bag of oliebollen at the kermis'],
   ['ice','Natural ice','Slide out onto a frozen canal in winter'],
+  ['skate','Polder skater','Rent skates at the koek-en-zopie stall'],
+  ['bambi','Bambi on ice','Fall over on the ice'],
 ];
 const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
 function ach(id){
@@ -5060,6 +5101,7 @@ function action(){
   const px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
   if(nearSnack(px,pz)){buySnack();return;}
   if(nearZopie(px,pz)){buyZopie();return;}
+  if(nearSkates(px,pz)){rentSkates();return;}
   if(nearWheel(px,pz)){startWheelRide();return;}
   if(nearTower(px,pz)){startTowerRide();return;}
   if(nearGarage(px,pz)&&(P.mode==='walk'||Math.abs(P.car.speed)<4)){openGarage();return;}
@@ -5205,17 +5247,43 @@ function walkPlayer(dt){
   const spd=(K('ShiftLeft','ShiftRight')||tm>0.92)?8.5:4.3*(tm>0.15?Math.min(1,tm*1.4):1);
   // on the frozen canal you slide: speed builds up slowly and you keep gliding after you let go
   const id=ICE?iceDepth(P.x,P.z):-1;
-  if(id>1.75){if(l>0){vx/=l;vz/=l;}const k=1-Math.exp(-(l>0?1.4:0.45)*dt);P.ivx=(P.ivx||0)+(vx*spd-(P.ivx||0))*k;P.ivz=(P.ivz||0)+(vz*spd-(P.ivz||0))*k;
+  const sk=SKATES.on&&P.mode==='walk';P.skating=false;
+  // fallen over on the ice: slide on your back for a moment, then get up again
+  if(!(P.fall>0)&&id>1.75&&l>0){
+    // slip when you throw yourself round at speed: a sharp change of direction against your glide (much harder on skates)
+    const sv=Math.hypot(P.ivx||0,P.ivz||0),turn=sv>0.5?Math.acos(clamp(((P.ivx||0)*vx+(P.ivz||0)*vz)/(sv*l),-1,1)):0;
+    if((sk&&sv>9.5&&turn>1.9)||(!sk&&sv>3.4&&turn>2.2)||(sk&&sv>6&&id<2.3&&rng()<dt*0.5))slipOver(sv);}
+  if(P.fall>0){P.fall=Math.max(0,P.fall-dt);const k=Math.exp(-2.2*dt);P.ivx*=k;P.ivz*=k;P.x+=P.ivx*dt;P.z+=P.ivz*dt;}
+  else if(id>1.75&&sk){
+    // on skates: push off to build speed (up to 8 m/s, 11 with Shift), glide a long way when you let go, steer into the glide
+    if(l>0){vx/=l;vz/=l;}const top=(K('ShiftLeft','ShiftRight')||tm>0.92)?11:8;
+    const k=1-Math.exp(-(l>0?0.9:0.12)*dt);P.ivx=(P.ivx||0)+(vx*top*(l>0?1:0)-(P.ivx||0))*k;P.ivz=(P.ivz||0)+(vz*top*(l>0?1:0)-(P.ivz||0))*k;
+    const sv=Math.hypot(P.ivx,P.ivz);
+    if(l>0&&sv>0.5){const a=Math.atan2(P.ivx,P.ivz),b=Math.atan2(vx,vz),na=a+clamp(wrapA(b-a),-2.2*dt,2.2*dt);P.ivx=Math.sin(na)*sv;P.ivz=Math.cos(na)*sv;}
+    P.x+=P.ivx*dt;P.z+=P.ivz*dt;if(sv>0.3)P.h=lerpA(P.h,Math.atan2(P.ivx,P.ivz),1-Math.exp(-8*dt));
+    P.skating=true;if(l>0)P.phase+=dt*Math.max(2.5,sv)*0.55;
+    const st=Math.floor(P.phase*1.4/Math.PI);if(l>0&&st!==P.skSt&&AC&&!muted)noiseHit(AC.currentTime,0.45,0.07,3000+rng()*900,'bandpass',0.9);P.skSt=st;
+    if(!P.onIce){P.onIce=true;ach('ice');toast('Skating! Push off with <kbd>W</kbd>, glide, hold <kbd>Shift</kbd> to sprint.',2600);}}
+  else if(id>1.75){if(l>0){vx/=l;vz/=l;}const k=1-Math.exp(-(l>0?1.4:0.45)*dt);P.ivx=(P.ivx||0)+(vx*spd-(P.ivx||0))*k;P.ivz=(P.ivz||0)+(vz*spd-(P.ivz||0))*k;
     P.x+=P.ivx*dt;P.z+=P.ivz*dt;const sv=Math.hypot(P.ivx,P.ivz);if(sv>0.3)P.h=lerpA(P.h,Math.atan2(P.ivx,P.ivz),1-Math.exp(-6*dt));if(l>0)P.phase+=dt*spd*0.8;
     if(!P.onIce){P.onIce=true;ach('ice');toast('You are on the ice. It is slippery!',2000);}}
+  else if(sk){P.onIce=false;
+    // klunen: on land you can only waddle on your skates
+    if(l>0){vx/=l;vz/=l;P.x+=vx*2.2*dt;P.z+=vz*2.2*dt;P.h=lerpA(P.h,Math.atan2(vx,vz),1-Math.exp(-10*dt));P.phase+=dt*2.2*2.1;P.ivx=vx*2.2;P.ivz=vz*2.2;}else P.ivx=P.ivz=0;
+    if(l>0&&elapsed-SKATES.said>40){SKATES.said=elapsed;toast('Klunen: walking on your skates over land is slow. Hand them back at the rack.',2600);}}
   else{P.onIce=false;if(l>0){vx/=l;vz/=l;P.x+=vx*spd*dt;P.z+=vz*spd*dt;P.h=lerpA(P.h,Math.atan2(vx,vz),1-Math.exp(-14*dt));P.phase+=dt*spd*2.1;P.ivx=vx*spd;P.ivz=vz*spd;}else P.ivx=P.ivz=0;}
-  if(K('Space')&&P.y<=0.001){P.vy=5.6;}
+  if(K('Space')&&P.y<=0.001&&!(P.fall>0)){P.vy=5.6;}
   P.vy-=16*dt;P.y=Math.max(0,P.y+P.vy*dt);if(P.y<=0)P.vy=Math.max(P.vy,0);
   ICE_WALK=true;const r=collide(P.x,P.z,0.4);ICE_WALK=false;P.x=clamp(r.x,-WORLD+12,WORLD-12);P.z=clamp(r.z,-WORLD+12,WORLD-12);
   personVsCars(P,0.4);
   P.m.air=P.y>0.05;
-  animPerson(P.m,P.phase,l>0?(spd>5?1.25:1):0);
-  P.gy=groundY(P.x,P.z,P.gy||0);if(ICE){const d=iceDepth(P.x,P.z);if(d>=0)P.gy=iceH(d);}P.m.g.position.set(P.x,P.y+P.gy,P.z);P.m.g.rotation.y=P.h;
+  if(P.skating){P.skk=P.skk||{h:0,back:false,lean:0.36};P.skk.h=P.h;P.m.skate=P.skk;}else P.m.skate=null;
+  animPerson(P.m,P.phase,l>0&&!(P.fall>0)?(P.skating?1:spd>5?1.25:1):0);
+  P.gy=groundY(P.x,P.z,P.gy||0);if(ICE){const d=iceDepth(P.x,P.z);if(d>=0)P.gy=iceH(d);}if(sk)P.gy+=0.05;P.m.g.position.set(P.x,P.y+P.gy,P.z);P.m.g.rotation.y=P.h;
+  P.m.g.rotation.order='YXZ';P.m.g.rotation.z=P.skating&&l>0?Math.sin(P.phase*1.4)*0.1:0;
+  // the fall: tip over backwards fast, lie a moment, then get back up (P.fall runs from 2.2 to 0)
+  if(P.fall>0){const t=2.2-P.fall,a=t<0.35?t/0.35:P.fall<0.7?P.fall/0.7:1;P.m.g.rotation.x=-1.35*a*a*(3-2*a);P.m.g.rotation.z=Math.sin(t*3)*0.1*a;P.m.g.position.y+=0.12*a;}
+  else P.m.g.rotation.x=0;
 }
 let KIDS_IN=false,KIDS_SEAT=null;
 function updateNPCs(dt){
@@ -5873,7 +5941,7 @@ function frame(now){
   updateGrass();
   WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6+Math.max(0,Math.sin(t*0.11)*Math.sin(t*0.37+1))*1.6;// gusts come and go
   waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;WATER_U.uWT.value+=dt*(0.6+0.4*WIND.value.y);
-  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateCarLights(t);updateSpray(dt);updateSmoke(dt);
+  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
   // clouds drift east and wrap around the camera, so there are clouds wherever you are in town
@@ -5901,6 +5969,7 @@ function frame(now){
     else if(nearTower(px,pz))pr=kE+'Take the lift up the Poldertoren';
     else if(nearSnack(px,pz))pr=kE+'Buy oliebollen (€3)';
     else if(nearZopie(px,pz))pr=kE+'Buy hot chocolate (€2)';
+    else if(nearSkates(px,pz))pr=kE+(SKATES.on?'Hand the skates back':'Rent skates (€5)');
     else if(nearWheel(px,pz))pr=kE+'Ride the Ferris wheel (€4)';
     else if(nearGarage(px,pz)&&(P.mode==='walk'||Math.abs(P.car.speed)<4))pr=kE+'Open the garage';
     else if(nj&&(P.mode==='walk'||Math.abs(P.car.speed)<8))pr=kE+'Start job: '+nj.name+((nj.lvl||1)>level()?' (level '+nj.lvl+')':'');
@@ -5951,7 +6020,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({ZOPIE,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({ZOPIE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

@@ -14,6 +14,35 @@ No open bugs were left by the 01:17 run. Its "next ideas" list is the base for t
 5. **Frost days** (content/seasons): freeze the canals after cold days, with a "the ice is open" message, if it fits without making the ice too rare.
 6. Leftovers if there is time: phone performance (merge loose static meshes near De Deel), polish.
 
+### Done
+- **Skates to rent** (gameplay/graphics/sound): a skate rack with a "SKATES €5" sign stands beside the koek-en-zopie stall. Rent a pair with **E** (hand them back the same way). On the ice you skate: push off with W to about 8 m/s (11 with Shift), glide a long way when you let go, steer into the glide, lean forward with a slow stride and a sway, and the blades scrape on every push. On land you can only waddle ("klunen"). Steel blades are drawn under the feet of every skater (one instanced mesh). New achievement "Polder skater".
+- **Falling over on the ice** (gameplay/sound): turn round sharply at speed on the ice (much harder on skates, and now and then when you skate fast close to the bank) and you slip: you tip over backwards, slide on your back for a moment, then get up. A thud, a toast ("Bambi on ice..."), and someone nearby laughs in a speech bubble. New achievement "Bambi on ice". The skaters on the canals also fall now and then and get up again.
+- **Bug fix: job markers** (bug): the coloured rings and light beams of all jobs stood together at the map origin instead of at each job's start spot (since the first version). They now stand on their own spots.
+- **Ice race** (gameplay/content): a new winter job (light blue marker on the ice beside the stall, level 1, needs rented skates). Skate to an orange flag at each end of the straight frozen canal (laid out along the canal from the stall, about 120 m each way) and back to the stall against the clock. The best time is saved. New achievement "Eleven towns, one canal" (31 in total). The job is hidden outside winter and does not count for "Jack of all trades".
+- **Hot chocolate and fingers** (graphics/sound): after buying hot chocolate you carry a steaming paper cup in your right hand and take five sips (arm to mouth, a soft slurp). The hero's fingers now curl round the cup, the oliebol and the oliebollen bag (each joint set from its rest pose, restored when you let go).
+- **Performance** (performance): the Poldertoren's gallery railing (56 bars and posts) and each clock's ring with its 12 hour marks are now single meshes: about 100 fewer draw calls (main and shadow pass) wherever the tower is in view, with the same look (checked side by side).
+- **README** updated: skates, ice race, falling, the cup, 31 achievements.
+
+### Report for Ron
+This run (06:45) added 7 improvements, each tested in headless Chromium (no console errors; walking, driving, renting skates, skating, falling, the ice race from start to finish and the hot chocolate scripted and checked with screenshots) and pushed straight to `main`:
+- Rent skates at the koek-en-zopie stall and skate on the frozen canals: fast, gliding, leaning forward, with blades on your feet.
+- Turn too sharply on the ice and you fall on your back (people laugh). The other skaters fall now and then too.
+- A new winter job, the Ice race: skate to the flags at both ends of the canal and back against the clock.
+- Bug fix: the job markers (rings and light beams) now stand at their jobs; before, they all stood at one spot in the middle of town.
+- Hot chocolate comes in a steaming cup you sip from, and the fingers close round what you hold.
+- The Poldertoren is a bit cheaper to draw (about 100 fewer draw calls).
+
+Screenshots in the project files under `runs/`: `2026-11-24b-skating.png` (the player gliding on the frozen canal beside the Poldertoren, leaning forward with blades on his shoes), `2026-11-24b-fall-on-ice.png` (the player flat on his back on the ice), `2026-11-24b-skate-rack.png` (the stall with the SKATES €5 rack), `2026-11-24b-ice-race.png` (the ice race with timer and the marker at the far end of the canal), `2026-11-24b-hot-chocolate.png` (sipping from the cup), `2026-11-24b-job-marker-fixed.png` (the yellow taxi job marker at its own spot).
+
+Problems: none open. The ice race flags are thin and only show up from about 60 m; the light beam of the target marker shows the way from further. Frost days (ice only after a few cold days) were left out on purpose: with the ice tied to the winter season you always find it when you pick winter.
+
+### Next ideas (for the next run)
+1. A real ice race with rival skaters (two or three NPC skaters racing you, like the ring race).
+2. Ice chair ("ijsstoel") or a sledge: push a child on a chair over the ice, or a sledge on a snowy slope.
+3. Merge more static meshes in the centre: the glass of bus shelters and shop fronts near De Deel (about 26 dark glass meshes) and the lamp glow planes.
+4. Thin ice near bridges: a crack sound and a warning, and you sink to your knees if you stay there.
+5. Frost days as an option in the pause menu (ice after cold days) if Ron wants it.
+
 ## 2026-11-24 (run 01:17)
 
 ### Plan (prioritized)

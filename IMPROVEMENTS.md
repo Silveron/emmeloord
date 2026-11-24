@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-24 (run 06:45)
+
+### Plan (prioritized)
+No open bugs were left by the 01:17 run. Its "next ideas" list is the base for this run:
+
+1. **Skates to rent** (gameplay/graphics/sound): a skate rack beside the koek-en-zopie stall. Rent skates (€5) and you skate on the ice: faster, a proper skating stride and lean, blades on your feet, the scrape of the blades. Blades on the skaters' feet too.
+2. **Falling over on the ice** (gameplay): turn too sharply at speed on the ice (more easily without skates) and you slip and fall, get up again after a moment.
+3. **Ice race** (gameplay/content): a new timed job from the stall: skate round flags along the frozen canal and back before the time runs out.
+4. **Fingers round the oliebol and the cup** (graphics): curl the player's fingers when eating and holding a cup of hot chocolate.
+5. **Frost days** (content/seasons): freeze the canals after cold days, with a "the ice is open" message, if it fits without making the ice too rare.
+6. Leftovers if there is time: phone performance (merge loose static meshes near De Deel), polish.
+
 ## 2026-11-24 (run 01:17)
 
 ### Plan (prioritized)

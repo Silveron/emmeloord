@@ -760,6 +760,7 @@ const matCache={};
 function lm(c){return matCache[c]||(matCache[c]=Lam({color:c}));}
 
 /* ---------- collision ---------- */
+let ICE=false,ICE_WALK=false;   // frozen canals in winter (setIce); ICE_WALK lets the player's own collision step onto the ice
 const CELL=16,grid=new Map();
 const gkey=(i,j)=>i*100003+j;
 function addCollider(c){
@@ -799,8 +800,8 @@ function collide(x,z,r){
       }
     }
   }
-  // canals and ponds: push back onto the bank unless on a bridge
-  for(const w of WATER){
+  // canals and ponds: push back onto the bank unless on a bridge (or, on foot in winter, onto the frozen canal)
+  if(!(ICE&&ICE_WALK))for(const w of WATER){
     const b=w.b;if(x<b.x0||x>b.x1||z<b.z0||z>b.z1||!inPoly(x,z,w))continue;
     if(onBridge(x,z))break;
     let bd=1e9,qx=x,qz=z;
@@ -1614,7 +1615,11 @@ function updateDucks(dt,t){
 }
 /* natural ice: in winter the canals freeze. The water turns into pale ice, ducks stand on it, and by day a few people skate
    up and down the canals near you: long gliding strides, leaning forward, some with their hands behind their back. */
-let ICE=false;
+// how far inside a frozen canal a point is (metres from the bank's top edge), or -1 when not on the ice
+function iceDepth(x,z){if(onBridge(x,z))return -1;for(const w of WATER){const b=w.b;if(!(x>b.x0&&x<b.x1&&z>b.z0&&z<b.z1&&inPoly(x,z,w)))continue;
+  let d=1e9;for(let i=0,j=w.length-1;i<w.length;j=i++){d=Math.min(d,segDist(x,z,w[j][0],w[j][1],w[i][0],w[i][1])[0]);if(d<0.01)break;}return d;}return -1;}
+// the height of the sloping bank and then the ice (matching the bank geometry of the sunken canals)
+function iceH(d){if(d<1.3)return (WATER_Y+0.35)*d/1.3;if(d<1.75)return Math.max(WATER_Y,WATER_Y+0.35-0.4*(d-1.3)/0.45);return WATER_Y+0.03;}
 function setIce(on){ICE=on;WATER_U.uIce.value=on?1:0;waterMat.roughness=on?0.42:0.06;waterMat.envMapIntensity=on?0.35:0.72;if(!on)for(const k of SKATE.list){k.on=false;k.m.g.visible=false;}}
 const SKATE={list:[],t:0,made:false};
 function skateAxis(w){if(w.ax)return w.ax;let mx=0,mz=0;for(const p of w){mx+=p[0];mz+=p[1];}mx/=w.length;mz/=w.length;let a=0,b=0,c=0;for(const p of w){const dx=p[0]-mx,dz=p[1]-mz;a+=dx*dx;b+=dx*dz;c+=dz*dz;}return w.ax=0.5*Math.atan2(2*b,a-c);}
@@ -1642,6 +1647,8 @@ function updateSkaters(dt,t){
     k.x+=Math.sin(k.h)*k.v*dt;k.z+=Math.cos(k.h)*k.v*dt;
     // one stride every ~1.6 s: a slow walk cycle while the body sways from foot to foot
     k.phase+=dt*k.v*0.55;const m=k.m;m.skate=k;animPerson(m,k.phase,1);
+    // the scrape of the blades on every push-off, when you are close
+    const st=Math.floor(k.phase*1.4/Math.PI);if(st!==k.st){k.st=st;const d=Math.hypot(k.x-px,k.z-pz);if(AC&&!muted&&d<28)noiseHit(AC.currentTime,0.42,0.05*(1-d/28),3200+rng()*900,'bandpass',0.9);}
     m.g.position.set(k.x+Math.cos(k.h)*Math.sin(k.phase*1.4)*0.25,WATER_Y+0.04,k.z-Math.sin(k.h)*Math.sin(k.phase*1.4)*0.25);
     m.g.rotation.set(0,k.h,0);m.g.rotation.order='YXZ';m.g.rotation.z=Math.sin(k.phase*1.4)*0.12;
   }
@@ -4916,6 +4923,7 @@ const ACH_LIST=[
   ['horn','Polder trumpet','Honk five times in a row in town'],
   ['lost','Found you!','Bring a lost child back to their mum or dad'],
   ['olie','Powdered sugar','Buy a bag of oliebollen at the kermis'],
+  ['ice','Natural ice','Slide out onto a frozen canal in winter'],
 ];
 const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
 function ach(id){
@@ -5162,14 +5170,19 @@ function walkPlayer(dt){
   const fx=Math.sin(camYaw),fz=Math.cos(camYaw),rx=-Math.cos(camYaw),rz=Math.sin(camYaw);
   let vx=fx*f+rx*s,vz=fz*f+rz*s;const l=Math.hypot(vx,vz);
   const spd=(K('ShiftLeft','ShiftRight')||tm>0.92)?8.5:4.3*(tm>0.15?Math.min(1,tm*1.4):1);
-  if(l>0){vx/=l;vz/=l;P.x+=vx*spd*dt;P.z+=vz*spd*dt;P.h=lerpA(P.h,Math.atan2(vx,vz),1-Math.exp(-14*dt));P.phase+=dt*spd*2.1;}
+  // on the frozen canal you slide: speed builds up slowly and you keep gliding after you let go
+  const id=ICE?iceDepth(P.x,P.z):-1;
+  if(id>1.75){if(l>0){vx/=l;vz/=l;}const k=1-Math.exp(-(l>0?1.4:0.45)*dt);P.ivx=(P.ivx||0)+(vx*spd-(P.ivx||0))*k;P.ivz=(P.ivz||0)+(vz*spd-(P.ivz||0))*k;
+    P.x+=P.ivx*dt;P.z+=P.ivz*dt;const sv=Math.hypot(P.ivx,P.ivz);if(sv>0.3)P.h=lerpA(P.h,Math.atan2(P.ivx,P.ivz),1-Math.exp(-6*dt));if(l>0)P.phase+=dt*spd*0.8;
+    if(!P.onIce){P.onIce=true;ach('ice');toast('You are on the ice. It is slippery!',2000);}}
+  else{P.onIce=false;if(l>0){vx/=l;vz/=l;P.x+=vx*spd*dt;P.z+=vz*spd*dt;P.h=lerpA(P.h,Math.atan2(vx,vz),1-Math.exp(-14*dt));P.phase+=dt*spd*2.1;P.ivx=vx*spd;P.ivz=vz*spd;}else P.ivx=P.ivz=0;}
   if(K('Space')&&P.y<=0.001){P.vy=5.6;}
   P.vy-=16*dt;P.y=Math.max(0,P.y+P.vy*dt);if(P.y<=0)P.vy=Math.max(P.vy,0);
-  const r=collide(P.x,P.z,0.4);P.x=clamp(r.x,-WORLD+12,WORLD-12);P.z=clamp(r.z,-WORLD+12,WORLD-12);
+  ICE_WALK=true;const r=collide(P.x,P.z,0.4);ICE_WALK=false;P.x=clamp(r.x,-WORLD+12,WORLD-12);P.z=clamp(r.z,-WORLD+12,WORLD-12);
   personVsCars(P,0.4);
   P.m.air=P.y>0.05;
   animPerson(P.m,P.phase,l>0?(spd>5?1.25:1):0);
-  P.gy=groundY(P.x,P.z,P.gy||0);P.m.g.position.set(P.x,P.y+P.gy,P.z);P.m.g.rotation.y=P.h;
+  P.gy=groundY(P.x,P.z,P.gy||0);if(ICE){const d=iceDepth(P.x,P.z);if(d>=0)P.gy=iceH(d);}P.m.g.position.set(P.x,P.y+P.gy,P.z);P.m.g.rotation.y=P.h;
 }
 let KIDS_IN=false,KIDS_SEAT=null;
 function updateNPCs(dt){
@@ -5904,7 +5917,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

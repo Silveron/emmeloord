@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-24 (run 01:17)
+
+### Plan (prioritized)
+No open bugs were left by the 11:52 run. Its "next ideas" list is the base for tonight:
+
+1. **Real path to the college bike park** (content/bug): pupils now ride over the grass for the last 20 m. Use the OSM paths (ways 1360765716, 1360765715, 1314839838, 1314839805) from the end of Hendric Stevinlaan to the bike park, draw them as paving and let pupils follow them.
+2. **Eating oliebollen** (gameplay/graphics): after buying a bag, the player eats them on the way (arm to mouth), with powdered sugar on the shirt for a while and a line from passers-by.
+3. **Winter coats** (graphics/seasons): longer, darker coats over the shirt in winter, keeping the shirt colour known for the lost-child hints.
+4. **More families** (gameplay/content): a dad with two children as a taxi fare, and children on a child seat on a parent's bike.
+5. **Phone performance check** (performance/mobile): draw calls near crowds in winter (scarves, hats) at the phone quality level.
+6. Leftovers if there is time: polish, sounds.
+
 ## 2026-11-23 (run 11:52)
 
 ### Plan (prioritized)

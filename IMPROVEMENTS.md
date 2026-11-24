@@ -14,6 +14,35 @@ No open bugs were left by the 11:52 run. Its "next ideas" list is the base for t
 5. **Phone performance check** (performance/mobile): draw calls near crowds in winter (scarves, hats) at the phone quality level.
 6. Leftovers if there is time: polish, sounds.
 
+### Done
+- **Real path to the college bike park** (content/bug): the paved paths from the end of Hendric Stevinlaan round the bike park are drawn from OSM (ways 1360765716, 1360765715, 1314839838, 1314839805), 2 m wide, with no grass through them. Pupils ride in and out along them instead of over the grass.
+- **Eating oliebollen** (gameplay/graphics/sound): after buying a bag you carry it in your left hand and eat all six on the way, one every 4 to 7 s: the right arm brings an oliebol to the mouth (bones aimed in world space), a puff of powdered sugar falls and you hear a soft crunch. Your jacket is dusted with sugar for two minutes (rain washes it off faster) and people you pass say so ("You have got sugar all over you!").
+- **Winter coats** (graphics/seasons): in winter 70% of the people wear a coat: the top and sleeves turn the coat colour (black, dark blue, brown, dark red, dark green, grey, beige, blue, red) and a hem hangs to mid-thigh. The lost child names the coat ("a brown coat") instead of the shirt. Rigged people now share one set of vertex buffers (only the colours differ per person), so the extra coat looks cost almost no memory.
+- **Families** (gameplay/content): new taxi fare Mr de Boer with Daan and Fenna (by day). The two children wait beside him, bicker and chat from the back seat ("Daan started it!", "Dad, I need the toilet.") and walk home with him. Taxi fares now take any number of children. About one parent cyclist in four carries a toddler in a child seat on the carrier (home in bed at night).
+- **Phone performance** (performance): measured draw calls on the Low setting near the De Deel car park: about 1110, of which about 420 were cars (shadow pass included). Parked and far cars now switch to their cheap far look at 44 m on Low and 70 m on Medium (88 m on High as before), and far cars also drop the lamp lenses and trim (the night glows stay). Result: about 950 draw calls there on Low. Winter wear adds about 50 to 70 draw calls in a crowd, which is fine.
+- **Frozen canals** (graphics/gameplay/sound): in winter the canals freeze: pale grey-blue ice with cloudy patches and skate scratches (no ripples, weaker reflection), ducks stand on the ice, and by day up to seven skaters (two children) glide up and down the canals near you, leaning forward with long strides, some with their arms back; you hear the blades scrape. You can walk down the bank and slide over the ice (speed builds slowly and you keep gliding when you let go). New achievement "Natural ice" (28 in total).
+- **Koek en zopie** (content): a little stall on the ice of the canal closest to the Poldertoren, with a striped roof, a pan of hot chocolate and a stall keeper. Buy hot chocolate with **E** for €2.
+
+### Report for Ron
+Tonight's run (01:17) added 7 improvements, each tested in headless Chromium (no console errors; walking, driving, the taxi ride with Mr de Boer, eating, sliding on the ice and the stall scripted and checked with screenshots) and pushed straight to `main`:
+- The pupils ride to the college bike park along the real paved paths from OpenStreetMap.
+- You eat your oliebollen on the way, and the powdered sugar on your jacket gets comments.
+- People wear winter coats in winter.
+- A dad with two bickering children as a taxi fare, and toddlers in child seats on parents' bikes.
+- Phones: far and parked cars are cheaper to draw (about 15% fewer draw calls near the big car park).
+- In winter the canals freeze: skaters, ducks on the ice, you can slide on it yourself, and there is a koek-en-zopie stall selling hot chocolate.
+
+Screenshots in the project files under `runs/`: `2026-11-24-frozen-canal-skater.png` (a woman in a brown coat and red scarf skating on the frozen canal, more skaters in the distance), `2026-11-24-koek-en-zopie.png` (the player at the KOEK & ZOPIE stall on the ice), `2026-11-24-on-the-ice.png`, `2026-11-24-winter-coats.png`, `2026-11-24-eating-oliebollen.png`, `2026-11-24-taxi-dad-two-kids.png`, `2026-11-24-child-seat.png`, `2026-11-24-college-paths.png`.
+
+Problems: none open. The canals freeze every day the season is winter (set by the calendar or the season button), not only on cold days. When eating, the hand is open (no finger pose). The player slides on the ice but there is no falling over yet. Cars cannot go onto the ice (they never could go into the canals).
+
+### Next ideas (for the next run)
+1. Frost days: freeze the canals only after a few cold days in winter (a frost counter), with a "the ice is open!" message, and thin ice near bridges.
+2. Skating yourself: rent skates at the koek-en-zopie stall for a faster glide with a skating animation, and a small skating race along the canal (a new job).
+3. Falling over on the ice when you turn too sharply at speed (a short stumble animation).
+4. Curl the fingers round the oliebol and the hot chocolate cup when eating and drinking.
+5. More performance on phones: merge the loose static meshes near De Deel (about 250 single meshes in view).
+
 ## 2026-11-23 (run 11:52)
 
 ### Plan (prioritized)

@@ -72,7 +72,7 @@ Finishing faster pays more cash. **R** cancels a job.
 - Kermis weekends on De Deel: people queue at the oliebollen stall (you hear the fat crackle) and you can buy a bag yourself at the counter (**E**, €3). You eat all six on the way, and the powdered sugar on your jacket gets you a few remarks. When the rides close at 23:30 the visitors walk home into town, chatting about their night.
 - Cyclists riding the ring roads (they ring their bell if you block the way); some parents carry a toddler in a child seat on the back. On school-day mornings pupils with backpacks cycle to the Zuyderzee College, ride along the school's paved paths into its bike park (both at their real OpenStreetMap spots behind the building), park and walk in; after school they walk back out and ride home.
 - A ring road with traffic, and Lemsterweg, Urkerweg, Marknesserweg and Espelerlaan leading out to tulip fields, farms and wind turbines.
-- Winter: the canals freeze over. People skate up and down by day, ducks stand on the ice, and you can walk down the bank and slide across (careful, it is slippery).
+- Winter: the canals freeze over. People skate up and down by day, ducks stand on the ice, and you can walk down the bank and slide across (careful, it is slippery). On the canal closest to the Poldertoren a koek-en-zopie stall on the ice sells hot chocolate (**E**, €2).
 - Polder weather: rain showers roll in now and then, with grey skies, falling rain and the sound of it.
 - A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights.
 - A canal with a bridge, a park with a pond, and 12 orange polder coins to find.

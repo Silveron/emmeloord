@@ -14,6 +14,10 @@ No open bugs were left by the 06:45 run. Its "next ideas" list is the base for t
 5. Leftovers if there is time: a sledge or ice chair, polish.
 
 ### Done
+- **Ice race with rivals** (gameplay): Sjoerd (red racing suit) and Femke (blue) line up beside you at the stall. A 3-2-1 countdown holds everyone still, then they race round the flags: they push off like the other skaters, slow down for each turn, swing round the stall and keep a light rubber band with you (about 0.8 m/s either way). You finish 1st, 2nd or 3rd; winning pays a €20 prize and the new achievement "Fastest on the ice". Normal pushing (8 m/s) usually gets you 3rd; sprinting with Shift wins. Racers wear no winter coats.
+- **Thin ice by the bridges** (gameplay/sound/graphics): beside every bridge over a frozen canal the ice is darker (one mesh with vertex alpha on a 1 m grid over the ice only, about 7000 cells town-wide, built in about 0.3 s the first time the canals freeze). Stand on it and it creaks and cracks with a warning; stay about 3 s (gliding fast buys time) and you go through up to your knees, leaving a black hole with broken plates of ice (it stays for 3 minutes). Walk to the edge of the hole to scramble out. People nearby shout. New achievement "Wet feet".
+- **Snowmen and snowballs** (content/gameplay/sound): once the snow lies thick, about 26 snowmen stand on lawns round town (carrot nose, coal eyes, stick arms, a hat, a bucket or a scarf; one mesh each), built while you are not looking and sagging as the snow melts. Throw snowballs with **Q** (on phones the HORN button turns into THROW on foot): they lock on to someone near your aim, fly in an arc, splat in a puff of snow and stop at walls and trees. People shout ("Right in the neck!"), skaters wobble, and children (and about a third of the grown-ups) throw one back. New achievement "Snowball fight" (hit five people). 34 achievements in total.
+- **README** updated: Q key, rivals, thin ice, snowmen.
 
 ## 2026-11-24 (run 06:45)
 

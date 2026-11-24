@@ -2,6 +2,19 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-24 (run 11:52)
+
+### Plan (prioritized)
+No open bugs were left by the 06:45 run. Its "next ideas" list is the base for this run:
+
+1. **Ice race with rivals** (gameplay): two skaters (in racing suits) race you round the flags, with a 3-2-1 countdown, and you finish 1st, 2nd or 3rd (a bonus and a new achievement for winning).
+2. **Thin ice near bridges** (gameplay/sound): close to a bridge the ice is thin: it creaks and cracks, a warning shows, and if you stay you break through to your knees and have to scramble out.
+3. **Snowmen and snowballs** (content/gameplay): when snow lies, children build snowmen on lawns, and you can throw snowballs at people (they react).
+4. **Performance** (performance): merge more static meshes in the centre (dark glass of bus shelters and shop fronts, lamp glow planes).
+5. Leftovers if there is time: a sledge or ice chair, polish.
+
+### Done
+
 ## 2026-11-24 (run 06:45)
 
 ### Plan (prioritized)

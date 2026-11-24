@@ -1620,7 +1620,7 @@ function iceDepth(x,z){if(onBridge(x,z))return -1;for(const w of WATER){const b=
   let d=1e9;for(let i=0,j=w.length-1;i<w.length;j=i++){d=Math.min(d,segDist(x,z,w[j][0],w[j][1],w[i][0],w[i][1])[0]);if(d<0.01)break;}return d;}return -1;}
 // the height of the sloping bank and then the ice (matching the bank geometry of the sunken canals)
 function iceH(d){if(d<1.3)return (WATER_Y+0.35)*d/1.3;if(d<1.75)return Math.max(WATER_Y,WATER_Y+0.35-0.4*(d-1.3)/0.45);return WATER_Y+0.03;}
-function setIce(on){ICE=on;if(on&&!ZOPIE.g&&typeof TOWER!=='undefined')buildZopie();if(ZOPIE.g)ZOPIE.g.visible=on;WATER_U.uIce.value=on?1:0;waterMat.roughness=on?0.42:0.06;waterMat.envMapIntensity=on?0.35:0.72;if(!on){for(const k of SKATE.list){k.on=false;k.m.g.visible=false;}SKATES.on=false;SKBLADES.count=0;}}
+function setIce(on){ICE=on;if(on&&!ZOPIE.g&&typeof TOWER!=='undefined')buildZopie();if(ZOPIE.g)ZOPIE.g.visible=on;WATER_U.uIce.value=on?1:0;waterMat.roughness=on?0.42:0.06;waterMat.envMapIntensity=on?0.35:0.72;if(!on){for(const k of SKATE.list){k.on=false;k.m.g.visible=false;}SKATES.on=false;SKBLADES.count=0;if(JOB&&JOB.j.ice)endJob(false,'The ice has gone. The race is off.');}}
 const SKATE={list:[],t:0,made:false};
 function skateAxis(w){if(w.ax)return w.ax;let mx=0,mz=0;for(const p of w){mx+=p[0];mz+=p[1];}mx/=w.length;mz/=w.length;let a=0,b=0,c=0;for(const p of w){const dx=p[0]-mx,dz=p[1]-mz;a+=dx*dx;b+=dx*dz;c+=dz*dz;}return w.ax=0.5*Math.atan2(2*b,a-c);}
 // a point well inside the ice: 1.6 m clear of the bank on every side and not under a bridge
@@ -1685,6 +1685,21 @@ function buildZopie(){
   const rm=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.22),new THREE.MeshStandardMaterial({map:rs,roughness:0.9,side:THREE.DoubleSide}));rm.position.set(2.15,0.85,0.25);rm.rotation.y=Math.PI;g.add(rm);
   const sp=new THREE.Mesh(OMA_BOX,wood);sp.scale.set(0.05,0.4,0.05);sp.position.set(2.15,0.62,0.25);g.add(sp);
   g.updateMatrixWorld(true);
+  layIceRace(best[0],best[1],a);
+}
+/* the ice race course: from the stall, follow the canal's long axis each way as far as the ice goes straight (at most 130 m)
+   and put a flag near each end. The start ring stands on the ice beside the stall. */
+const ICE_RACE={a:null,b:null,home:null,flags:[]};
+function layIceRace(x,z,a){
+  const h=Math.atan2(Math.cos(a),Math.sin(a)),dx=Math.sin(h),dz=Math.cos(h);
+  const far=s=>{let d=4;while(d<130&&onIce(x+dx*s*(d+2),z+dz*s*(d+2)))d+=2;return Math.max(4,d-6);};
+  const da=far(1),db=far(-1);ICE_RACE.a=[x+dx*da,z+dz*da];ICE_RACE.b=[x-dx*db,z-dz*db];
+  const fx=-Math.sin(-a),fz=-Math.cos(-a);ICE_RACE.home=[x-dx*3.2+fx*1.2,z-dz*3.2+fz*1.2];
+  const j=JOBS.find(j=>j.id==='ice');if(j){j.x=ICE_RACE.home[0];j.z=ICE_RACE.home[1];j.marker.position.set(j.x,WATER_Y,j.z);}
+  // orange flags on poles, hidden until a race starts
+  const pole=Lam({color:'#eeeeee'}),cloth=Lam({color:'#ff7b1c',side:THREE.DoubleSide,roughness:0.9});
+  for(const p of [ICE_RACE.a,ICE_RACE.b]){const f=new THREE.Group();const s=new THREE.Mesh(OMA_BOX,pole);s.scale.set(0.05,2.4,0.05);s.position.y=1.2;f.add(s);
+    const c=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.45),cloth);c.position.set(0.37,2.1,0);f.add(c);f.position.set(p[0],WATER_Y,p[1]);f.visible=false;scene.add(f);ICE_RACE.flags.push(f);}
 }
 /* skates: rent a pair at the rack beside the koek-en-zopie stall (€5). On the ice you skate: faster, with a long
    gliding stride, leaning forward, and the blades scrape. Off the ice you can still 'klunen' (walk on your skates) slowly.
@@ -3554,7 +3569,7 @@ let coinCount=0;
 
 /* ---------- jobs (missions) ---------- */
 let cash=0;
-const BEST={trial:null,race:null};
+const BEST={trial:null,race:null,ice:null};
 const TAXI={rides:0,stars:0,best:0,earned:0};   // taxi career stats, shown in the pause menu
 const JOB_COL=0x41c6ff;
 const ringMat=new THREE.MeshBasicMaterial({color:JOB_COL,transparent:true,opacity:.35,side:THREE.DoubleSide,depthWrite:false});
@@ -3789,6 +3804,7 @@ function pickFare(hail){
 function startJob(j){
   if(JOB)return;
   if((j.lvl||1)>level()){toast(`<strong>${j.name}</strong> unlocks at level ${j.lvl}. Do other jobs to level up.`,2600);return;}
+  if(j.ice&&!SKATES.on){toast('You need skates for the ice race. Rent a pair at the rack beside the stall.',2600);return;}
   if(j.car&&P.mode!=='drive'){toast('You need a car for this job. Find one first.',2200);return;}
   if(j.car&&P.car.veh){toast('You need a car for this job, not a '+VNAME[P.car.veh]+'.',2200);return;}
   if(j.veh){
@@ -3884,7 +3900,7 @@ function endJob(ok,msg){
   if(typeof saveGame==='function')saveGame();
 }
 function fmtTime(t){t=Math.max(0,t);return Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');}
-function nearJob(px,pz){if(JOB||RIDE)return null;for(const j of JOBS){if(Math.hypot(j.x-px,j.z-pz)<(j.car?6:j.veh?3.6:3))return j;}return null;}
+function nearJob(px,pz){if(JOB||RIDE)return null;for(const j of JOBS){if(j.ice&&!ICE)continue;if(Math.hypot(j.x-px,j.z-pz)<(j.car?6:j.veh?3.6:3))return j;}return null;}
 
 /* ---------- career: experience from jobs and coins, levels unlock jobs, cars and upgrades ---------- */
 let XP=0;
@@ -4258,8 +4274,18 @@ JOBS.push(
      startRival(RING_CP[RACE_CP]);
      return {steps,limit:Math.round(RING_LEN/11+30),pay:200,race:true,count:3.2};},
    onEnd(ok,J){if(RIVAL.on)stopRival();if(ok){const tt=elapsed-J.t0;let e=` Race time <strong>${fmtTime(tt)}</strong>.`;if(!BEST.race||tt<BEST.race){if(BEST.race)e+=' New record!';BEST.race=tt;}return e;}}},
+  // winter only: skate to the flag at each end of the frozen canal by the koek-en-zopie stall and back (placed by buildZopie)
+  {id:'ice',name:'Ice race',x:1e6,z:1e6,col:0x7fd6ff,lvl:1,ice:true,desc:'Skate to the flag at each end of the canal and back to the stall before the time runs out.',
+   make(){const F=ICE_RACE;F.flags.forEach(f=>f.visible=true);
+     const steps=[{x:F.a[0],z:F.a[1],r:4,walkOk:true,gate:true,text:'Ice race: skate to the flag at the far end'},{x:F.b[0],z:F.b[1],r:4,walkOk:true,gate:true,text:'Ice race: now the flag at the other end'},
+                  {x:F.home[0],z:F.home[1],r:3.5,walkOk:true,text:'Ice race: back to the koek-en-zopie stall',done:'Finish! The stall keeper cheers.'}];
+     const d=Math.hypot(F.a[0]-F.home[0],F.a[1]-F.home[1])+Math.hypot(F.b[0]-F.a[0],F.b[1]-F.a[1])+Math.hypot(F.home[0]-F.b[0],F.home[1]-F.b[1]);
+     return {steps,limit:Math.round(d/6.2+12),pay:Math.round(30+d/8)};},
+   onEnd(ok,J){ICE_RACE.flags.forEach(f=>f.visible=false);if(ok){const tt=elapsed-J.t0;let e=` Time <strong>${fmtTime(tt)}</strong>.`;if(!BEST.ice||tt<BEST.ice){if(BEST.ice)e+=' New record!';BEST.ice=tt;}ach('icerace');return e;}}},
 );
 for(const j of JOBS)if(!j.marker)j.marker=makeMarker(2.4,j.col);
+// stand each job's ring and light beam on the job's own spot (they all stood at the map origin before)
+for(const j of JOBS)j.marker.position.set(j.x,0,j.z);
 
 /* ---------- the kermis on De Deel: every weekend (Friday to Sunday) it stands on the east half of the big car park,
    the rides turn from 12:00 until 23:30. In 2026 the real Emmeloord kermis is back on De Deel (Omroep Flevoland). ---------- */
@@ -4632,7 +4658,7 @@ function updateKermis(dt){
 }
 
 function updateJob(dt,px,pz,t){
-  for(const j of JOBS){j.marker.visible=!JOB;j.marker.children[0].material.opacity=.28+Math.sin(t*3)*.08;}
+  for(const j of JOBS){j.marker.visible=!JOB&&(!j.ice||ICE);j.marker.children[0].material.opacity=.28+Math.sin(t*3)*.08;}
   if(!JOB)return;
   JOB.left-=dt;
   const tl=$('mTime');tl.textContent=fmtTime(JOB.left);tl.classList.toggle('low',JOB.left<10);
@@ -4997,6 +5023,7 @@ const ACH_LIST=[
   ['ice','Natural ice','Slide out onto a frozen canal in winter'],
   ['skate','Polder skater','Rent skates at the koek-en-zopie stall'],
   ['bambi','Bambi on ice','Fall over on the ice'],
+  ['icerace','Eleven towns, one canal','Finish the ice race on the frozen canal'],
 ];
 const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
 function ach(id){
@@ -5009,7 +5036,7 @@ function ach(id){
   },600);
   if(typeof saveGame==='function')saveGame();
 }
-function achJob(id){ACH.jobs++;ACH.kinds[id]=1;ach('job1');if(ACH.jobs>=10)ach('jobs10');if(JOBS.every(j=>ACH.kinds[j.id]))ach('jobsall');if(id==='race')ach('race');}
+function achJob(id){ACH.jobs++;ACH.kinds[id]=1;ach('job1');if(ACH.jobs>=10)ach('jobs10');if(JOBS.every(j=>j.ice||ACH.kinds[j.id]))ach('jobsall');if(id==='race')ach('race');}
 function achVeh(k){ACH.veh[k]=1;if(ACH.veh.bike&&ACH.veh.scooter&&ACH.veh.tractor)ach('veh');}
 // checked four times a game minute
 function achTick(px,pz){
@@ -5031,7 +5058,7 @@ $('pachb').onclick=()=>{$('pach').hidden=!$('pach').hidden;renderAch();};
 const SAVE_KEY='emmeloord-vrijbaan-v1';
 let GFX_SAVED=null,GFX=isTouchDevice?1:2,gfxAuto=true;
 function saveGame(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,xp:XP,own:{model:OWN.model,owned:OWN.owned},best:BEST.trial,race:BEST.race,min:Math.round(gameMin),dow:GAME_DOW,muted,music:musicOn,gfx:gfxAuto?null:GFX,season:SEASON_SET,ach:ACH,dmg:Math.round(OWN.car.dmg||0),taxi:TAXI}));}catch(_){}
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify({coins:COINS.map(c=>c.got?1:0),cash,xp:XP,own:{model:OWN.model,owned:OWN.owned},best:BEST.trial,race:BEST.race,ice:BEST.ice,min:Math.round(gameMin),dow:GAME_DOW,muted,music:musicOn,gfx:gfxAuto?null:GFX,season:SEASON_SET,ach:ACH,dmg:Math.round(OWN.car.dmg||0),taxi:TAXI}));}catch(_){}
 }
 function loadGame(){
   let d=null;try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(_){d=null;}
@@ -5042,7 +5069,7 @@ function loadGame(){
   if(typeof d.dmg==='number'){OWN.car.dmg=clamp(d.dmg,0,100);damageLook(OWN.car);}
   if(d.ach&&typeof d.ach==='object'){ACH.got=d.ach.got||{};ACH.jobs=+d.ach.jobs||0;ACH.kinds=d.ach.kinds||{};ACH.veh=d.ach.veh||{};ACH.km=+d.ach.km||0;}
   if(d.taxi&&typeof d.taxi==='object')for(const k in TAXI)TAXI[k]=+d.taxi[k]||0;
-  updateLevelHud();BEST.trial=typeof d.best==='number'?d.best:null;BEST.race=typeof d.race==='number'?d.race:null;
+  updateLevelHud();BEST.trial=typeof d.best==='number'?d.best:null;BEST.race=typeof d.race==='number'?d.race:null;BEST.ice=typeof d.ice==='number'?d.ice:null;
   if(typeof d.min==='number')gameMin=d.min%1440;if(typeof d.dow==='number')GAME_DOW=d.dow%7;muted=!!d.muted;musicOn=d.music!==false;if(typeof d.gfx==='number')GFX_SAVED=d.gfx;
   $('coins').textContent=coinCount+'/'+COINS.length;$('cash').textContent='€'+cash;
   updateClocks();   // the sky follows on the first frame
@@ -5697,7 +5724,7 @@ function drawMini(){
   if(HAIL.on)mark(HAIL.x,HAIL.z,'#ffd23f',8);
   if(LOST.n&&LOST.hint&&LOST.p)mark(LOST.p.x,LOST.p.z,'#f28fad',8);
   if(JOB){const s=JOB.steps[JOB.i];mark(s.x,s.z,'#'+JOB.j.col.toString(16).padStart(6,'0'),10);}
-  else for(const j of JOBS)mark(j.x,j.z,'#'+j.col.toString(16).padStart(6,'0'),7);
+  else for(const j of JOBS)if(!j.ice||ICE)mark(j.x,j.z,'#'+j.col.toString(16).padStart(6,'0'),7);
   mark(GARAGE.x,GARAGE.z,'#ffffff',6);
   {const [x,y]=W(TOWER.x,TOWER.z);mctx.fillStyle='#1d1d1d';mctx.font='bold 22px system-ui';mctx.textAlign='center';mctx.textBaseline='middle';if(x>0&&x<S&&y>0&&y<S)mctx.fillText('T',x,y);}
   mctx.translate(S/2,S/2);mctx.rotate(Math.PI-h);
@@ -6020,7 +6047,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({ZOPIE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

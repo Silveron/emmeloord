@@ -4682,7 +4682,7 @@ function updateSnowmen(px,pz){
     if(!s.on)continue;
     const k=clamp((SNOW-0.15)/0.35,0.25,1);s.m.visible=d<260;s.m.scale.set(0.6+0.4*k,k,0.6+0.4*k);s.m.position.y=s.y-(1-k)*0.1;}
 }
-const SNOWBALL={list:[],cool:0,hits:0,throwT:0,back:[],said:0};
+const SNOWBALL={list:[],cool:0,hits:0,throwT:0,back:[],said:0,amb:6};
 const SB_GEO=new THREE.SphereGeometry(0.085,8,6),SB_MAT=new THREE.MeshStandardMaterial({color:0xf6f8fa,roughness:0.8});
 const SB_PUFF=(()=>{const n=60,g=new THREE.BufferGeometry(),pos=new Float32Array(n*3);g.setAttribute('position',new THREE.BufferAttribute(pos,3));
   const pt=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:0.07,transparent:true,depthWrite:false}));pt.frustumCulled=false;pt.visible=false;scene.add(pt);
@@ -4718,6 +4718,12 @@ function updateSnowballs(dt){
   // the throw: right arm back and up, then over the top
   if(S.throwT>0){S.throwT-=dt;const m=P.m;if(m.rig&&P.mode==='walk'){const B=rigBones(m.rig),k=1-S.throwT/0.45,fx=Math.sin(P.h),fz=Math.cos(P.h),rx=Math.cos(P.h),rz=-Math.sin(P.h);
     if(B.UpperArmR&&B.LowerArmR){const back=k<0.4;aimBone(B.UpperArmR,B.LowerArmR,_wd.set((back?-fx*0.5:fx*0.8)-rx*0.25,back?0.85:0.35,(back?-fz*0.5:fz*0.8)-rz*0.25).normalize(),Math.sin(Math.min(1,k)*Math.PI)*0.9+0.1);}}}
+  // on snowy days children near you have snowball fights of their own
+  S.amb-=dt;const hr=(gameMin%1440)/60;
+  if(S.amb<=0){S.amb=rand(3,7);if(SEASON_NOW==='winter'&&SNOW>0.3&&hr>9&&hr<17&&RAIN<0.3){
+    const kids=NPCS.filter(n=>n.m.kid&&n.m.g.visible&&Math.hypot(n.x-P.x,n.z-P.z)<45);
+    if(kids.length){const a=pick(kids);let tg=null,bd=1e9;for(const n of NPCS){if(n===a||!n.m.g.visible)continue;const d=Math.hypot(n.x-a.x,n.z-a.z);if(d>2.5&&d<12&&d<bd&&(n.m.kid||rng()<0.3)){bd=d;tg=n;}}
+      if(tg)launchBall(a.x,groundY(a.x,a.z,0)+1.1,a.z,tg.x,groundY(tg.x,tg.z,0)+1.0,tg.z,11,false,tg);}}}
   // children (and some grown-ups) answer with a snowball of their own
   for(let i=S.back.length-1;i>=0;i--){const r=S.back[i];r.t-=dt;if(r.t>0)continue;S.back.splice(i,1);const n=r.n;
     if(!n.m.g.visible||P.mode!=='walk'||Math.hypot(n.x-P.x,n.z-P.z)>28)continue;n.m.wave=0;launchBall(n.x,groundY(n.x,n.z,0)+(n.m.kid?1.1:1.55),n.z,P.x,(P.gy||0)+1.3,P.z,13,false,P);}
@@ -4731,6 +4737,7 @@ function updateSnowballs(dt){
     if(b.mine){for(const n of NPCS){if(!n.m.g.visible||Math.abs(n.x-b.x)>0.6||Math.abs(n.z-b.z)>0.6)continue;const gy=groundY(n.x,n.z,0),top=gy+(n.m.kid?1.25:1.8);if(Math.hypot(n.x-b.x,n.z-b.z)<0.45&&b.y>gy&&b.y<top){hit={n};break;}}
       if(!hit)for(const k of SKATE.list)if(k.on&&Math.hypot(k.x-b.x,k.z-b.z)<0.45&&b.y<WATER_Y+1.9){hit={k};break;}
       if(!hit)for(const s of SNOWMEN.list)if(s.m.visible&&Math.hypot(s.x-b.x,s.z-b.z)<0.5&&b.y<s.y+1.65){hit={s};break;}}
+    else if(b.tgt&&b.tgt!==P){const n=b.tgt;if(Math.hypot(n.x-b.x,n.z-b.z)<0.45&&b.y<groundY(n.x,n.z,0)+1.6)hit={o:n};}
     else if(P.mode==='walk'&&Math.hypot(P.x-b.x,P.z-b.z)<0.5&&b.y<(P.gy||0)+1.85&&b.y>(P.gy||0))hit={p:1};
     if(!hit)for(const c of CARS)if(c.g.visible&&Math.abs(c.x-b.x)<2.6&&Math.abs(c.z-b.z)<2.6&&b.y<1.6){for(const [cx,cz] of carCircles(c))if(Math.hypot(cx-b.x,cz-b.z)<1.05){hit={c};break;}if(hit)break;}
     const gy=ICE&&iceDepth(b.x,b.z)>=0?WATER_Y+0.05:groundY(b.x,b.z,0);
@@ -4741,6 +4748,7 @@ function updateSnowballs(dt){
       if(!BUBBLE.sp.visible||rng()<0.5)showBubble(n,pick(n.m.kid?['Hey! My turn!','Missed me... oh.','Snowball fight!!','Ha! Take this!']:SB_LINES));
       if(n.m.kid||rng()<0.35)S.back.push({n,t:rand(0.8,1.5)});}
     else if(hit&&hit.k){S.hits++;if(S.hits===5)ach('snowball');showBubble({x:hit.k.x,z:hit.k.z,m:hit.k.m},pick(['Whoa! Not on the ice!','Hey, I nearly fell!']));}
+    else if(hit&&hit.o){if(!BUBBLE.sp.visible&&Math.hypot(hit.o.x-P.x,hit.o.z-P.z)<25&&rng()<0.4)showBubble(hit.o,pick(['Hey!','Missed! Oh...','I will get you!','Haha!']));}
     else if(hit&&hit.s){if(AC&&!muted)noiseHit(AC.currentTime,0.1,0.1,500,'lowpass',0.7);}
     else if(hit&&hit.c){if(AC&&!muted)noiseHit(AC.currentTime,0.08,0.12,300,'lowpass',1);}
     else if(hit&&hit.p){toast(pick(['<strong>Splat!</strong> Right in the neck.','<strong>Splat!</strong> Got you back.','<strong>Splat!</strong> Snow down your collar.']),1600);}

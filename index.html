@@ -1661,6 +1661,59 @@ function updateSkaters(dt,t){
     m.g.rotation.set(0,k.h,0);m.g.rotation.order='YXZ';m.g.rotation.z=Math.sin(k.phase*1.4)*0.12*(1-fa);m.g.rotation.x=-1.35*fa;if(fa)m.g.position.y+=0.1*fa;
   }
 }
+/* ice race rivals: two skaters in racing suits line up beside you at the stall and race you round the flags.
+   They push off after the 3-2-1 countdown, swing wide round each flag and keep a little rubber band with you. */
+const ICE_RIVALS={list:[],on:false,fin:[]};
+function iceRivals(){
+  if(ICE_RIVALS.list.length)return ICE_RIVALS.list;
+  for(const [name,suit,fem,v] of [['Sjoerd','#c8322c','',8.6],['Femke','#2c6fbb','pony',7.7]]){
+    const m=makePerson({shirt:suit,pants:suit==='#c8322c'?'#1e1e24':suit,skin:pick(SKINS),hair:pick(HAIRS),fem,skirt:null,noSkirt:1,noWarm:1});m.g.visible=false;
+    ICE_RIVALS.list.push({m,name,vmax:v,x:0,z:0,h:0,v:0,phase:0,back:false,lean:0.42,wp:[],i:0,done:false});}
+  return ICE_RIVALS.list;
+}
+function startIceRivals(){
+  const F=ICE_RACE,R=ICE_RIVALS,L=iceRivals(),h=Math.atan2(F.a[0]-F.home[0],F.a[1]-F.home[1]),px=Math.cos(h),pz=-Math.sin(h);
+  R.on=true;R.fin=[];
+  L.forEach((k,n)=>{let s=n?-1.8:1.8;if(!onIce(F.home[0]+px*s,F.home[1]+pz*s))s=n?3.4:-3.4;if(!onIce(F.home[0]+px*s,F.home[1]+pz*s))s=n?1:-1;
+    k.x=F.home[0]+px*s;k.z=F.home[1]+pz*s;k.h=h;k.v=0;k.i=0;k.done=false;k.side=s>0?1:-1;k.fall=0;
+    k.wp=[F.a,F.b,F.home];k.m.g.visible=true;k.vm=k.vmax*rand(0.96,1.04);});
+  P.ivx=P.ivz=0;
+}
+function stopIceRivals(){ICE_RIVALS.on=false;for(const k of ICE_RIVALS.list){k.m.g.visible=false;k.m.skate=null;}}
+function updateIceRivals(dt,t){
+  const R=ICE_RIVALS;if(!R.on)return;
+  if(!JOB||!JOB.j.ice){stopIceRivals();return;}
+  if(JOB.count>0){const before=Math.ceil(JOB.count);JOB.count-=dt;const now=Math.ceil(JOB.count);
+    if(now!==before||JOB.count<=0){if(AC&&!muted)tone(JOB.count<=0?988:523,AC.currentTime,0.25,0.15,'square');$('mText').textContent=JOB.count<=0?'GO! Push off with W, sprint with Shift':'Get ready… '+now;}}
+  // how far round the course the player is, for a light rubber band
+  const st=JOB.steps[JOB.i],pp=JOB.i*1000-(st?Math.hypot(st.x-P.x,st.z-P.z):0);
+  for(const k of R.list){
+    const m=k.m;
+    if(k.done){k.v*=Math.exp(-1.5*dt);}
+    else if(JOB.count<=0){
+      let tg=k.wp[k.i];const d=Math.hypot(tg[0]-k.x,tg[1]-k.z);
+      if(d<(k.i<2?3.2:2.2)){if(k.i===2){k.done=true;R.fin.push(k.name);const pl=R.fin.length;say(k.name,pl===1?'Yes! First!':'Phew, done.',2200);}else k.i++;tg=k.wp[k.i];}
+      // swing round the stall rather than through it
+      let tx=tg[0],tz=tg[1];const zx=ZOPIE.x-k.x,zz=ZOPIE.z-k.z,zd=Math.hypot(zx,zz);
+      if(zd<9&&zd>0.1){const dx=tx-k.x,dz=tz-k.z,dl=Math.hypot(dx,dz)||1,along=(zx*dx+zz*dz)/dl,off=Math.abs((zx*dz-zz*dx)/dl);
+        if(along>0&&along<dl&&off<3.2){const ox=-dz/dl*k.side,oz=dx/dl*k.side;tx=ZOPIE.x+ox*4;tz=ZOPIE.z+oz*4;}}
+      const kp=k.i*1000-Math.hypot(tg[0]-k.x,tg[1]-k.z),gap=kp-pp;
+      // slow down for the turn at each flag, rubber band of about +-0.8 m/s
+      const turnSlow=k.i<2&&d<14?0.55+0.45*d/14:1,top=k.vm*turnSlow+clamp(-gap/40,-0.8,0.6);
+      k.v+=(top-k.v)*(1-Math.exp(-0.9*dt));
+      const want=Math.atan2(tx-k.x,tz-k.z);k.h+=clamp(wrapA(want-k.h),-2.4*dt,2.4*dt);
+    }
+    k.x+=Math.sin(k.h)*k.v*dt;k.z+=Math.cos(k.h)*k.v*dt;
+    // keep clear of the player and each other
+    for(const o of [P,...R.list])if(o!==k){const dx=k.x-o.x,dz=k.z-o.z,dd=Math.hypot(dx,dz);if(dd<0.9&&dd>1e-3){k.x=o.x+dx/dd*0.9;k.z=o.z+dz/dd*0.9;}}
+    if(k.v>0.4)k.phase+=dt*Math.max(2.5,k.v)*0.55;
+    m.skate=k;animPerson(m,k.phase,k.v>0.4?1:0);
+    const sw=k.v>0.4?Math.sin(k.phase*1.4):0;
+    const s2=Math.floor(k.phase*1.4/Math.PI);if(s2!==k.st){k.st=s2;const dd=Math.hypot(k.x-P.x,k.z-P.z);if(AC&&!muted&&dd<30&&k.v>1)noiseHit(AC.currentTime,0.4,0.06*(1-dd/30),3200+rng()*900,'bandpass',0.9);}
+    m.g.position.set(k.x+Math.cos(k.h)*sw*0.25,WATER_Y+0.09,k.z-Math.sin(k.h)*sw*0.25);
+    m.g.rotation.order='YXZ';m.g.rotation.set(0,k.h,sw*0.12);
+  }
+}
 /* koek en zopie: on the frozen canal closest to the Poldertoren a little stall on the ice sells hot chocolate and
    ontbijtkoek to skaters (a Dutch tradition). Built the first time the canals freeze. */
 const ZOPIE={g:null,x:0,z:0};
@@ -1729,7 +1782,7 @@ function placeBlades(list){
     for(const f of ['FootL','FootR']){const b=B[f];if(!b||i>=20)continue;b.getWorldPosition(_bv);_bv.y=Math.max(_bv.y-0.03*sc,m.g.position.y+0.005);_bm.compose(_bv,_bq,_bs);SKBLADES.setMatrixAt(i++,_bm);}}
   SKBLADES.count=i;SKBLADES.instanceMatrix.needsUpdate=true;
 }
-function updateBlades(){if(!ICE){SKBLADES.count=0;return;}const L=[];for(const k of SKATE.list)if(k.on)L.push(k.m);if(SKATES.on&&P.mode==='walk'&&!RIDE)L.push(P.m);placeBlades(L);}
+function updateBlades(){if(!ICE){SKBLADES.count=0;return;}const L=[];for(const k of SKATE.list)if(k.on)L.push(k.m);if(ICE_RIVALS.on)for(const k of ICE_RIVALS.list)L.push(k.m);if(SKATES.on&&P.mode==='walk'&&!RIDE)L.push(P.m);placeBlades(L);}
 const OOPS=['Whoa!','Oof!','Ouch, my backside!','Bambi on ice...','That was not elegant.'];
 function slipOver(sv){
   P.fall=2.2;const k=0.55;P.ivx*=k;P.ivz*=k;P.vy=0;P.falls=(P.falls||0)+1;ach('bambi');
@@ -2562,7 +2615,7 @@ function warmGeo(){if(SCARF_GEO)return;SCARF_GEO=(()=>{const t=new THREE.TorusGe
 HAT_GEO=(()=>{const top=new THREE.SphereGeometry(0.5,14,7,0,Math.PI*2,0,Math.PI/2);
   return mergeGeo([[top,TM(0,1.675,-0.012,0.27,0.3,0.28)],[CYL,TM(0,1.682,-0.012,0.276,0.05,0.286)],[SPHERE,TM(0,1.83,-0.02,0.07,0.065,0.07)]]);})();}
 function wrapRig(m){
-  const r=m.rig,o=m.colours,B=rigBones(r);if(!B.Neck||!B.Head||m.hero)return;
+  const r=m.rig,o=m.colours,B=rigBones(r);if(!B.Neck||!B.Head||m.hero||o.noWarm)return;
   warmGeo();const w={m,u:rng(),hat:o.fem!=='bun'&&rng()<0.55,sc:null,ht:null};
   const col=o.knit||(o.knit=pick(KNIT));
   for(const n in r.act)r.act[n].setEffectiveWeight(n==='idle'?1:0);r.mixer.update(0);
@@ -4294,12 +4347,14 @@ JOBS.push(
    onEnd(ok,J){if(RIVAL.on)stopRival();if(ok){const tt=elapsed-J.t0;let e=` Race time <strong>${fmtTime(tt)}</strong>.`;if(!BEST.race||tt<BEST.race){if(BEST.race)e+=' New record!';BEST.race=tt;}return e;}}},
   // winter only: skate to the flag at each end of the frozen canal by the koek-en-zopie stall and back (placed by buildZopie)
   {id:'ice',name:'Ice race',x:1e6,z:1e6,col:0x7fd6ff,lvl:1,ice:true,desc:'Skate to the flag at each end of the canal and back to the stall before the time runs out.',
-   make(){const F=ICE_RACE;F.flags.forEach(f=>f.visible=true);
+   make(){const F=ICE_RACE;F.flags.forEach(f=>f.visible=true);startIceRivals();
      const steps=[{x:F.a[0],z:F.a[1],r:4,walkOk:true,gate:true,text:'Ice race: skate to the flag at the far end'},{x:F.b[0],z:F.b[1],r:4,walkOk:true,gate:true,text:'Ice race: now the flag at the other end'},
                   {x:F.home[0],z:F.home[1],r:3.5,walkOk:true,text:'Ice race: back to the koek-en-zopie stall',done:'Finish! The stall keeper cheers.'}];
      const d=Math.hypot(F.a[0]-F.home[0],F.a[1]-F.home[1])+Math.hypot(F.b[0]-F.a[0],F.b[1]-F.a[1])+Math.hypot(F.home[0]-F.b[0],F.home[1]-F.b[1]);
-     return {steps,limit:Math.round(d/6.2+12),pay:Math.round(30+d/8)};},
-   onEnd(ok,J){ICE_RACE.flags.forEach(f=>f.visible=false);if(ok){const tt=elapsed-J.t0;let e=` Time <strong>${fmtTime(tt)}</strong>.`;if(!BEST.ice||tt<BEST.ice){if(BEST.ice)e+=' New record!';BEST.ice=tt;}ach('icerace');return e;}}},
+     return {steps,limit:Math.round(d/6.2+15),pay:Math.round(30+d/8),count:3.2};},
+   onEnd(ok,J){ICE_RACE.flags.forEach(f=>f.visible=false);const fin=ICE_RIVALS.fin.length;stopIceRivals();if(ok){const tt=elapsed-J.t0;let e=` Time <strong>${fmtTime(tt)}</strong>.`;
+     const pl=fin+1;e=` You finish <strong>${['1st','2nd','3rd'][pl-1]}</strong>`+(pl===1?' and win the €20 prize!':pl===2?', just behind '+ICE_RIVALS.fin[0]+'.':', behind '+ICE_RIVALS.fin.join(' and ')+'.')+e;
+     if(pl===1){cash+=20;$('cash').textContent='€'+cash;ach('icewin');}if(!BEST.ice||tt<BEST.ice){if(BEST.ice)e+=' New record!';BEST.ice=tt;}ach('icerace');return e;}}},
 );
 for(const j of JOBS)if(!j.marker)j.marker=makeMarker(2.4,j.col);
 // stand each job's ring and light beam on the job's own spot (they all stood at the map origin before)
@@ -5070,6 +5125,7 @@ const ACH_LIST=[
   ['skate','Polder skater','Rent skates at the koek-en-zopie stall'],
   ['bambi','Bambi on ice','Fall over on the ice'],
   ['icerace','Eleven towns, one canal','Finish the ice race on the frozen canal'],
+  ['icewin','Fastest on the ice','Beat both rivals in the ice race'],
 ];
 const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
 function ach(id){
@@ -5315,6 +5371,7 @@ function walkPlayer(dt){
   let s=(K('KeyD','ArrowRight')?1:0)-(K('KeyA','ArrowLeft')?1:0);
   const tm=Math.hypot(TOUCH.jx,TOUCH.jy);
   if(tm>0.15){f=-TOUCH.jy;s=TOUCH.jx;}
+  if(JOB&&JOB.count>0&&JOB.j.ice){f=s=0;P.ivx=P.ivz=0;}
   const fx=Math.sin(camYaw),fz=Math.cos(camYaw),rx=-Math.cos(camYaw),rz=Math.sin(camYaw);
   let vx=fx*f+rx*s,vz=fz*f+rz*s;const l=Math.hypot(vx,vz);
   const spd=(K('ShiftLeft','ShiftRight')||tm>0.92)?8.5:4.3*(tm>0.15?Math.min(1,tm*1.4):1);
@@ -6014,7 +6071,7 @@ function frame(now){
   updateGrass();
   WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6+Math.max(0,Math.sin(t*0.11)*Math.sin(t*0.37+1))*1.6;// gusts come and go
   waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;WATER_U.uWT.value+=dt*(0.6+0.4*WIND.value.y);
-  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
+  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateIceRivals(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
   // clouds drift east and wrap around the camera, so there are clouds wherever you are in town
@@ -6093,7 +6150,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

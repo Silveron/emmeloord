@@ -2259,7 +2259,9 @@ function rigColours(t,o){
   const col={Shirt:o.shirt,Pants:o.pants,Skin:o.skin,Hair:o.hair,Eyes:'#1a1a1a',Socks:o.shoes||'#2a2a2a'};
   const cs=t.parts.names.map(n=>C(col[n]||'#888'));
   const arr=new Float32Array(t.parts.part.length*3);t.parts.part.forEach((k,i)=>{arr[i*3]=cs[k].r;arr[i*3+1]=cs[k].g;arr[i*3+2]=cs[k].b;});
-  const g=t.parts.geo.clone();g.setAttribute('color',new THREE.BufferAttribute(arr,3));
+  // share the big position/normal/skin buffers with the template; only the colours are per combination
+  const g=new THREE.BufferGeometry(),G0=t.parts.geo;for(const a in G0.attributes)g.setAttribute(a,G0.attributes[a]);g.setIndex(G0.index);
+  g.setAttribute('color',new THREE.BufferAttribute(arr,3));
   // generous bounds: the skinned pose moves vertices away from the bind pose
   g.boundingSphere=new THREE.Sphere(new THREE.Vector3(),1e4);
   return c[key]=g;
@@ -2320,6 +2322,7 @@ function animRig(m,phase,amt){
   if(m.colours&&m.colours.fem)femShape(r);
   if(m.old){if(r.ab===undefined){r.ab=null;r.inst.traverse(b=>{if(!r.ab&&b.isBone&&/Abdomen|Spine/.test(b.name))r.ab=b;});r.ab0=r.ab?r.ab.rotation.x:0;}if(r.ab){if(r.ab0===undefined)r.ab0=r.ab.rotation.x;r.ab.rotation.x=r.ab0+0.22;}}
   if(m.wave)rigWave(m,dt);
+  if(m.eat)rigEat(m);
 }
 /* waving: aim the right upper arm up and out, and swing the forearm from side to side (m.wave = 0..1).
    Bones are aimed in world space so it works whatever the rig's local bone axes are. */
@@ -2338,6 +2341,17 @@ function rigWave(m,dt){
   const w=Math.min(1,m.wave),sw=Math.sin(r.waveT*9);
   aimBone(B.UpperArmR,B.LowerArmR,_wd.set(_wc.x*0.55,0.83,_wc.z*0.55).normalize(),w);
   aimBone(B.LowerArmR,B.PalmR,_wd.set(_wc.x*(0.15+sw*0.45),1,_wc.z*(0.15+sw*0.45)).normalize(),w);
+}
+/* eating: the right upper arm hangs forward and the forearm points at the mouth (m.eat = 0..1), bones aimed in world space */
+const _ef=new THREE.Vector3(),_em=new THREE.Vector3(),_eq=new THREE.Quaternion();
+function rigEat(m){
+  const B=rigBones(m.rig),W=B.WristR||B.PalmR;if(!B.UpperArmR||!B.LowerArmR||!W||!B.Head||!B.ShoulderR)return;
+  m.g.getWorldQuaternion(_eq);_ef.set(0,0,1).applyQuaternion(_eq);_ef.y=0;_ef.normalize();
+  B.ShoulderR.getWorldPosition(_wc);(B.Neck||B.Torso).getWorldPosition(_wa);_wc.sub(_wa);_wc.y=0;_wc.normalize();
+  const w=Math.min(1,m.eat);
+  aimBone(B.UpperArmR,B.LowerArmR,_wd.set(_ef.x*0.55-_wc.x*0.22,-0.8,_ef.z*0.55-_wc.z*0.22).normalize(),w);
+  B.Head.getWorldPosition(_em);_em.addScaledVector(_ef,0.1);_em.y-=0.07;B.LowerArmR.getWorldPosition(_wb);
+  aimBone(B.LowerArmR,W,_wd.copy(_em).sub(_wb).normalize(),w);
 }
 /* women and girls: the CC0 library has only the one realistic body, so a female look is built on the same rig:
    longer hair (long, ponytail, bob or bun) on the head bone and a skirt or dress on the hips bone. Shapes are in the
@@ -2394,9 +2408,19 @@ function wrapRig(m){
   for(const n in r.act)r.act[n].setEffectiveWeight(n==='idle'?1:0);r.mixer.update(0);
   const put=(geo,bone)=>{const ms=new THREE.Mesh(geo,femMat(col));ms.castShadow=true;m.g.add(ms);m.g.updateMatrixWorld(true);bone.attach(ms);return ms;};
   w.sc=put(SCARF_GEO,B.Neck);if(w.hat)w.ht=put(HAT_GEO,B.Head);
+  // a winter coat: the top (body and sleeves) in the coat colour, plus a hem that hangs over the hips to mid-thigh
+  r.inst.traverse(q=>{if(q.isSkinnedMesh)w.sk=q;});
+  if(w.sk&&RIG.people.parts){o.coat=o.coat||pick(COAT_COLS);w.g0=w.sk.geometry;w.g1=rigColours(RIG.people,Object.assign({},o,{shirt:o.coat}));
+    if(B.Hips){w.hem=new THREE.Mesh(COAT_HEM,femMat(o.coat));w.hem.castShadow=true;m.g.add(w.hem);m.g.updateMatrixWorld(true);B.Hips.attach(w.hem);}}
   WARM.push(w);setWarm(w);
 }
-function setWarm(w){const s=SEASON_NOW;w.sc.visible=s==='winter'?w.u<0.8:s==='autumn'&&w.u<0.3;if(w.ht)w.ht.visible=s==='winter'&&w.u<0.8;}
+const COAT_NAMES={'#2b2b30':'black','#34495e':'dark blue','#6b4f3a':'brown','#7a1f2b':'dark red','#3d4a3a':'dark green','#8a8f96':'grey','#b08a5a':'beige','#2c6fbb':'blue','#c0392b':'red'};
+const COAT_COLS=Object.keys(COAT_NAMES);
+const COAT_HEM=(()=>{const g=new THREE.CylinderGeometry(0.2,0.265,0.4,14,1,true);g.translate(0,0.79,0.012);g.scale(1,1,0.9);return g;})();
+// is this person wearing their winter coat right now?
+function inCoat(m){return SEASON_NOW==='winter'&&m.colours&&m.colours.coat&&WARM.some(w=>w.m===m&&w.u<0.7&&w.g1);}
+function setWarm(w){const s=SEASON_NOW;w.sc.visible=s==='winter'?w.u<0.8:s==='autumn'&&w.u<0.3;if(w.ht)w.ht.visible=s==='winter'&&w.u<0.8;
+  if(w.g1){const c=s==='winter'&&w.u<0.7;w.sk.geometry=c?w.g1:w.g0;if(w.hem)w.hem.visible=c;}}
 async function loadRigs(){
   try{
     if(!THREE.GLTFLoader)await loadScriptOnce('assets/lib/GLTFLoader.js');
@@ -4288,10 +4312,53 @@ function kermisMusic(dt){
 function nearSnack(px,pz){const Q=KERMIS.queue;return KERMIS_OPEN&&P.mode==='walk'&&!RIDE&&Math.hypot(px-Q.slots[0][0],pz-Q.slots[0][1])<1.9;}
 function buySnack(){
   if(cash<3){toast('A bag of oliebollen costs €3.',2000);return;}
-  cash-=3;$('cash').textContent='€'+cash;coinSound();ach('olie');
+  cash-=3;$('cash').textContent='€'+cash;coinSound();ach('olie');EAT.n=6;EAT.t=2.5;
   say('Oliebollen stall',pick(['Here you are, warm and fresh. Mind the powdered sugar!','Six oliebollen, still hot. Enjoy!','One bag, extra sugar. Do not wear black next time!']),3600);
   // jumping the queue gets you a remark from the person at the front
   const f=KERMIS.queue.line[0];if(f&&Math.hypot(f.x-P.x,f.z-P.z)<4&&!BUBBLE.sp.visible)showBubble(f,pick(['Hey, there is a queue!','Excuse me, I was first.','The line starts back there!']));
+}
+/* eating your oliebollen: after buying a bag you eat all six on the way, one bite every few seconds (arm to mouth, a puff
+   of powdered sugar and a soft crunch). It leaves sugar on your jacket for two minutes, and people you pass point it out. */
+const EAT=(()=>{
+  const bag=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.17,0.08),new THREE.MeshStandardMaterial({color:0xe9dcc0,roughness:0.95}));bag.visible=false;bag.castShadow=true;scene.add(bag);
+  // a speckled patch of sugar on the front of the jacket
+  const cv=document.createElement('canvas');cv.width=cv.height=64;const g=cv.getContext('2d');
+  for(let i=0;i<260;i++){const x=32+(rng()-0.5)*50*rng(),y=32+(rng()-0.5)*56*rng();g.fillStyle=`rgba(255,255,255,${(0.5+rng()*0.5).toFixed(2)})`;g.fillRect(x,y,1+rng()*2,1+rng()*2);}
+  const patch=new THREE.Mesh(new THREE.PlaneGeometry(0.26,0.3),new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false,roughness:1,polygonOffset:true,polygonOffsetFactor:-4}));
+  patch.visible=false;
+  // the puff: 40 grains of sugar that fall from the mouth
+  const N=40,pos=new Float32Array(N*3),vel=new Float32Array(N*3),pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const puff=new THREE.Points(pg,new THREE.PointsMaterial({color:0xffffff,size:0.035,transparent:true,opacity:0.9,depthWrite:false}));puff.visible=false;puff.frustumCulled=false;scene.add(puff);
+  // the oliebol itself, golden brown with a dusting of sugar on top, in the right hand during a bite
+  const ball=new THREE.Mesh(mergeCol([[SPHERE,TM(0,0,0,0.075,0.068,0.075),'#8a5a26'],[SPHERE,TM(0,0.018,0,0.068,0.055,0.068),'#f4efe6']]),new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9}));ball.visible=false;scene.add(ball);
+  return {n:0,t:0,bite:0,bit:false,sugar:0,said:0,bag,ball,patch,on:null,puff,pos,vel,pt:0};
+})();
+const SUGAR_LINES=['You have got sugar all over you!','Oliebollen? I can tell.','Nice powdered sugar look.','Leave some for the rest of us!','You have a bit of sugar there... everywhere.'];
+function eatCrunch(){if(!AC||muted)return;const t=AC.currentTime;for(let k=0;k<3;k++)noiseHit(t+k*0.09+Math.random()*0.03,0.07,0.05,1800+Math.random()*900,'bandpass',1.2);}
+function updateEat(dt){
+  const E=EAT,m=P.m,walk=P.mode==='walk'&&!RIDE&&m.g.visible;
+  // put the sugar patch on whatever body the player has (the rigged one arrives after loading)
+  if(m.rig&&E.on!==m){const B=rigBones(m.rig),c=B.Chest||B.Torso;if(c){m.g.add(E.patch);E.patch.position.set(0,1.36,0.19);E.patch.rotation.set(0,0,0);m.g.updateMatrixWorld(true);c.attach(E.patch);E.on=m;}}
+  if(E.sugar>0){E.sugar-=dt*(RAIN>0.3?4:1);E.patch.visible=walk;E.patch.material.opacity=Math.min(1,E.sugar/20);
+    if(E.sugar<=0)E.patch.visible=false;
+    else if(walk&&elapsed-E.said>14&&!BUBBLE.sp.visible){let best=null,bd=6;for(const n of NPCS){const d=Math.hypot(n.x-P.x,n.z-P.z);if(d<bd&&n.m.g.visible&&!n.follow){bd=d;best=n;}}
+      if(best){E.said=elapsed;showBubble(best,pick(SUGAR_LINES));}}}
+  if(E.pt>0){E.pt-=dt;const p=E.pos,v=E.vel;for(let i=0;i<p.length;i+=3){v[i+1]-=3*dt;p[i]+=v[i]*dt;p[i+1]+=v[i+1]*dt;p[i+2]+=v[i+2]*dt;}
+    E.puff.geometry.attributes.position.needsUpdate=true;E.puff.material.opacity=Math.min(0.9,E.pt);if(E.pt<=0)E.puff.visible=false;}
+  if(E.bite<=0)m.eat=0;
+  if(E.n<=0&&E.bite<=0){E.bag.visible=false;E.ball.visible=false;return;}
+  if(!walk||!m.rig){E.bag.visible=false;E.ball.visible=false;m.eat=0;return;}
+  const B=rigBones(m.rig),hl=B.WristL||B.PalmL;
+  if(hl){hl.getWorldPosition(_wa);E.bag.position.set(_wa.x,_wa.y-0.08,_wa.z);E.bag.rotation.y=P.h;E.bag.visible=true;}
+  if(E.bite>0){E.bite-=dt;const k=1-E.bite/1.3;m.eat=Math.min(1,Math.sin(Math.min(1,k)*Math.PI)*1.6);
+    const hr=B.WristR||B.PalmR;if(hr&&k<0.5){hr.getWorldPosition(_wa);E.ball.position.set(_wa.x+Math.sin(P.h)*0.05,_wa.y+0.06,_wa.z+Math.cos(P.h)*0.05);E.ball.visible=true;}else E.ball.visible=false;
+    if(!E.bit&&k>0.45){E.bit=true;E.sugar=120;eatCrunch();
+      const H=B.Head;if(H){H.getWorldPosition(_wa);const fx=Math.sin(P.h),fz=Math.cos(P.h);
+        for(let i=0;i<E.pos.length;i+=3){E.pos[i]=_wa.x+fx*0.13+(rng()-0.5)*0.06;E.pos[i+1]=_wa.y-0.08;E.pos[i+2]=_wa.z+fz*0.13+(rng()-0.5)*0.06;E.vel[i]=fx*0.4+(rng()-0.5)*0.6;E.vel[i+1]=rng()*0.5;E.vel[i+2]=fz*0.4+(rng()-0.5)*0.6;}
+        E.pt=1.2;E.puff.visible=true;}}
+    if(E.bite<=0){m.eat=0;E.ball.visible=false;if(E.n<=0)toast('All six oliebollen gone. Lekker!',2400);}
+    return;}
+  E.t-=dt;if(E.t<=0){E.n--;E.t=rand(4,7);E.bite=1.3;E.bit=false;}
 }
 function nearWheel(px,pz){return KERMIS_OPEN&&P.mode==='walk'&&!RIDE&&Math.hypot(px-KERMIS.board.x,pz-KERMIS.board.z)<3.2;}
 function startWheelRide(){
@@ -4617,8 +4684,8 @@ function updateLost(dt){
   const c=L.n,p=L.p,dP=Math.hypot(c.x-P.x,c.z-P.z);L.left-=dt;
   if(L.phase===1){
     L.cry-=dt;if(L.cry<0){L.cry=3.2;showBubble(c,L.par==='mum'?pick(['Mummy?','*sniff*','Mum? Where are you?','Boohoo...']):pick(['Daddy?','*sniff*','Dad? Where are you?','Boohoo...']));}
-    if(dP<2.6){L.phase=2;L.left=240;c.lostMode=0;c.follow=P;const col=SHIRT_NAMES[p.m.colours.shirt]||'bright';
-      const mum=L.par==='mum',top=mum&&p.m.colours.skirt===p.m.colours.shirt?'dress':'shirt';
+    if(dP<2.6){L.phase=2;L.left=240;c.lostMode=0;c.follow=P;const coat=inCoat(p.m),col=coat?COAT_NAMES[p.m.colours.coat]:SHIRT_NAMES[p.m.colours.shirt]||'bright';
+      const mum=L.par==='mum',top=coat?'coat':mum&&p.m.colours.skirt===p.m.colours.shirt?'dress':'shirt';
       say(L.name,`I can't find my ${L.par}! ${mum?'She':'He'} has a ${col} ${top}. We were near ${streetName(p.x,p.z)}.`,5200);
       toast(`Take <strong>${L.name}</strong> to ${L.par}: a ${mum?'woman':'man'} in a <strong>${col} ${top}</strong> near ${streetName(p.x,p.z)}. ${L.name} follows you.`,5200);}
     else if(dP>70||L.left<0)lostEnd(false);
@@ -5706,7 +5773,7 @@ function frame(now){
     const dT=Math.hypot(px-TOWER.x,pz-TOWER.z);
     if(!towerVisited&&dT<26){towerVisited=true;toast('<strong>Poldertoren</strong> (1959). 65.3 m tall, with a viewing platform at 43.4 m, a carillon of 48 bells and the turning figures at 12 m.',7000);}
     const name=zoneName(px,pz);if(name!==lastLoc){lastLoc=name;$('locName').textContent=name;}
-    updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updatePlaque(px,pz);updateBubble(dt);updateLost(dt);
+    updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updatePlaque(px,pz);updateBubble(dt);updateLost(dt);updateEat(dt);
     let pr='';
     const kE=TOUCH.on?'Tap: ':'<kbd>E</kbd> ';
     const nj=nearJob(px,pz);
@@ -5762,7 +5829,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

@@ -3249,7 +3249,18 @@ const COLLEGE_RACK=(()=>{
    const pm=new THREE.MeshStandardMaterial({color:0x8c8c88,roughness:0.85,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
    const fl=new THREE.Mesh(pg,pm);fl.receiveShadow=true;scene.add(fl);pm.userData.pav=0.55;PHOTO_SLOTS.push([pm,'pavement',2.4]);
    // walkway to the door through the courtyard
-   const wg=new THREE.PlaneGeometry(2.2,24);{const u=wg.attributes.uv;for(let i=0;i<u.count;i++)u.setXY(i,u.getX(i)*2.2,u.getY(i)*24);}wg.rotateX(-Math.PI/2);wg.translate(385.3,0.033,-631.6);const wm=new THREE.Mesh(wg,pm);wm.receiveShadow=true;scene.add(wm);}
+   const wg=new THREE.PlaneGeometry(2.2,24);{const u=wg.attributes.uv;for(let i=0;i<u.count;i++)u.setXY(i,u.getX(i)*2.2,u.getY(i)*24);}wg.rotateX(-Math.PI/2);wg.translate(385.3,0.033,-631.6);const wm=new THREE.Mesh(wg,pm);wm.receiveShadow=true;scene.add(wm);
+   // the paved paths from the end of Hendric Stevinlaan round the bike park (OSM ways 1360765716, 1360765715, 1314839838,
+   // 1314839805): pupils ride in along these instead of over the grass. One strip per segment, 2 m wide, overlapping at the corners.
+   const pos=[],uv=[];
+   for(const line of [[[436.3,-635.5],[430.4,-635.7],[420.0,-641.3],[418.7,-641.3],[418.8,-643.2],[418.8,-659.0]],[[418.8,-643.2],[398.4,-643.6]]])
+    for(let i=0;i<line.length-1;i++){const a=line[i],b=line[i+1];let dx=b[0]-a[0],dz=b[1]-a[1];const L=Math.hypot(dx,dz);dx/=L;dz/=L;
+     const ax=a[0]-dx,az=a[1]-dz,bx=b[0]+dx,bz=b[1]+dz,nx=-dz,nz=dx,q=[[ax+nx,az+nz],[bx+nx,bz+nz],[bx-nx,bz-nz],[ax-nx,az-nz]];
+     PAVED.push(Object.assign({k:2,p:q},polyBox(q)));
+     for(const k of [0,1,2,0,2,3]){pos.push(q[k][0],0.031+i*0.0004,q[k][1]);uv.push(q[k][0],-q[k][1]);}}
+   const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));sg.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));sg.computeVertexNormals();
+   {const n=sg.attributes.normal;for(let i=0;i<n.count;i++)n.setXYZ(i,0,1,0);}
+   const sm=new THREE.Mesh(sg,pm);sm.receiveShadow=true;scene.add(sm);}
   const L=[],H=[];
   const arch=new THREE.TorusGeometry(0.28,0.022,5,10,Math.PI);arch.rotateY(Math.PI/2);
   for(const sl of slots){const G=TM(sl.x+0.22,0,sl.z);H.push([arch,G.clone().multiply(TM(0,0.55,0))]);for(const dz of [-0.28,0.28])H.push([CYL,G.clone().multiply(TM(0,0.275,dz,0.044,0.55,0.044))]);}
@@ -3261,7 +3272,7 @@ const COLLEGE_RACK=(()=>{
     for(const sd of [-0.52,0.52])for(const [geo,c] of OMA_WHEEL_PARTS)at(geo,TM(0,0.36,sd),c);
     for(const [geo,m,c] of omaParts(fc,true))at(geo,m,c);}
   const bm=new THREE.Mesh(mergeCol(L),OMA_MAT);bm.castShadow=true;bm.visible=false;scene.add(bm);
-  return {slots,bikes:bm,gate:[436,-627],path:[[432,-638],[421,-651.3]],aisle:-651.3,door:[385.3,-620.3]};
+  return {slots,bikes:bm,gate:[436.3,-635.5],path:[[430.4,-635.7],[420.0,-641.3],[418.8,-643.6],[418.8,-651.3]],aisle:-651.3,door:[385.3,-620.3]};
 })();
 function rackOpen(){const h=(gameMin%1440)/60;return GAME_DOW<5&&h>=7.65&&h<16.65;}
 function parkPupil(b){
@@ -3281,7 +3292,7 @@ function rideHome(b){
   // wheeled out of the rack, facing the aisle
   b.x=s.x;b.z=s.z+(R.aisle-s.z)*0.6;b.h=Math.atan2(0,R.aisle-s.z);b.speed=0;
   const fx=R.gate[0]+rand(-300,300),fz=R.gate[1]+rand(200,500)*(rng()<0.5?-1:1),r=gpsRoute(R.gate[0],R.gate[1],fx,fz,false);
-  const q=[[s.x,R.aisle],[R.path[1][0],R.aisle],R.path[0],R.gate];
+  const q=[[s.x,R.aisle],...[...R.path].reverse(),R.gate];
   if(r)for(let i=1;i<r.length;i++){const a=r[i-1],c=r[i],L=Math.hypot(c[0]-a[0],c[1]-a[1]);if(L<0.5)continue;q.push([c[0]-(c[1]-a[1])/L*1.8,c[1]+(c[0]-a[0])/L*1.8]);}
   b.q=q;b.arrT=0;b.home=true;
 }
@@ -3314,7 +3325,7 @@ function updatePupils(dt){
     // keep to the right-hand side of the street
     const q=[];for(let i=1;i<r.length;i++){const a=r[i-1],c=r[i],L=Math.hypot(c[0]-a[0],c[1]-a[1]);if(L<0.5)continue;q.push([c[0]-(c[1]-a[1])/L*1.8,c[1]+(c[0]-a[0])/L*1.8]);}
     if(q.length<2)continue;
-    if(sl){const R=COLLEGE_RACK;q.push(R.gate,R.path[0],R.path[1],[sl.x,R.aisle],[sl.x,sl.z]);sl.used=true;b.slot=sl;}
+    if(sl){const R=COLLEGE_RACK;q.push(R.gate,...R.path,[sl.x,R.aisle],[sl.x,sl.z]);sl.used=true;b.slot=sl;}
     b.q=q;b.x=v.x;b.z=v.z;b.h=Math.atan2(q[0][0]-v.x,q[0][1]-v.z);b.speed=0;b.off=false;b.arrT=0;b.g.visible=true;
   }
 }

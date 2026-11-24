@@ -43,7 +43,7 @@ Hard crashes into walls, trees or other cars damage the car you drive (the bar u
 
 ## Achievements
 
-34 achievements (first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
+35 achievements (first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
 
 ## Saving
 
@@ -75,6 +75,7 @@ Finishing faster pays more cash. **R** cancels a job.
 - Cyclists riding the ring roads (they ring their bell if you block the way); some parents carry a toddler in a child seat on the back. On school-day mornings pupils with backpacks cycle to the Zuyderzee College, ride along the school's paved paths into its bike park (both at their real OpenStreetMap spots behind the building), park and walk in; after school they walk back out and ride home.
 - A ring road with traffic, and Lemsterweg, Urkerweg, Marknesserweg and Espelerlaan leading out to tulip fields, farms and wind turbines.
 - Winter: the canals freeze over. People skate up and down by day (with steel blades on their feet), ducks stand on the ice, and you can walk down the bank and slide across. Turn round too sharply at speed and you slip and land on your back. On the canal closest to the Poldertoren a koek-en-zopie stall on the ice sells hot chocolate (**E**, €2; you carry the steaming cup and sip it), and the rack beside it rents skates (**E**, €5). On skates you push off with **W**, glide a long way, sprint with **Shift**, and on land you can only waddle ('klunen'). Hand them back at the rack. Keep away from the bridges: beside each bridge the ice is thin (darker patches). It creaks and cracks under you, and if you stay you go through up to your knees and have to scramble out.
+- Autumn: leaves flutter down from the street trees round you (more when the wind gusts), and heaps of raked leaves lie under trees along the streets. Walk, cycle or drive through a heap and the leaves fly up with a rustle (they are raked up again later).
 - Snow: when snow lies thick, snowmen appear on lawns round town (they melt when it thaws). Throw snowballs with **Q**: people shout, and children and some grown-ups throw one back. Children also have snowball fights of their own by day.
 - Polder weather: rain showers roll in now and then, with grey skies, falling rain and the sound of it.
 - A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights.

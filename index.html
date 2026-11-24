@@ -1521,8 +1521,10 @@ let carousel=null;
     const cg=new THREE.Group();cg.rotation.y=a;g.add(cg);
     const holder=new THREE.Group();holder.position.set(0,37.6,apo*0.97+0.06);cg.add(holder);
     add(new THREE.CircleGeometry(2.0,40),faceMat,0,0,0.02,holder).castShadow=false;
-    add(new THREE.TorusGeometry(2.0,0.14,8,40),handMat,0,0,0.05,holder);
-    for(let i=0;i<12;i++){const aa=i/12*Math.PI*2;const m=add(B(i%3===0?0.15:0.08,i%3===0?0.42:0.25,0.05),handMat,Math.sin(aa)*1.7,Math.cos(aa)*1.7,0.06,holder);m.rotation.z=-aa;m.castShadow=false;}
+    // the gold ring and the twelve hour marks in one mesh (one draw call per clock instead of 13)
+    const cl=[[new THREE.TorusGeometry(2.0,0.14,8,40),new THREE.Matrix4().makeTranslation(0,0,0.05)]];
+    for(let i=0;i<12;i++){const aa=i/12*Math.PI*2;cl.push([B(i%3===0?0.15:0.08,i%3===0?0.42:0.25,0.05),new THREE.Matrix4().compose(new THREE.Vector3(Math.sin(aa)*1.7,Math.cos(aa)*1.7,0.06),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,-aa)),new THREE.Vector3(1,1,1))]);}
+    add(mergeGeo(cl),handMat,0,0,0,holder).castShadow=false;
     const hp=new THREE.Group();hp.position.z=0.1;holder.add(hp);
     add(B(0.18,1.15,0.06),handMat,0,0.5,0,hp).castShadow=false;
     const mp=new THREE.Group();mp.position.z=0.16;holder.add(mp);
@@ -1550,13 +1552,15 @@ let carousel=null;
   // the visitor gallery: a thin stone ledge with a dark railing just under the eaves
   add(oct(R+0.55,R+0.55,0.35),concrete,0,43.4,0);
   add(oct(R+0.45,R+0.45,0.4),concrete,0,56.6,0);
-  const rail=lm('#2c2a28');
+  // the railing (8 top bars and 48 posts) is merged into one mesh: the tower is in view from most of the town
+  const rail=lm('#2c2a28'),rl=[],post=B(0.05,1.1,0.05);
   for(let k=0;k<8;k++){
     const a0=ang(k),a1=ang(k+1),r=R+0.45;
     const x0=Math.sin(a0)*r,z0=Math.cos(a0)*r,x1=Math.sin(a1)*r,z1=Math.cos(a1)*r,L=Math.hypot(x1-x0,z1-z0);
-    const m=add(B(L,0.08,0.08),rail,(x0+x1)/2,44.6,(z0+z1)/2);m.rotation.y=Math.atan2(x1-x0,z1-z0)+Math.PI/2;
-    for(let q=0;q<6;q++){const t=q/6;add(B(0.05,1.1,0.05),rail,x0+(x1-x0)*t,44.1,z0+(z1-z0)*t);}
+    rl.push([B(L,0.08,0.08),new THREE.Matrix4().compose(new THREE.Vector3((x0+x1)/2,44.6,(z0+z1)/2),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.atan2(x1-x0,z1-z0)+Math.PI/2,0)),new THREE.Vector3(1,1,1))]);
+    for(let q=0;q<6;q++){const t=q/6;rl.push([post,new THREE.Matrix4().makeTranslation(x0+(x1-x0)*t,44.1,z0+(z1-z0)*t)]);}
   }
+  add(mergeGeo(rl),rail,0,0,0);
   // green copper roof: a steep eight-sided pyramid with a slight flare at the eaves
   const copper=Lam({color:'#3c6e5a',roughness:0.6,metalness:0.2,envMapIntensity:0.6});
   add(oct(R+0.75,R+0.6,0.5),copper,0,57.05,0);

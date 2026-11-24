@@ -2566,7 +2566,7 @@ function makeCar(x,z,h,color,kind){
     wheels.push(w);if(sz>0)fronts.push(pv);
   }
   const c={g,body,wheels,fronts,x,z,h,speed:0,steer:0,ai:null,color,blockedT:0,impatient:0,honked:0,shell,headM,far:false};
-  c.lodHide=[body.children[2],body.children[5],...fronts,...wheels.filter(w=>!fronts.includes(w.parent)).map(w=>w.parent)];
+  c.lodHide=[body.children[2],body.children[3],body.children[4],body.children[5],...fronts,...wheels.filter(w=>!fronts.includes(w.parent)).map(w=>w.parent)];
   g.position.set(x,0,z);g.rotation.y=h;
   CARS.push(c);return c;
 }
@@ -5183,7 +5183,7 @@ function updateNPCs(dt){
 let FAR_WHEELS=null,_cp=null;
 function carLOD(c){
   if(!c.lodHide||c.veh||c.bus)return;
-  if(!_cp)_cp=camera.position;const d2=(c.x-_cp.x)**2+(c.z-_cp.z)**2,far=c===P.car?false:c.far?d2>78*78:d2>88*88;
+  if(!_cp)_cp=camera.position;const d2=(c.x-_cp.x)**2+(c.z-_cp.z)**2,k=GFX===0?0.5:GFX===1?0.8:1,far=c===P.car?false:c.far?d2>78*78*k*k:d2>88*88*k*k;
   if(far===c.far)return;c.far=far;
   if(!c.farW){if(!FAR_WHEELS)FAR_WHEELS=mergeGeo([-1,1].flatMap(sx=>[1.38,-1.38].map(sz=>[CARPARTS.wheel,TM(sx*.9,.38,sz)])));c.farW=new THREE.Mesh(FAR_WHEELS,WHEEL_MAT);c.g.add(c.farW);}
   c.farW.visible=far;for(const o of c.lodHide)o.visible=!far;

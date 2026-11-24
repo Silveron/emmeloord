@@ -1649,13 +1649,16 @@ function updateSkaters(dt,t){
     // glide on, and turn round before the bank or a bridge
     const ax=k.x+Math.sin(k.h)*4,az=k.z+Math.cos(k.h)*4;
     if(!onIce(ax,az)){k.h+=dt*1.6;k.turning=true;}else k.turning=false;
+    // now and then a skater loses it: a slide on their back, a moment on the ice, then up again
+    if(!(k.fall>0)&&!k.turning&&rng()<dt*0.0025){k.fall=2.6;k.v0=k.v;const d=Math.hypot(k.x-px,k.z-pz);if(AC&&!muted&&d<30)noiseHit(AC.currentTime,0.3,0.15*(1-d/30),140,'lowpass',1);}
+    let fa=0;if(k.fall>0){k.fall-=dt;k.v*=Math.exp(-2*dt);const tf=2.6-k.fall;fa=tf<0.35?tf/0.35:k.fall<0.8?Math.max(0,k.fall/0.8):1;fa=fa*fa*(3-2*fa);if(k.fall<=0){k.fall=0;k.v=k.v0;}}
     k.x+=Math.sin(k.h)*k.v*dt;k.z+=Math.cos(k.h)*k.v*dt;
     // one stride every ~1.6 s: a slow walk cycle while the body sways from foot to foot
-    k.phase+=dt*k.v*0.55;const m=k.m;m.skate=k;animPerson(m,k.phase,1);
+    if(!(k.fall>0))k.phase+=dt*k.v*0.55;const m=k.m;m.skate=k;animPerson(m,k.phase,k.fall>0?0:1);
     // the scrape of the blades on every push-off, when you are close
     const st=Math.floor(k.phase*1.4/Math.PI);if(st!==k.st){k.st=st;const d=Math.hypot(k.x-px,k.z-pz);if(AC&&!muted&&d<28)noiseHit(AC.currentTime,0.42,0.05*(1-d/28),3200+rng()*900,'bandpass',0.9);}
     m.g.position.set(k.x+Math.cos(k.h)*Math.sin(k.phase*1.4)*0.25,WATER_Y+0.09,k.z-Math.sin(k.h)*Math.sin(k.phase*1.4)*0.25);
-    m.g.rotation.set(0,k.h,0);m.g.rotation.order='YXZ';m.g.rotation.z=Math.sin(k.phase*1.4)*0.12;
+    m.g.rotation.set(0,k.h,0);m.g.rotation.order='YXZ';m.g.rotation.z=Math.sin(k.phase*1.4)*0.12*(1-fa);m.g.rotation.x=-1.35*fa;if(fa)m.g.position.y+=0.1*fa;
   }
 }
 /* koek en zopie: on the frozen canal closest to the Poldertoren a little stall on the ice sells hot chocolate and

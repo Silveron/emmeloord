@@ -18,6 +18,29 @@ No open bugs were left by the 06:45 run. Its "next ideas" list is the base for t
 - **Thin ice by the bridges** (gameplay/sound/graphics): beside every bridge over a frozen canal the ice is darker (one mesh with vertex alpha on a 1 m grid over the ice only, about 7000 cells town-wide, built in about 0.3 s the first time the canals freeze). Stand on it and it creaks and cracks with a warning; stay about 3 s (gliding fast buys time) and you go through up to your knees, leaving a black hole with broken plates of ice (it stays for 3 minutes). Walk to the edge of the hole to scramble out. People nearby shout. New achievement "Wet feet".
 - **Snowmen and snowballs** (content/gameplay/sound): once the snow lies thick, about 26 snowmen stand on lawns round town (carrot nose, coal eyes, stick arms, a hat, a bucket or a scarf; one mesh each), built while you are not looking and sagging as the snow melts. Throw snowballs with **Q** (on phones the HORN button turns into THROW on foot): they lock on to someone near your aim, fly in an arc, splat in a puff of snow and stop at walls and trees. People shout ("Right in the neck!"), skaters wobble, and children (and about a third of the grown-ups) throw one back. New achievement "Snowball fight" (hit five people). 34 achievements in total.
 - **README** updated: Q key, rivals, thin ice, snowmen.
+- **Performance** (performance): only cars within 26 m of the camera (and your own) cast wheel shadows, and only people within 28 m (40 m on High) cast a shadow. At De Deel this cuts draw calls from about 906 to 801 per frame, with no visible change.
+- **Children's snowball fights** (content): on snowy days children near you throw snowballs at each other (and now and then at a grown-up), with a shout when one hits.
+- **Autumn leaves** (graphics/gameplay/sound): it is autumn in the game right now (the season follows the calendar), so this one shows straight away. Leaves flutter down from the street trees round you (up to 170 on High, one instanced mesh, more in gusts) and lie on the ground for a few seconds. About 60 heaps of raked leaves lie under trees along the streets (one instanced mesh); walk, cycle or drive through one and 40 leaves fly up with a rustle, and it is raked up again out of sight a few minutes later. New achievement "Leaf kicker" (35 in total).
+
+### Report for Ron
+This run (11:52) added 7 improvements, each tested in headless Chromium (no console errors; walking, driving, the ice race with rivals from countdown to finish, breaking through thin ice and climbing out, throwing snowballs and the throw-back, kicking a leaf heap, all scripted and checked with screenshots) and pushed straight to `main`:
+- Ice race against two rival skaters, Sjoerd and Femke, with a 3-2-1 countdown, 1st/2nd/3rd place and a €20 prize for winning.
+- Thin ice beside the bridges: darker ice that creaks and cracks; stay too long and you go through to your knees and must climb out.
+- Snowmen on the lawns when snow lies, and snowball fights: throw with **Q** (THROW button on phones); people shout, children throw back and have fights of their own.
+- Autumn (the season you see now): falling leaves and heaps of leaves you can kick through.
+- Fewer shadow draw calls near De Deel (about 12% fewer draw calls there).
+- 4 new achievements (35 in total); README updated.
+
+Screenshots in the project files under `runs/`: `2026-11-24c-ice-race-rivals.png` (you in orange between Sjoerd in red and Femke in blue on the ice by the koek-en-zopie stall, "Get ready… 3"), `2026-11-24c-thin-ice.png` (the player knee-deep in a black hole in the ice with broken plates round it, beside a bridge), `2026-11-24c-thin-ice-patch.png` (the darker thin ice at the end of a canal by a bridge), `2026-11-24c-snowball-snowman.png` (a snowman with a carrot nose and scarf on a snowy square, a man shouting "Right in the neck!"), `2026-11-24c-leaf-heap.png` and `2026-11-24c-leaf-kick.png` (a heap of leaves under a street tree, then the leaves flying up).
+
+Problems: none open. The winter things (ice, snow, snowmen) only show when the season is winter; with the season on Auto that starts on 1 December, until then pick Winter in the pause menu. The large dark slab on top of some small culvert bridges (seen while testing thin ice at Rietstraat) is not new and still looks odd; worth a look. Snowballs fly through tree crowns (they only stop at trunks and walls).
+
+### Next ideas (for the next run)
+1. Check the dark slab on top of small culvert bridges (Rietstraat over the canal) and give it a proper deck and railing.
+2. More autumn: puddles with floating leaves, a leaf blower man or a street sweeper truck clearing the heaps, conkers (kastanjes) to pick up.
+3. Sledge or ice chair ("ijsstoel") on the frozen canal: push a child over the ice.
+4. Frost breath for people on cold winter mornings (small puffs at the mouth).
+5. More performance: merge the remaining loose meshes near De Deel (bus stop signs, lamp glow planes).
 
 ## 2026-11-24 (run 06:45)
 

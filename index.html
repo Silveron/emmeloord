@@ -1657,7 +1657,8 @@ function makeIceChair(){
   if(k.rig)rigPose(k,'sit');g.visible=false;scene.add(g);return g;
 }
 function updateSkaters(dt,t){
-  const h=(gameMin%1440)/60,day=ICE&&started&&h>=8.5&&h<19&&RAIN<0.4,px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
+  const h=(gameMin%1440)/60,[sR,sS]=SUN_TIMES[SEASON_NOW]||SUN_TIMES.winter,day=ICE&&started&&h>=sR+0.2&&h<sS+0.6&&RAIN<0.4,   // out on the ice from just after sunrise until a little after sunset
+  px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
   if(ZOPIE.m&&ICE&&Math.hypot(ZOPIE.x-px,ZOPIE.z-pz)<90){const m=ZOPIE.m;m.g.rotation.y=Math.PI+Math.sin(t*0.4)*0.3;animPerson(m,t*3,0);}
   if(!day){for(const k of SKATE.list)if(k.on){k.on=false;k.m.g.visible=false;if(k.chair)k.chair.visible=false;}return;}
   if(!SKATE.made){SKATE.made=true;for(let i=0;i<7;i++){const kid=i>=5,m=makePerson({shirt:pick(['#b8322c','#2e4a7a','#e0b43a','#3d6b4a','#ff7b1c','#2b2b30','#7a8ea6']),pants:pick(['#1e2a38','#2b2b30','#3a3a44']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1});

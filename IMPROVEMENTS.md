@@ -13,6 +13,31 @@ No open bugs except the one the 01:17 run noticed (the leaf blower worker standi
 4. Conkers under chestnut trees were checked: the 6,328 OSM trees round Emmeloord carry no genus/species tags, so there is no real place for chestnut trees; skipped.
 5. **Performance**: merge loose meshes near De Deel if time allows.
 
+### Done
+- **Leaf blower polish** (bug): each heap now remembers the tree it lies under. The worker blows from the open side of the heap, at least 1.6 m from the trunk, walks up from that side and sweeps the nozzle over the leaves. Tested on 6 heaps: worker 2.1-2.3 m from the heap and 3.7-4.1 m from the trunk every time.
+- **Festive lights** (graphics): in winter, 54 strings with about 2,100 warm white bulbs hang in shallow loops across the shopping streets of the centre (the OSM lines of Lange Nering, Kerksteeg, Smallegang, Luifelsteeg, De Schalm and de Deel), every 11 m, tied to the house fronts on both sides about 5 m up (only where there are buildings on both sides, 5-24 m apart). Every third string has short hanging drops, others alternate warm white and gold bulbs. One Points mesh with a twinkle shader and one line mesh (2 draw calls). Small and pale by day, glowing from dusk.
+- **Ice chairs** (content): two parents on skates push a toddler along the frozen canals on a wooden ice chair (runners curled up at the front, seat, back, sides, push bar). Arms reach forward to the bar, gentler sway, no falls, and they turn round earlier so the chair stays on the ice.
+- **Seasonal day length** (graphics/realism): sunrise and sunset follow the season as in Emmeloord (winter about 08:33-16:51, autumn 07:42-18:24, spring 06:36-20:24, summer 05:36-21:54), the sun stays lower in winter (longer shadows) and the moon rises after sunset. A new game in winter starts at 09:30 so it does not begin in the dark. Winter afternoons now end in dusk under the festive lights.
+- **README** updated for all of these.
+
+### Report for Ron
+This run (06:45) added 4 improvements, each tested in headless Chromium (no console errors; walking, getting into a car and driving off, the worker on 6 heaps, the lights at 13:00, 16:54 and 21:00, two ice chairs on the canal) and pushed straight to `main`:
+- The leaf blower worker no longer stands behind the tree trunk.
+- In winter there are fairy lights across the shopping streets of the centre.
+- Parents push toddlers on wooden ice chairs on the frozen canals.
+- Days are short in winter and long in summer, like in real Emmeloord.
+
+Screenshots in the project files under `runs/`: `2026-11-25b-festive-lights.png` (Lange Nering at 21:00 with loops of warm lights over the street), `2026-11-25b-winter-dusk-lights.png` (the same street at 16:54 on a winter afternoon, pink dusk sky), `2026-11-25b-ice-chair.png` (a parent in a woolly hat pushing a toddler on a red-brown ice chair).
+
+Problems: none found. Note that the fixed screenshot spot `deel-dusk` (19:36) in `tools/shots.js` is now night in autumn and winter because the sun sets earlier; use about 18:00 (autumn) or 16:40 (winter) for a dusk shot. Conkers could not be added: the OSM trees round Emmeloord have no species tags, so there are no real chestnut trees to place them under.
+
+### Next ideas (for the next run)
+1. Let the player rent and push an ice chair at the skate rack (or sit in one and be pushed).
+2. Some snow on the festive light wires and the shop awnings after a snowfall.
+3. A late-night/early-morning winter mood: frost on car windscreens before sunrise (scrape it off before driving).
+4. Performance: measure draw calls per object at De Deel and merge what is loose.
+5. Check the times of the school run and the skaters against the new short winter days.
+
 ## 2026-11-25 (run 01:17)
 
 ### Plan (prioritized)

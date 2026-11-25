@@ -1641,29 +1641,48 @@ function spawnSkater(k,px,pz){
     const a=skateAxis(w);k.x=x;k.z=z;k.h=Math.atan2(Math.cos(a),Math.sin(a))+(rng()<0.5?Math.PI:0);k.on=true;k.m.g.visible=true;k.phase=rng()*6;return true;}
   return false;
 }
+/* ice chairs ("ijsstoel"): a wooden chair on two runners with a push bar at the back. A parent on skates pushes a toddler
+   along the canal on it, among the other skaters. */
+function makeIceChair(){
+  const L=[];
+  for(const x of [-0.22,0.22]){L.push([OMA_BOX,TM(x,0.025,0.02,0.035,0.035,1.05)]);L.push([OMA_BOX,TM(x,0.08,0.58,0.035,0.035,0.16,-0.7)]);
+    for(const z of [-0.18,0.16])L.push([OMA_BOX,TM(x,0.18,z,0.04,0.3,0.04)]);                                                   // legs
+    L.push([OMA_BOX,TM(x,0.62,-0.36,0.04,0.04,0.66,-0.95)]);}                    // push bar uprights
+  L.push([OMA_BOX,TM(0,0.34,0,0.48,0.045,0.42)]);L.push([OMA_BOX,TM(0,0.56,-0.2,0.48,0.4,0.035)]);                            // seat, back
+  for(const x of [-0.23,0.23])L.push([OMA_BOX,TM(x,0.44,0,0.03,0.16,0.4)]);                                                    // sides
+  L.push([OMA_BOX,TM(0,0.9,-0.5,0.56,0.045,0.045)]);                                                                           // handle bar
+  const g=new THREE.Group(),ch=new THREE.Mesh(mergeGeo(L),Lam({color:pick(['#8a5a32','#a0522d','#6e4a2a','#b5793e']),roughness:0.7}));ch.castShadow=true;g.add(ch);
+  const k=makePerson({shirt:pick(['#ffd23f','#f28fad','#3fa7d6','#7ac74f','#ff7b1c','#9b5de5']),pants:pick(['#3a5a8a','#2b3a55','#5a3a5a']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1});
+  scene.remove(k.g);g.add(k.g);const sc=0.44;k.g.scale.setScalar(sc);k.sc=sc;k.kid=1.3;k.pose='sit';k.g.position.set(0,0.37-0.86*sc,-0.03);k.la.rotation.x=k.ra.rotation.x=-1.1;
+  if(k.rig)rigPose(k,'sit');g.visible=false;scene.add(g);return g;
+}
 function updateSkaters(dt,t){
   const h=(gameMin%1440)/60,day=ICE&&started&&h>=8.5&&h<19&&RAIN<0.4,px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
   if(ZOPIE.m&&ICE&&Math.hypot(ZOPIE.x-px,ZOPIE.z-pz)<90){const m=ZOPIE.m;m.g.rotation.y=Math.PI+Math.sin(t*0.4)*0.3;animPerson(m,t*3,0);}
-  if(!day){for(const k of SKATE.list)if(k.on){k.on=false;k.m.g.visible=false;}return;}
+  if(!day){for(const k of SKATE.list)if(k.on){k.on=false;k.m.g.visible=false;if(k.chair)k.chair.visible=false;}return;}
   if(!SKATE.made){SKATE.made=true;for(let i=0;i<7;i++){const kid=i>=5,m=makePerson({shirt:pick(['#b8322c','#2e4a7a','#e0b43a','#3d6b4a','#ff7b1c','#2b2b30','#7a8ea6']),pants:pick(['#1e2a38','#2b2b30','#3a3a44']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1});
-    if(kid){m.kid=true;m.sc=0.7;m.g.scale.setScalar(0.7);}m.g.visible=false;SKATE.list.push({m,on:false,x:0,z:0,h:0,phase:0,v:kid?3.2:rand(4,5.6),back:!kid&&rng()<0.5,sway:0});}}
+    if(kid){m.kid=true;m.sc=0.7;m.g.scale.setScalar(0.7);}m.g.visible=false;SKATE.list.push({m,on:false,x:0,z:0,h:0,phase:0,v:kid?3.2:rand(4,5.6),back:!kid&&rng()<0.5,sway:0});}
+    // two parents pushing a toddler on an ice chair
+    for(let i=0;i<2;i++){const m=makePerson({shirt:pick(['#2e4a7a','#7a2e3a','#3d6b4a','#2b2b30','#6b4f3a']),pants:pick(['#1e2a38','#2b2b30']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1});m.g.visible=false;
+      SKATE.list.push({m,on:false,x:0,z:0,h:0,phase:0,v:rand(2.3,2.9),push:true,lean:0.42,chair:makeIceChair(),sway:0});}}
   SKATE.t-=dt;
   for(const k of SKATE.list){
     if(!k.on){if(SKATE.t<=0){SKATE.t=0.5;spawnSkater(k,px,pz);}continue;}
-    if(Math.hypot(k.x-px,k.z-pz)>230){k.on=false;k.m.g.visible=false;continue;}
+    if(Math.hypot(k.x-px,k.z-pz)>230){k.on=false;k.m.g.visible=false;if(k.chair)k.chair.visible=false;continue;}
     // glide on, and turn round before the bank or a bridge
-    const ax=k.x+Math.sin(k.h)*4,az=k.z+Math.cos(k.h)*4;
+    const la=k.chair?6:4,ax=k.x+Math.sin(k.h)*la,az=k.z+Math.cos(k.h)*la;
     if(!onIce(ax,az)){k.h+=dt*1.6;k.turning=true;}else k.turning=false;
     // now and then a skater loses it: a slide on their back, a moment on the ice, then up again
-    if(!(k.fall>0)&&!k.turning&&rng()<dt*0.0025){k.fall=2.6;k.v0=k.v;const d=Math.hypot(k.x-px,k.z-pz);if(AC&&!muted&&d<30)noiseHit(AC.currentTime,0.3,0.15*(1-d/30),140,'lowpass',1);}
+    if(!(k.fall>0)&&!k.turning&&!k.chair&&rng()<dt*0.0025){k.fall=2.6;k.v0=k.v;const d=Math.hypot(k.x-px,k.z-pz);if(AC&&!muted&&d<30)noiseHit(AC.currentTime,0.3,0.15*(1-d/30),140,'lowpass',1);}
     let fa=0;if(k.fall>0){k.fall-=dt;k.v*=Math.exp(-2*dt);const tf=2.6-k.fall;fa=tf<0.35?tf/0.35:k.fall<0.8?Math.max(0,k.fall/0.8):1;fa=fa*fa*(3-2*fa);if(k.fall<=0){k.fall=0;k.v=k.v0;}}
     k.x+=Math.sin(k.h)*k.v*dt;k.z+=Math.cos(k.h)*k.v*dt;
     // one stride every ~1.6 s: a slow walk cycle while the body sways from foot to foot
     if(!(k.fall>0))k.phase+=dt*k.v*0.55;const m=k.m;m.skate=k;animPerson(m,k.phase,k.fall>0?0:1);
     // the scrape of the blades on every push-off, when you are close
     const st=Math.floor(k.phase*1.4/Math.PI);if(st!==k.st){k.st=st;const d=Math.hypot(k.x-px,k.z-pz);if(AC&&!muted&&d<28)noiseHit(AC.currentTime,0.42,0.05*(1-d/28),3200+rng()*900,'bandpass',0.9);}
-    m.g.position.set(k.x+Math.cos(k.h)*Math.sin(k.phase*1.4)*0.25,WATER_Y+0.09,k.z-Math.sin(k.h)*Math.sin(k.phase*1.4)*0.25);
-    m.g.rotation.set(0,k.h,0);m.g.rotation.order='YXZ';m.g.rotation.z=Math.sin(k.phase*1.4)*0.12*(1-fa);m.g.rotation.x=-1.35*fa;if(fa)m.g.position.y+=0.1*fa;
+    const sw=k.chair?0.07:0.25;m.g.position.set(k.x+Math.cos(k.h)*Math.sin(k.phase*1.4)*sw,WATER_Y+0.09,k.z-Math.sin(k.h)*Math.sin(k.phase*1.4)*sw);
+    m.g.rotation.set(0,k.h,0);m.g.rotation.order='YXZ';m.g.rotation.z=Math.sin(k.phase*1.4)*(k.chair?0.05:0.12)*(1-fa);
+    if(k.chair){const c=k.chair;c.visible=m.g.visible;c.position.set(k.x+Math.sin(k.h)*0.98,WATER_Y+0.06,k.z+Math.cos(k.h)*0.98);c.rotation.y=k.h;}m.g.rotation.x=-1.35*fa;if(fa)m.g.position.y+=0.1*fa;
   }
 }
 /* thin ice: next to a bridge the ice stays thin (the water under a bridge freezes last). Dark patches show where it is;
@@ -2627,6 +2646,10 @@ function rigEat(m){
 // skating pose, applied right after the animation update: lean forward, and some skate with their hands behind their back
 function rigSkate(m,k){
   const B=rigBones(m.rig),r=m.rig;if(B.Abdomen){if(r.ab0===undefined)r.ab0=B.Abdomen.rotation.x;B.Abdomen.rotation.x=r.ab0+(k.lean??0.32);r.skAb=true;}
+  // pushing an ice chair: both arms reach forward and down to the bar
+  if(k.push&&B.UpperArmL&&B.UpperArmR&&B.LowerArmL&&B.LowerArmR){const fx=Math.sin(k.h),fz=Math.cos(k.h),rx=Math.cos(k.h),rz=-Math.sin(k.h);
+    aimBone(B.UpperArmL,B.LowerArmL,_wd.set(fx*0.55+rx*0.12,-0.8,fz*0.55+rz*0.12).normalize(),1);aimBone(B.UpperArmR,B.LowerArmR,_wd.set(fx*0.55-rx*0.12,-0.8,fz*0.55-rz*0.12).normalize(),1);
+    aimBone(B.LowerArmL,B.WristL||B.PalmL||B.LowerArmL.children[0],_wd.set(fx*0.9,-0.3,fz*0.9).normalize(),1);aimBone(B.LowerArmR,B.WristR||B.PalmR||B.LowerArmR.children[0],_wd.set(fx*0.9,-0.3,fz*0.9).normalize(),1);}
   if(k.back&&B.UpperArmL&&B.UpperArmR&&B.LowerArmL&&B.LowerArmR){const fx=Math.sin(k.h),fz=Math.cos(k.h),rx=Math.cos(k.h),rz=-Math.sin(k.h);
     aimBone(B.UpperArmL,B.LowerArmL,_wd.set(-fx*0.6+rx*0.1,-0.8,-fz*0.6+rz*0.1).normalize(),1);aimBone(B.UpperArmR,B.LowerArmR,_wd.set(-fx*0.6-rx*0.1,-0.8,-fz*0.6-rz*0.1).normalize(),1);
     aimBone(B.LowerArmL,B.WristL||B.PalmL||B.LowerArmL.children[0],_wd.set(rx*0.6-fx*0.6,0.15,rz*0.6-fz*0.6).normalize(),1);

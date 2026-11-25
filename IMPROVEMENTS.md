@@ -13,6 +13,33 @@ No open bugs from the 06:45 run. Its "next ideas" list is the base:
 4. **Snow on the festive light wires and shop awnings** after a snowfall (graphics).
 5. **Performance**: measure draw calls at De Deel and merge what is loose, if time allows.
 
+### Done
+- **Skaters follow daylight** (bug): skaters and the ice-chair parents now come out just after sunrise and go home about 35 minutes after sunset (winter: about 08:45 to 17:25) instead of skating in the dark until 19:00.
+- **Bike lights** (graphics): in the dark every cyclist (and the courier bike) has a white front lamp with a small pool of light on the road, and a red rear light. One Points mesh and one instanced mesh for all bikes (2 draw calls). The winter school run before sunrise now looks right.
+- **Frosted windscreens** (gameplay): on clear winter nights and mornings (about 20:00 until 1.5 h after sunrise) parked cars, including the instanced ones in the bays, have frosted windows (crystal texture). Press E at a frozen car to scrape it (2.8 s, scraping sound, ice shavings, arm sweeping, the glass clears gradually) or press E again to jump in and drive half blind until the heater clears the view from the bottom up (about 20 s). A car you drove stays clear for 4 game hours. Achievement "Ice scraper".
+- **Your own ice chair** (gameplay, from the previous run's ideas): with skates on, E at the skate rack rents an ice chair with a toddler (€3); you push it round the frozen canal (arms on the bar). It is handed back at the rack, or automatically when the ice goes or you get in a car. Achievement "Precious cargo" (push it 400 m). 37 achievements now.
+- **Snow on the light wires** (graphics): after a snowfall the fairy-light wires turn white. Shop awnings: there are none in the game (only the market stalls), so nothing to cover.
+- Performance pass skipped this run (no time left after the features).
+
+### Report for Ron
+This run (11:52) added 5 improvements, each tested in headless Chromium (no console errors; walking, getting into a car and driving off, plus a test per feature) and pushed straight to `main`:
+- Skaters go home when it gets dark in winter.
+- Bikes have front and rear lights in the dark.
+- On winter mornings parked cars are frozen over: scrape the windscreen with E, or drive off half blind until the heater clears it.
+- You can rent an ice chair with a toddler at the skate rack and push it round the canal.
+- Snow lies on the festive light wires after a snowfall.
+
+Screenshots in the project files under `runs/`: `2026-11-25c-bike-lights.png` (a pupil cycling at 07:54 in the dark with a white lamp, light pool and red rear light), `2026-11-25c-frost-scrape.png` (the hero scraping a purple van on De Deel at 09:36, windscreen half clear, other cars frosted white), `2026-11-25c-frosted-cars.png`, `2026-11-25c-my-ice-chair.png` (the hero on skates pushing a toddler on the frozen canal by the Poldertoren).
+
+Problems: the hero's hands sit a little above the ice chair's push bar (the rig is taller than the NPCs). In the test, `setSnow(1)` at 13:00 left the Lange Nering paving uncovered; snow cover may only show after a real snowfall, worth checking.
+
+### Next ideas (for the next run)
+1. Check the snow cover on paved shopping streets (Lange Nering stayed brick-red with SNOW=1 in a test).
+2. Hero in winter clothes (coat, hat) when it is cold, like the NPCs.
+3. Lower the hero's hands onto the ice-chair bar (aim arms at the bar's world position).
+4. Performance: measure draw calls per object at De Deel and merge what is loose.
+5. Frost on the grass and hedges in the early winter morning (white tint that melts in the sun).
+
 ## 2026-11-25 (run 06:45)
 
 ### Plan (prioritized)

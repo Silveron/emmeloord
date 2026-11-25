@@ -2,6 +2,18 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-25 (run 01:17)
+
+### Plan (prioritized)
+No open bugs except the one the 11:52 run noticed. Its "next ideas" list is the base:
+
+1. **Culvert bridge slab** (bug/graphics): the dark slab on top of small culvert bridges (Rietstraat over the canal); give them a proper deck edge and railing.
+2. **Frost breath** (graphics): small puffs at the mouth of people (and the player) on cold mornings and in winter.
+3. **Street sweeper** (content/gameplay): in autumn a small municipal sweeper drives the streets near you and clears leaf heaps.
+4. **Snowballs and tree crowns** (bug): snowballs fly through crowns; let them hit and shake a bit of snow off.
+5. **Puddles with leaves / conkers** (content): if time allows.
+6. **Performance**: merge loose meshes near De Deel if time allows.
+
 ## 2026-11-24 (run 11:52)
 
 ### Plan (prioritized)

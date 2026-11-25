@@ -4674,12 +4674,64 @@ function makePiles(){
     PILES.list.push({x,z,y:groundY(x,z,0),r:rand(0.7,1.05),h:rand(0.28,0.42),ry:rng()*6,on:true,gone:0});}
   setPiles();
 }
-function setPiles(){const M=PILES.m;let i=0;for(const p of PILES.list){_le.set(0,p.ry,0);_lq.setFromEuler(_le);_lm.compose(_lv.set(p.x,p.y-0.02,p.z),_lq,_ls.set(p.on?p.r:0.001,p.on?p.h:0.001,p.on?p.r*0.8:0.001));M.setMatrixAt(i++,_lm);}M.count=i;M.instanceMatrix.needsUpdate=true;}
+function setPiles(){const M=PILES.m;let i=0;for(const p of PILES.list){_le.set(0,p.ry,0);_lq.setFromEuler(_le);_lm.compose(_lv.set(p.x,p.y-0.02,p.z),_lq,_ls.set(p.on?p.r*(p.k??1):0.001,p.on?p.h*(p.k??1):0.001,p.on?p.r*0.8*(p.k??1):0.001));M.setMatrixAt(i++,_lm);}M.count=i;M.instanceMatrix.needsUpdate=true;}
 function kickPile(p,v){
   p.on=false;p.gone=elapsed;setPiles();PILES.kicked++;if(PILES.kicked===10)ach('leaves');
+  if(!BLOWER.m&&!BLOWER.p&&elapsed>BLOWER.cd&&rng()<0.75){BLOWER.p=p;BLOWER.wait=rand(5,9);}
   const Q=LEAVES;for(let k=0;k<40;k++){const i=Q.bi;Q.bi=Q.bi+1>=Q.N?Q.FLOW:Q.bi+1;const l=Q.L[i];const a=rng()*6.3,sp=rand(0.6,2.2)+v*0.25;
     l.x=p.x+Math.cos(a)*p.r*0.6;l.z=p.z+Math.sin(a)*p.r*0.6;l.y=p.y+rand(0.1,0.35);l.vx=Math.cos(a)*sp;l.vz=Math.sin(a)*sp;l.vy=rand(1.8,3.6)+v*0.12;l.gy=p.y;l.rest=0;l.on=true;l.burst=1;}
   if(AC&&!muted){const t=AC.currentTime,d=Math.hypot(p.x-P.x,p.z-P.z);if(d<40){noiseHit(t,0.6,0.1*(1-d/40),2600,'bandpass',0.6);noiseHit(t+0.1,0.45,0.06*(1-d/40),5200,'highpass',0.5);}}
+}
+/* the leaf blower: kick a heap over and a few seconds later a council worker in a hi-vis jacket walks up with a leaf blower,
+   blows the leaves back together (they swirl in from round about and the heap grows again), maybe grumbles, and walks off */
+const BLOWER=(()=>{const g=new THREE.Group(),M=(c)=>new THREE.MeshStandardMaterial({color:c,roughness:0.6});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.22,0.32),M('#e8701c'));body.position.set(0,0,0);g.add(body);
+  const tank=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.1,0.18),M('#2a2a2a'));tank.position.set(0,0.14,-0.04);g.add(tank);
+  const tube=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.045,0.8,10),M('#3a3a3a'));tube.rotation.x=Math.PI/2+0.55;tube.position.set(0,-0.2,0.42);g.add(tube);
+  g.visible=false;scene.add(g);return {g,m:null,p:null,wait:0,blow:0,cd:0,snd:null,said:false};})();
+const BLOWER_LINES=['Hey! I just raked that!','Not again...','Leave my heaps alone!','Every single day...','Back in a pile you go.'];
+function blowerSound(on){
+  if(!AC||muted){on=false;}
+  const B=BLOWER;
+  if(on&&!B.snd){const t=AC.currentTime,o=AC.createOscillator(),o2=AC.createOscillator(),n=AC.createBufferSource(),f=AC.createBiquadFilter(),nf=AC.createBiquadFilter(),g=AC.createGain();
+    o.type='sawtooth';o.frequency.value=205;o2.type='square';o2.frequency.value=411;n.buffer=NOISE;n.loop=true;
+    f.type='lowpass';f.frequency.value=1500;nf.type='bandpass';nf.frequency.value=1100;nf.Q.value=0.8;
+    const og=AC.createGain();og.gain.value=0.25;o.connect(f);o2.connect(og);og.connect(f);f.connect(g);n.connect(nf);nf.connect(g);g.gain.setValueAtTime(0.0001,t);g.connect(master);
+    o.start(t);o2.start(t);n.start(t);B.snd={o,o2,n,g};}
+  else if(!on&&B.snd){const s=B.snd,t=AC?AC.currentTime:0;try{s.g.gain.cancelScheduledValues(t);s.g.gain.setTargetAtTime(0.0001,t,0.15);s.o.stop(t+0.8);s.o2.stop(t+0.8);s.n.stop(t+0.8);}catch(e){}B.snd=null;}
+}
+function updateBlower(dt){
+  const B=BLOWER;
+  if(B.p&&!B.m){
+    if(SEASON_NOW!=='autumn'){B.p=null;return;}
+    B.wait-=dt;if(B.wait>0)return;
+    // come from about 18 m away, on the side away from the camera if there is room
+    const p=B.p,cp=camera.position;let sx=0,sz=0,ok=false;const a0=Math.atan2(p.x-cp.x,p.z-cp.z);
+    for(let k=0;k<12&&!ok;k++){const a=a0+(k%2?1:-1)*Math.floor((k+1)/2)*0.5,d=rand(15,20);sx=p.x+Math.sin(a)*d;sz=p.z+Math.cos(a)*d;ok=!inWater(sx,sz)&&!blocked(sx,sz,0.5);}
+    if(!ok){B.p=null;return;}
+    const m=makePerson({shirt:'#d6e03a',pants:'#2a3a55',skin:pick(SKINS),hair:pick(HAIRS),noWarm:1});m.g.position.set(sx,groundY(sx,sz),sz);B.m=m;B.said=false;
+    const a=Math.atan2(sx-p.x,sz-p.z),ax=p.x+Math.sin(a)*(p.r+1.3),az=p.z+Math.cos(a)*(p.r+1.3);
+    actor(m,[{walk:1,x:ax,z:az,max:22,spd:1.5},{dur:7,fn:()=>{B.blow=7;p.on=true;p.k=0.05;p.gone=elapsed;setPiles();}},{dur:0.6},{walk:1,x:sx,z:sz,max:22,spd:1.4}]);
+    return;}
+  if(!B.m)return;
+  const m=B.m,live=ACTORS.some(a=>a.m===m);
+  if(!live){if(B.p){B.p.k=1;setPiles();}B.m=null;B.p=null;B.g.visible=false;B.blow=0;blowerSound(false);B.cd=elapsed+40;return;}
+  const p=B.p,g=m.g.position;
+  // hold the blower at the right hand, nozzle pointing ahead
+  const Bn=m.rig?rigBones(m.rig):null,hand=Bn&&(Bn.WristR||Bn.PalmR);
+  if(hand){hand.getWorldPosition(_wa);B.g.position.set(_wa.x,_wa.y+0.04,_wa.z);}else B.g.position.set(g.x+Math.sin(m.g.rotation.y+1.3)*0.3,g.y+0.8,g.z+Math.cos(m.g.rotation.y+1.3)*0.3);
+  B.g.rotation.set(0,m.g.rotation.y,0);B.g.visible=m.g.visible!==false;
+  if(B.blow>0&&p){
+    B.blow-=dt;m.g.rotation.y=Math.atan2(p.x-g.x,p.z-g.z)+Math.sin(elapsed*1.3)*0.35;
+    p.k=Math.min(1,0.05+0.95*(1-B.blow/7));setPiles();
+    if(!B.said&&B.blow<6.2&&Math.hypot(g.x-P.x,g.z-P.z)<30){B.said=true;if(rng()<0.6)showBubble({m,x:g.x,z:g.z},pick(BLOWER_LINES));}
+    // leaves swirl in from round the heap
+    const Q=LEAVES;for(let k=0,n=Math.random()<dt*14?2:0;k<n;k++){const i=Q.bi;Q.bi=Q.bi+1>=Q.N?Q.FLOW:Q.bi+1;const l=Q.L[i],a=rng()*6.3,r=rand(2.2,4);
+      l.x=p.x+Math.cos(a)*r;l.z=p.z+Math.sin(a)*r;l.y=p.y+0.05;const sp=r*rand(0.9,1.3);l.vx=-Math.cos(a)*sp+Math.sin(a)*0.8;l.vz=-Math.sin(a)*sp-Math.cos(a)*0.8;l.vy=rand(1.2,2.4);l.gy=p.y;l.rest=0;l.on=true;l.burst=1;}
+    blowerSound(true);
+    if(B.snd){const d=Math.hypot(g.x-camera.position.x,g.z-camera.position.z),v=0.07*Math.max(0,1-d/70)**2,t=AC.currentTime;B.snd.g.gain.setTargetAtTime(v,t,0.1);B.snd.o.frequency.setTargetAtTime(205+Math.sin(elapsed*2.1)*14,t,0.1);}
+    if(B.blow<=0){p.k=1;setPiles();blowerSound(false);}
+  }
 }
 function updateLeaves(dt,t){
   const on=SEASON_NOW==='autumn'&&started,Q=LEAVES,cp=camera.position;
@@ -4768,6 +4820,9 @@ function throwSnowball(){
   else{const d=22;launchBall(sx,sy,sz,P.x+fx*d,(P.gy||0)+1.2+Math.max(-0.3,camPitch*-8+2),P.z+fz*d,17,true);}
 }
 // does a snowball at this spot hit a wall, a tree trunk or a post (colliders only, not the canals)?
+// a snowball (or anything small) inside the crown of a round street tree (crown centre ~8.2 s high, about 4 s wide, 3.9 s tall)
+function crownHit(x,z,y){if(!TREE_GRID)treeGrid();const a=TREE_GRID.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)));if(!a)return false;
+  for(const t of a){const s=t.cs||t.s,dx=(x-t.x)/(2.1*s),dz=(z-t.z)/(2.1*s),dy=(y-8.2*s)/(2.0*s);if(dx*dx+dy*dy+dz*dz<1)return true;}return false;}
 function ballWall(x,z,y){const a=grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)));if(!a)return false;
   for(const c of a){if(c.off||(c.h!==undefined&&y>c.h))continue;
     if(c.r!==undefined){if(y<4&&(x-c.x)**2+(z-c.z)**2<c.r*c.r)return true;}
@@ -4802,6 +4857,7 @@ function updateSnowballs(dt){
     else if(P.mode==='walk'&&Math.hypot(P.x-b.x,P.z-b.z)<0.5&&b.y<(P.gy||0)+1.85&&b.y>(P.gy||0))hit={p:1};
     if(!hit)for(const c of CARS)if(c.g.visible&&Math.abs(c.x-b.x)<2.6&&Math.abs(c.z-b.z)<2.6&&b.y<1.6){for(const [cx,cz] of carCircles(c))if(Math.hypot(cx-b.x,cz-b.z)<1.05){hit={c};break;}if(hit)break;}
     const gy=ICE&&iceDepth(b.x,b.z)>=0?WATER_Y+0.05:groundY(b.x,b.z,0);
+    if(!hit&&b.y>2.5&&crownHit(b.x,b.z,b.y))hit={tr:1};
     if(!hit&&b.y>gy+0.05&&ballWall(b.x,b.z,b.y))hit={w:1};
     if(!hit&&b.y>gy+0.05&&b.life>0)continue;
     snowPuff(b.x,Math.max(b.y,gy+0.05),b.z);scene.remove(b.m);S.list.splice(i,1);
@@ -4810,6 +4866,9 @@ function updateSnowballs(dt){
       if(n.m.kid||rng()<0.35)S.back.push({n,t:rand(0.8,1.5)});}
     else if(hit&&hit.k){S.hits++;if(S.hits===5)ach('snowball');showBubble({x:hit.k.x,z:hit.k.z,m:hit.k.m},pick(['Whoa! Not on the ice!','Hey, I nearly fell!']));}
     else if(hit&&hit.o){if(!BUBBLE.sp.visible&&Math.hypot(hit.o.x-P.x,hit.o.z-P.z)<25&&rng()<0.4)showBubble(hit.o,pick(['Hey!','Missed! Oh...','I will get you!','Haha!']));}
+    else if(hit&&hit.tr){// into a tree crown: a soft thump and a little shower of snow from the branches
+      for(let k=1;k<=3;k++)setTimeout(()=>snowPuff(b.x+(rng()-0.5)*1.2,Math.max(gy+0.3,b.y-k*1.1),b.z+(rng()-0.5)*1.2),k*140);
+      if(AC&&!muted){noiseHit(AC.currentTime,0.12,0.08,400,'lowpass',0.7);noiseHit(AC.currentTime+0.05,0.5,0.03,3000,'highpass',0.5);}}
     else if(hit&&hit.s){if(AC&&!muted)noiseHit(AC.currentTime,0.1,0.1,500,'lowpass',0.7);}
     else if(hit&&hit.c){if(AC&&!muted)noiseHit(AC.currentTime,0.08,0.12,300,'lowpass',1);}
     else if(hit&&hit.p){toast(pick(['<strong>Splat!</strong> Right in the neck.','<strong>Splat!</strong> Got you back.','<strong>Splat!</strong> Snow down your collar.']),1600);}
@@ -6372,7 +6431,7 @@ function frame(now){
     const dT=Math.hypot(px-TOWER.x,pz-TOWER.z);
     if(!towerVisited&&dT<26){towerVisited=true;toast('<strong>Poldertoren</strong> (1959). 65.3 m tall, with a viewing platform at 43.4 m, a carillon of 48 bells and the turning figures at 12 m.',7000);}
     const name=zoneName(px,pz);if(name!==lastLoc){lastLoc=name;$('locName').textContent=name;}
-    updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updatePlaque(px,pz);updateBubble(dt);updateLost(dt);updateEat(dt);updateDrink(dt,t);updateBreath(dt,t);updateSnowballs(dt);updateSnowmen(px,pz);updateLeaves(dt,t);
+    updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updateBlower(dt);updatePlaque(px,pz);updateBubble(dt);updateLost(dt);updateEat(dt);updateDrink(dt,t);updateBreath(dt,t);updateSnowballs(dt);updateSnowmen(px,pz);updateLeaves(dt,t);
     let pr='';
     const kE=TOUCH.on?'Tap: ':'<kbd>E</kbd> ';
     const nj=nearJob(px,pz);
@@ -6431,7 +6490,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

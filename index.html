@@ -1853,8 +1853,27 @@ function layIceRace(x,z,a){
 const SKATES={on:false,said:0};
 function rackSpot(){const g=ZOPIE.g,a=g.rotation.y,c=Math.cos(a),s=Math.sin(a);const lx=2.15,lz=-0.35;return [ZOPIE.x+lx*c+lz*s,ZOPIE.z-lx*s+lz*c];}
 function nearSkates(px,pz){if(!ICE||!ZOPIE.g||!ZOPIE.g.visible||P.mode!=='walk')return false;const [x,z]=rackSpot();return Math.hypot(px-x,pz-z)<1.5;}
+/* the player's own ice chair: with skates on, rent one at the rack (€3) and push a toddler round the frozen canal */
+const MYCHAIR={on:false,g:null,laps:0,dist:0};
+function rentChair(){
+  if(MYCHAIR.on){dropChair();toast('You hand the ice chair back. The little one waves goodbye.',2200);return;}
+  if(cash<3){toast('An ice chair costs €3 to rent.',2000);return;}
+  cash-=3;$('cash').textContent='€'+cash;coinSound();
+  if(!MYCHAIR.g)MYCHAIR.g=makeIceChair();MYCHAIR.on=true;MYCHAIR.dist=0;MYCHAIR.g.visible=true;
+  say('Koek en zopie',pick(['Here you go. She loves going fast, but not too fast!','Hold the bar with both hands and keep it on the ice.','Our youngest. Bring him back before he gets cold!']),4200);
+}
+function dropChair(){MYCHAIR.on=false;if(MYCHAIR.g)MYCHAIR.g.visible=false;if(P.skk)P.skk.push=false;}
+function updateMyChair(dt,moved){
+  if(!MYCHAIR.on)return;
+  if(!SKATES.on||!ICE||P.mode!=='walk'||RIDE){dropChair();return;}
+  if(P.skk)P.skk.push=P.skating,P.skk.lean=P.skating?0.42:0.36;
+  if(P.fall>0)return;   // the chair glides on by itself for a moment while you pick yourself up
+  const g=MYCHAIR.g,fx=Math.sin(P.h),fz=Math.cos(P.h),x=P.x+fx*0.86,z=P.z+fz*0.86;
+  if(moved<3)MYCHAIR.dist+=moved;if(MYCHAIR.dist>400&&!ACH.got.chair)ach('chair');
+  g.position.set(x,P.gy-(P.skating?0.03:0),z);g.rotation.y=P.h;
+}
 function rentSkates(){
-  if(SKATES.on){SKATES.on=false;P.m.skate=null;toast('You hand the skates back.',1800);return;}
+  if(SKATES.on){if(MYCHAIR.on){rentChair();return;}SKATES.on=false;P.m.skate=null;toast('You hand the skates back.',1800);return;}
   if(cash<5){toast('Skates cost €5 to rent.',2000);return;}
   cash-=5;$('cash').textContent='€'+cash;coinSound();SKATES.on=true;ach('skate');
   say('Koek en zopie',pick(['There you are, size 43. Push off with one foot, glide on the other!','Good skates, freshly sharpened. Mind the bridges!','Lean forward and keep your knees bent. Off you go!']),4200);
@@ -5621,6 +5640,7 @@ const ACH_LIST=[
   ['thinice','Wet feet','Go through the thin ice by a bridge'],
   ['snowball','Snowball fight','Hit five people with snowballs'],
   ['leaves','Leaf kicker','Kick through ten heaps of autumn leaves'],
+  ['chair','Precious cargo','Push a toddler 400 m on an ice chair'],
   ['scrape','Ice scraper','Scrape a frozen windscreen on a cold winter morning'],
 ];
 const ACH={got:{},jobs:0,kinds:{},veh:{},km:0};
@@ -5726,7 +5746,7 @@ function action(){
   const px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
   if(nearSnack(px,pz)){buySnack();return;}
   if(nearZopie(px,pz)){buyZopie();return;}
-  if(nearSkates(px,pz)){rentSkates();return;}
+  if(nearSkates(px,pz)){if(SKATES.on&&!MYCHAIR.on&&!MYCHAIR.asked){MYCHAIR.asked=1;rentChair();return;}rentSkates();return;}
   if(nearWheel(px,pz)){startWheelRide();return;}
   if(nearTower(px,pz)){startTowerRide();return;}
   if(nearGarage(px,pz)&&(P.mode==='walk'||Math.abs(P.car.speed)<4)){openGarage();return;}
@@ -5910,6 +5930,7 @@ function walkPlayer(dt){
   animPerson(P.m,P.phase,l>0&&!(P.fall>0)?(P.skating?1:spd>5?1.25:1):0);
   P.gy=groundY(P.x,P.z,P.gy||0);if(ICE){const d=iceDepth(P.x,P.z);if(d>=0)P.gy=iceH(d);}if(sk)P.gy+=0.05;if(THIN.sunk)P.gy=WATER_Y-0.42;P.m.g.position.set(P.x,P.y+P.gy,P.z);P.m.g.rotation.y=P.h;
   P.m.g.rotation.order='YXZ';P.m.g.rotation.z=P.skating&&l>0?Math.sin(P.phase*1.4)*0.1:0;
+  {const mv=Math.hypot(P.x-(P.lcx??P.x),P.z-(P.lcz??P.z));P.lcx=P.x;P.lcz=P.z;updateMyChair(dt,mv);}
   // the fall: tip over backwards fast, lie a moment, then get back up (P.fall runs from 2.2 to 0)
   if(P.fall>0){const t=2.2-P.fall,a=t<0.35?t/0.35:P.fall<0.7?P.fall/0.7:1;P.m.g.rotation.x=-1.35*a*a*(3-2*a);P.m.g.rotation.z=Math.sin(t*3)*0.1*a;P.m.g.position.y+=0.12*a;}
   else P.m.g.rotation.x=0;
@@ -6602,6 +6623,7 @@ function frame(now){
     if(!towerVisited&&dT<26){towerVisited=true;toast('<strong>Poldertoren</strong> (1959). 65.3 m tall, with a viewing platform at 43.4 m, a carillon of 48 bells and the turning figures at 12 m.',7000);}
     const name=zoneName(px,pz);if(name!==lastLoc){lastLoc=name;$('locName').textContent=name;}
     updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updateBlower(dt);updatePlaque(px,pz);updateBubble(dt);updateLost(dt);updateEat(dt);updateDrink(dt,t);updateBreath(dt,t);updateXLights(t);updateBikeLights();updateFrost(dt);updateDefrost(dt);updateSnowballs(dt);updateSnowmen(px,pz);updateLeaves(dt,t);
+    if(MYCHAIR.asked&&!nearSkates(px,pz))MYCHAIR.asked=0;
     let pr='';
     const kE=TOUCH.on?'Tap: ':'<kbd>E</kbd> ';
     const nj=nearJob(px,pz);
@@ -6609,7 +6631,7 @@ function frame(now){
     else if(nearTower(px,pz))pr=kE+'Take the lift up the Poldertoren';
     else if(nearSnack(px,pz))pr=kE+'Buy oliebollen (€3)';
     else if(nearZopie(px,pz))pr=kE+'Buy hot chocolate (€2)';
-    else if(nearSkates(px,pz))pr=kE+(SKATES.on?'Hand the skates back':'Rent skates (€5)');
+    else if(nearSkates(px,pz))pr=kE+(MYCHAIR.on?'Hand the ice chair back':SKATES.on?(MYCHAIR.asked?'Hand the skates back':'Rent an ice chair (€3)'):'Rent skates (€5)');
     else if(nearWheel(px,pz))pr=kE+'Ride the Ferris wheel (€4)';
     else if(nearGarage(px,pz)&&(P.mode==='walk'||Math.abs(P.car.speed)<4))pr=kE+'Open the garage';
     else if(nj&&(P.mode==='walk'||Math.abs(P.car.speed)<8))pr=kE+'Start job: '+nj.name+((nj.lvl||1)>level()?' (level '+nj.lvl+')':'');
@@ -6661,7 +6683,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({FROST,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

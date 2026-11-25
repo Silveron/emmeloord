@@ -43,7 +43,7 @@ Hard crashes into walls, trees or other cars damage the car you drive (the bar u
 
 ## Achievements
 
-36 achievements (scraping a frozen windscreen, first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
+37 achievements (pushing an ice chair, scraping a frozen windscreen, first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
 
 ## Saving
 
@@ -78,6 +78,7 @@ Finishing faster pays more cash. **R** cancels a job.
 - Autumn: leaves flutter down from the street trees round you (more when the wind gusts), and heaps of raked leaves lie under trees along the streets. Walk, cycle or drive through a heap and the leaves fly up with a rustle (they are raked up again later). A council worker with a leaf blower often comes to blow a kicked heap back together.
 - Snow: when snow lies thick, snowmen appear on lawns round town (they melt when it thaws). Throw snowballs with **Q**: people shout, and children and some grown-ups throw one back. Children also have snowball fights of their own by day. Snowballs that go into a tree crown shake a little snow off the branches.
 - Festive lights: in winter, strings of warm white fairy lights hang across the shopping streets of the centre (Lange Nering, Kerksteeg, Smallegang, Luifelsteeg, De Schalm and round de Deel), some with hanging drops. They twinkle softly and glow from dusk.
+- Your own ice chair: with skates on, press **E** at the skate rack again to rent an ice chair (€3) with a toddler in it and push it round the frozen canal. Press **E** at the rack to hand it back.
 - Frosted windscreens: on clear winter nights and mornings (from about 20:00 until an hour and a half after sunrise) parked cars have frost on their windows. Walk up to a frozen car and press **E** to scrape the windscreen (scraping sound, ice shavings), or press **E** again while scraping to get straight in: then you drive half blind until the heater clears the glass from the bottom up (about 20 s). A car you have driven stays clear for a few hours.
 - Cold days: in winter, on autumn mornings and evenings and on early spring mornings you and the people near you breathe out little clouds of mist.
 - Polder weather: rain showers roll in now and then, with grey skies, falling rain and the sound of it.

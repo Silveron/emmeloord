@@ -2,6 +2,17 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-25 (run 11:52)
+
+### Plan (prioritized)
+No open bugs from the 06:45 run. Its "next ideas" list is the base:
+
+1. **Skaters follow daylight** (bug): with the new short winter days the skaters and the koek-en-zopie stall stayed on the ice until 19:00, two hours after dark. They should come out after sunrise and go home a little after sunset.
+2. **Bike lights in the dark** (graphics/realism): the winter school run is now before sunrise, so cyclists (pupils and others) get a glowing white front lamp and red rear light when it is dark.
+3. **Frosted windscreens on winter mornings** (gameplay): before about 10:00 on a cold winter morning parked cars have frost on the glass; the player scrapes the windscreen before driving off (scraping sound), or drives with a frosted view.
+4. **Snow on the festive light wires and shop awnings** after a snowfall (graphics).
+5. **Performance**: measure draw calls at De Deel and merge what is loose, if time allows.
+
 ## 2026-11-25 (run 06:45)
 
 ### Plan (prioritized)

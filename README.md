@@ -80,7 +80,7 @@ Finishing faster pays more cash. **R** cancels a job.
 - Festive lights: in winter, strings of warm white fairy lights hang across the shopping streets of the centre (Lange Nering, Kerksteeg, Smallegang, Luifelsteeg, De Schalm and round de Deel), some with hanging drops. They twinkle softly and glow from dusk.
 - Cold days: in winter, on autumn mornings and evenings and on early spring mornings you and the people near you breathe out little clouds of mist.
 - Polder weather: rain showers roll in now and then, with grey skies, falling rain and the sound of it.
-- A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights.
+- A day and night cycle (one real second is one game minute): sunsets, stars, lit windows, street lamps and headlights. The length of the day follows the season as in Emmeloord: in winter the sun rises at about 08:30 and is down before 17:00 (and stays low, with long shadows), in summer it is light from about 05:30 to 22:00.
 - A canal with a bridge, a park with a pond, and 12 orange polder coins to find.
 - Background music: "Emmeloord, Vrijbaan" (made by Ron with Suno, `music.mp3`), looping quietly under the game sounds from the start menu on. **N** or the pause menu turns it off; the choice is saved.
 

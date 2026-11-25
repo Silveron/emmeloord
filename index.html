@@ -289,7 +289,7 @@ const CL=c=>new THREE.Color(c).convertLinearToSRGB();
 const WHITE=C('#ffffff');
 // game clock in minutes; one real second is one game minute, so a full day takes 24 minutes
 let GAME_DOW=(new Date().getDay()+6)%7;const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-let gameMin=8*60+30,SEASON_SET='auto',SEASON_NOW='summer';
+let gameMin=(calendarSeason()==='winter'?9.5:8.5)*60,SEASON_SET='auto',SEASON_NOW='summer';
 
 /* ---------- renderer ---------- */
 const canvas=$('game');
@@ -6008,16 +6008,19 @@ function updateWeather(dt){
   rainGeo.attributes.position.needsUpdate=true;
 }
 const sstep=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const SUN_TIMES={winter:[8.55,16.85,0.55],spring:[6.6,20.4,0.95],summer:[5.6,21.9,1.15],autumn:[7.7,18.4,0.8]};   // sunrise, sunset, sun height
 function updateDayNight(){
   const h=(gameMin/60)%24;
-  const ang=(h-6.5)/13*Math.PI;           // 0 at 06:30, PI at 19:30
+  // sunrise and sunset follow the season (Emmeloord: about 08:45-16:35 at midwinter, 05:15-22:05 at midsummer; these are season averages)
+  const [R,S,K]=SUN_TIMES[SEASON_NOW]||SUN_TIMES.spring;
+  const ang=h>=R&&h<=S?(h-R)/(S-R)*Math.PI:Math.PI+(((h-S)%24+24)%24)/(24-(S-R))*Math.PI;   // 0 at sunrise, PI at sunset, 2PI at the next sunrise
   const elev=Math.sin(ang);
   const day=sstep(-0.12,0.22,elev);
-  const dusk=Math.exp(-Math.pow(elev/0.18,2))*(h>4&&h<22?1:0);
+  const dusk=Math.exp(-Math.pow(elev/0.18,2))*(h>R-2.5&&h<S+2.5?1:0);
   NIGHT=1-day;
   // sun (or moon) direction: rises in the east (+x), sets in the west
   const az=ang;
-  if(elev>-0.12)SUN_OFF.set(Math.cos(az)*130,Math.max(25,elev*150),45);
+  if(elev>-0.12)SUN_OFF.set(Math.cos(az)*130,Math.max(25,elev*150*K),45);
   else{const ma=ang-Math.PI;SUN_OFF.set(Math.cos(ma)*110,Math.max(40,Math.sin(ma)*140),-40);}
   const c1=DN.c1,c2=DN.c2;
   c1.copy(DN.topNight).lerp(DN.topDay,day).lerp(DN.topDusk,dusk*0.6);skyMat.uniforms.top.value.copy(c1);

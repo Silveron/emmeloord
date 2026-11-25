@@ -14,6 +14,31 @@ No open bugs except the one the 11:52 run noticed. Its "next ideas" list is the 
 5. **Puddles with leaves / conkers** (content): if time allows.
 6. **Performance**: merge loose meshes near De Deel if time allows.
 
+### Done
+- **Black embankments by culvert bridges** (bug/graphics): the "dark slab" was two things. The grass embankments on the raised culvert bridges were nearly black, because the grass photo tint was multiplied once per map tile when several tile meshes share one material (the embankment material got it dozens of times). `applyPhotoTextures` now treats each material once (the last slot for a material still wins, as before). The railing was one solid 1 m dark plate; it is now an open railing with a top, middle and bottom rail and posts about every 1.6 m.
+- **Frost breath** (graphics): on cold days (all winter, autumn before 10:00 and after 18:00 with a fainter breath around those hours, spring before 08:00) you and the people within 18 m of the camera breathe out small clouds of mist every 3 to 4 s (faster when sprinting or skating). One Points mesh with a soft-sprite shader, 160 puffs at most; darker at night.
+- **Leaf blower worker** (content/sound): kick a heap of leaves over and a few seconds later (3 in 4 times, at most once every 40 s) a council worker in a yellow hi-vis jacket walks up from about 18 m away with a leaf blower. For 7 s the leaves swirl in from round about while the heap grows back, with a procedural two-stroke whine that fades with distance; sometimes they grumble ("Not again..."). Then they walk off.
+- **Snowballs and tree crowns** (bug): snowballs now stop in the crown of a round street tree, with a soft thump and a little shower of snow falling from the branches.
+- **README** updated (frost breath, leaf blower, tree crowns).
+
+### Report for Ron
+This run (01:17) added 4 improvements, each tested in headless Chromium (no console errors; walking, the bridge from two sides, frost breath at 08:12 in winter, a kicked heap with the worker blowing it back, a snowball into a tree crown) and pushed straight to `main`:
+- The black wedges and dark slab at the small culvert bridges (Rietstraat) are gone: the grass beside them is green again and the bridges have open railings.
+- Frost breath on cold days for you and the people round you.
+- A council worker with a leaf blower comes to tidy up a heap you kicked over.
+- Snowballs no longer fly through tree crowns.
+
+Screenshots in the project files under `runs/`: `2026-11-25-culvert-bridge.png` (the Rietstraat culvert bridge with green banks and an open blue railing), `2026-11-25-frost-breath.png` (the player at De Deel on a winter morning with a small puff of mist at the mouth), `2026-11-25-leaf-blower.png` (a worker in a yellow jacket by a tree, leaves swirling round the heap, bubble "Not again...").
+
+Problems: the worker sometimes stands behind the tree trunk while blowing. The bug with the grass tint may have darkened other shared grass materials in the past too; they all look normal now. The session restarted once mid-run, no work was lost.
+
+### Next ideas (for the next run)
+1. Leaf blower polish: keep the worker on the open side of the heap (away from the trunk) and point the nozzle at the heap.
+2. Puddles with floating leaves after rain in autumn; conkers (kastanjes) under the chestnut trees to pick up.
+3. Sledge or ice chair ("ijsstoel") on the frozen canal.
+4. Breath for horses/dogs if any, and steam from manholes on cold mornings.
+5. Performance: merge the remaining loose meshes near De Deel (bus stop signs, lamp glow planes).
+
 ## 2026-11-24 (run 11:52)
 
 ### Plan (prioritized)

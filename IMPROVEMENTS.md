@@ -2,6 +2,17 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-25 (run 06:45)
+
+### Plan (prioritized)
+No open bugs except the one the 01:17 run noticed (the leaf blower worker standing behind the tree trunk). Its "next ideas" list is the base:
+
+1. **Leaf blower polish** (bug): the worker blows from the open side of the heap, away from the tree trunk, and the nozzle points at the leaves.
+2. **Festive lights over the shopping streets** (graphics): in winter strings of warm fairy lights hang across the real shopping streets of the centre (OSM street lines), glowing from dusk.
+3. **Ice chairs on the frozen canal** (content): parents push toddlers on wooden ice chairs ("ijsstoel") among the skaters.
+4. Conkers under chestnut trees were checked: the 6,328 OSM trees round Emmeloord carry no genus/species tags, so there is no real place for chestnut trees; skipped.
+5. **Performance**: merge loose meshes near De Deel if time allows.
+
 ## 2026-11-25 (run 01:17)
 
 ### Plan (prioritized)

@@ -2,6 +2,17 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-26 (run 01:17)
+
+### Plan (prioritized)
+No open bugs except the one the 11:52 run found. Its "next ideas" list is the base:
+
+1. **Snow on paved streets** (bug): snow only covered grass and roofs; pavements, klinker streets and the Lange Nering stayed bare. Pavements and brick streets get a full white cover, asphalt roads get grey slush with darker wheel tracks.
+2. **Hoarfrost on the grass** (graphics): on clear winter mornings lawns, verges and roofs are white with frost until it melts in the sun, about two hours after sunrise.
+3. **Hero in winter clothes** (graphics): when it is cold the hero wears a coat, scarf and hat like the NPCs.
+4. **Hero's hands on the ice-chair bar** (bug/polish).
+5. **Performance**: measure draw calls at De Deel and merge what is loose, if time allows.
+
 ## 2026-11-25 (run 11:52)
 
 ### Plan (prioritized)

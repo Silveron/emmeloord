@@ -17,6 +17,32 @@ No open bugs except the dark garage forecourt under snow from the 01:17 run. Its
 - **Snow on separate ground meshes** (bug): the garage forecourt, roundabout ring, platforms, tracks, flower beds and road markings now turn white too (`OVERLAYS` list, every overlay material without snow gets the paving snow). Snow is now mixed in after the vertex colours, so tinted surfaces no longer stay dark.
 - **Green canal banks under snow** (bug, found while testing): grass with green vertex colours (canal banks) stayed green; fixed the same way.
 - **Footprints and tyre tracks** (graphics): walking in snow leaves boot prints every stride (left/right), driving leaves two tyre tracks with tread marks from the rear wheels (one for bikes). They fade over 5 minutes or when the snow melts (`TRACKS`, `addTrack`, `updateTracks`; one instanced mesh of 1400 quads, 1 draw call).
+- **Snow on branches and the Poldertoren** (graphics): the upper sides of the bare street-tree branches, the tower's gallery ledges and its copper roof turn white after a snowfall (`SNOWTOP` list into `snowTop(m,k,lo,hi)`).
+- **Sledges** (content): on snowy winter days three walking parents (people in coats preferred) pull a toddler on a wooden sledge on a rope; the sledge trails behind like a trailer (`SLEDGES`, `makeSledge`, `updateSledges`, `sledgeWeather`). They reuse ordinary passers-by within ~230 m of the camera.
+- **Icicles** (graphics): when snow lies or there is hoarfrost, fringes of icicles grow (40 s) along the eaves of every pitched roof (walls parallel to the ridge, from the building loop: `ICICLE_EDGES`), and melt when it thaws. 84k fringes in 120 m cells, only cells within 170 m of the camera are drawn (`ICICLES`, `updateIcicles`).
+- **Snow crunch** (sound): footsteps crunch in fresh snow.
+- **Gritting lorry** (content): when snow lies, one AI vehicle in traffic becomes the council's orange gritter (plough blade, galvanised salt hopper, spinning spreader, flashing amber beacons) throwing salt grains behind it (`GRITTER`, `updateGritter`; the car's own body is hidden, c.gritter=true).
+- **Draw calls** (performance check): De Deel at noon, winter, 1748 calls without snow vs 1794 with snow and all the new things around (+46, mostly the gritter's separate parts and icicle cells).
+
+### Report for Ron
+This run (06:45) added 7 improvements, all tested in headless Chromium (no console errors; walking, getting into a car and driving, plus a screenshot per feature) and pushed straight to `main`:
+- The garage forecourt, roundabout ring, platforms and road markings now turn white under snow too, and the grassy canal banks no longer stay green.
+- You leave footprints in the snow when walking, and tyre tracks when driving; they fade after about five minutes. Footsteps crunch in the snow.
+- Snow on the bare tree branches and on the Poldertoren's gallery and copper roof.
+- On snowy days parents pull a toddler through town on a wooden sledge.
+- On frosty days icicles hang from the eaves of houses with pitched roofs.
+- An orange gritting lorry with flashing beacons drives round in traffic spreading salt when there is snow (you can borrow it).
+
+Screenshots in the project files under `runs/`: `2026-11-26b-garage-snow.png` (white forecourt), `2026-11-26b-footprints.png` (boot prints behind the hero), `2026-11-26b-tyre-tracks.png` (tyre tracks curving across the snowy canal bank), `2026-11-26b-snowy-branches-tower.png` (De Deel with snowy branches and the tower), `2026-11-26b-sledge.png` (a parent pulling a toddler on a sledge), `2026-11-26b-icicles.png` (icicles along the eaves of a house in Emmelhage), `2026-11-26b-gritter.png` (the gritter on the Urkerweg).
+
+Problems: the sledge parents are ordinary passers-by, so some of them are among the 30% who wear no coat. The gritter is a simple block model and costs about 20 draw calls when in view. No bugs left open.
+
+### Next ideas (for the next run)
+1. Merge the gritter's parts into one or two meshes (draw calls), and let it clear the slush on the road it has passed.
+2. Other cars leave tyre tracks on snowy side streets too; people walking leave footprints.
+3. Performance: a texture atlas for the facade materials, so each town tile is one draw call.
+4. Snow sliding off the copper roof of the Poldertoren / snow falling from trees when you bump them with a car.
+5. Children sledging down a real slope, if OSM shows one in Emmeloord (check first; the town is flat, so maybe a dike or the A6 embankment).
 
 ## 2026-11-26 (run 01:17)
 

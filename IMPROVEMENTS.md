@@ -13,6 +13,11 @@ No open bugs except the dark garage forecourt under snow from the 01:17 run. Its
 4. **Sledging children on the canal banks** when there is snow, and icicles on frosty days (content).
 5. **Performance**: only if time allows.
 
+### Done
+- **Snow on separate ground meshes** (bug): the garage forecourt, roundabout ring, platforms, tracks, flower beds and road markings now turn white too (`OVERLAYS` list, every overlay material without snow gets the paving snow). Snow is now mixed in after the vertex colours, so tinted surfaces no longer stay dark.
+- **Green canal banks under snow** (bug, found while testing): grass with green vertex colours (canal banks) stayed green; fixed the same way.
+- **Footprints and tyre tracks** (graphics): walking in snow leaves boot prints every stride (left/right), driving leaves two tyre tracks with tread marks from the rear wheels (one for bikes). They fade over 5 minutes or when the snow melts (`TRACKS`, `addTrack`, `updateTracks`; one instanced mesh of 1400 quads, 1 draw call).
+
 ## 2026-11-26 (run 01:17)
 
 ### Plan (prioritized)

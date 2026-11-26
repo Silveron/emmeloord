@@ -748,7 +748,7 @@ float cloudShade(){ if(uCloud.z<0.001) return 1.0; vec3 wp=cameraPosition+transp
   return 1.0-uCloud.z*smoothstep(0.5,0.68,n); }
 void main() {`).replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin.replace('getDirectionalLightInfo( directionalLight, directLight );','getDirectionalLightInfo( directionalLight, directLight );\n\t\tdirectLight.color *= cloudShade();'));};
 const Lam=o=>new THREE.MeshStandardMaterial(Object.assign({roughness:0.88,metalness:0,envMapIntensity:0.65},o));
-const OVERLAYS=[],SNOWTOP=[];const overlay=(o,lvl)=>{const m=Lam(Object.assign({polygonOffset:true,polygonOffsetFactor:-lvl,polygonOffsetUnits:-lvl*2},o));m.userData.lvl=lvl;OVERLAYS.push(m);return m;};
+const OVERLAYS=[],SNOWTOP=[],ICICLE_EDGES=[];const overlay=(o,lvl)=>{const m=Lam(Object.assign({polygonOffset:true,polygonOffsetFactor:-lvl,polygonOffsetUnits:-lvl*2},o));m.userData.lvl=lvl;OVERLAYS.push(m);return m;};
 const wallMats=FACADES.map(f=>{const s=makeFacade(f);return Lam({map:s.map,normalMap:s.normalMap,normalScale:new THREE.Vector2(1,1),roughness:f.kind==='office'?0.55:0.9,emissiveMap:makeFacadeGlow(f),emissive:0x000000,vertexColors:true});});
 /* plain wall (no windows) for gables, one 3.4 x 3 m tile */
 const gableMats=FACADES.map(f=>{
@@ -1290,6 +1290,11 @@ AO_TEX.wrapS=AO_TEX.wrapT=THREE.ClampToEdgeWrapping;
         plainGB.quad([[a[0],ph,a[1]],[c[0],ph,c[1]],[c[0]+ox,ph,c[1]+oz],[a[0]+ox,ph,a[1]+oz]],U4,[0,1,0],pc);
       }
     }
+    // eaves of pitched roofs (the walls that run along the ridge) for the icicles on frosty days
+    if(gable>=0||gen){let rx,rz;
+      if(gable>=0){const a=rp[(gable+1)%4],c=rp[(gable+2)%4],L=Math.hypot(c[0]-a[0],c[1]-a[1])||1;rx=(c[0]-a[0])/L;rz=(c[1]-a[1])/L;}else{rx=Math.cos(b.ang);rz=Math.sin(b.ang);}
+      for(let i=0;i<n;i++){if(b.inner.has(i))continue;const a=p[i],c=p[(i+1)%n],dx=c[0]-a[0],dz=c[1]-a[1],L=Math.hypot(dx,dz);
+        if(L>1.5&&Math.abs(dx*rx+dz*rz)/L>0.9)ICICLE_EDGES.push([a[0],a[1],c[0],c[1],dz/L,-dx/L,h]);}}
     if(gable>=0){
       // ridge runs between the midpoints of the two gable ends (edges gable and gable+2)
       const e0=[rp[gable],rp[(gable+1)%4]],e1=[rp[(gable+2)%4],rp[(gable+3)%4]];
@@ -6745,7 +6750,7 @@ function frame(now){
   updateGrass();
   WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6+Math.max(0,Math.sin(t*0.11)*Math.sin(t*0.37+1))*1.6;// gusts come and go
   waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;WATER_U.uWT.value+=dt*(0.6+0.4*WIND.value.y);
-  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateSledges(dt);updateIceRivals(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
+  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateSledges(dt);updateIcicles(dt);updateIceRivals(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
   // clouds drift east and wrap around the camera, so there are clouds wherever you are in town
@@ -6836,6 +6841,28 @@ function snowTop(m,k,lo=0.5,hi=0.85){const prev=m.onBeforeCompile,pk=m.customPro
    sh.fragmentShader='uniform float uSnow,uHoar;varying vec3 vSnN;\n'+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n  { float up=smoothstep('+lo.toFixed(2)+','+hi.toFixed(2)+',vSnN.y); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.92,0.94,0.97),up*clamp(uSnow*1.3,0.0,0.95));\n    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.8,0.85,0.9),up*uHoar*'+k.toFixed(2)+'*(1.0-uSnow)); }');};
   m.needsUpdate=true;}
 for(const m of [plainMat,window.HEDGE_MAT])if(m)snowTop(m,0.45);
+// icicles: on frosty winter days (snow on the roofs, or hoarfrost) fringes of icicles hang from the eaves of pitched roofs.
+// Instanced per 120 m cell; only the cells around the camera are drawn
+const ICICLES=(()=>{
+  const parts=[],cone=new THREE.ConeGeometry(0.03,1,5,1).rotateX(Math.PI).translate(0,-0.5,0);
+  for(const [x,l] of [[-0.5,0.32],[-0.31,0.16],[-0.12,0.48],[0.06,0.11],[0.24,0.27],[0.43,0.2]])parts.push([cone,TM(x,0,0,1+l,l,1+l)]);
+  const geo=mergeGeo(parts),U={value:0};
+  const mat=Lam({color:0xe2f0ff,roughness:0.06,metalness:0.1,transparent:true,opacity:0.82,envMapIntensity:1.7});
+  mat.customProgramCacheKey=()=>'icicle';mat.onBeforeCompile=sh=>{sh.uniforms.uIcic=U;sh.vertexShader='uniform float uIcic;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  transformed.y*=uIcic;');};
+  const CELL=120,cells=new Map(),d=new THREE.Object3D();
+  for(const [ax,az,cx,cz,nx,nz,h] of ICICLE_EDGES){const L=Math.hypot(cx-ax,cz-az),n=Math.floor(L/1.3);
+    for(let i=0;i<n;i++){if(rng()<0.3)continue;const t=(i+0.5+rand(-0.15,0.15))/n,x=ax+(cx-ax)*t+nx*0.22,z=az+(cz-az)*t+nz*0.22,k=Math.floor(x/CELL)+','+Math.floor(z/CELL);
+      if(!cells.has(k))cells.set(k,{x:(Math.floor(x/CELL)+0.5)*CELL,z:(Math.floor(z/CELL)+0.5)*CELL,m:[]});
+      d.position.set(x,h-0.02,z);d.rotation.set(0,Math.atan2(cx-ax,cz-az)+Math.PI/2,0);d.scale.set(rng()<0.5?-1:1,rand(0.5,1.4),1);d.updateMatrix();cells.get(k).m.push(d.matrix.clone());}}
+  const list=[];for(const c of cells.values()){const im=new THREE.InstancedMesh(geo,mat,c.m.length);c.m.forEach((m,i)=>im.setMatrixAt(i,m));im.frustumCulled=false;im.visible=false;scene.add(im);list.push({x:c.x,z:c.z,im});}
+  return {U,list,k:0,n:list.reduce((a,c)=>a+c.im.count,0)};
+})();
+function updateIcicles(dt){
+  const I=ICICLES,tgt=SEASON_NOW==='winter'&&(SNOW>0.3||HOAR>0.2)?1:0;
+  I.k=tgt>I.k?Math.min(tgt,I.k+dt/40):Math.max(tgt,I.k-dt/90);I.U.value=I.k*(0.6+0.4*Math.min(1,SNOW+HOAR));
+  const on=I.k>0.02,cx=camera.position.x,cz=camera.position.z;
+  for(const c of I.list){const v=on&&Math.abs(c.x-cx)<170&&Math.abs(c.z-cz)<170;if(c.im.visible!==v)c.im.visible=v;}
+}
 // snow on the bare branches of the street trees and on the Poldertoren's gallery ledges and copper roof
 for(const [m,k,lo,hi] of SNOWTOP)snowTop(m,k,lo,hi);
 for(let i=0;i<STATIC_PAINT.street;i++)snowTop(STATIC_PAINT[i],0.6);
@@ -6855,7 +6882,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({SLEDGES,updateSledges,sledgeWeather,updateTracks,addTrack,HERO_WARM,heroWarmSet,HOAR_U,hoarTarget,setHoar:v=>{HOAR=v;HOAR_U.value=v;},XLIGHTS,BLIGHT,FROST,MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({ICICLES,updateIcicles,SLEDGES,updateSledges,sledgeWeather,updateTracks,addTrack,HERO_WARM,heroWarmSet,HOAR_U,hoarTarget,setHoar:v=>{HOAR=v;HOAR_U.value=v;},XLIGHTS,BLIGHT,FROST,MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

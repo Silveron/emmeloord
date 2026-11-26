@@ -5248,6 +5248,49 @@ const TRACKS=(()=>{
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.setColorAt(0,new THREE.Color(1,1,1));scene.add(mesh);
   return {N,mesh,born,uo,U,i:0,t:0,ph:null,w:{},n:0,d:new THREE.Object3D(),col:[new THREE.Color(0x7a879e),new THREE.Color(0x7c838d)]};
 })();
+/* ---------- the gritter: when snow lies, one of the vehicles in traffic is the council's orange gritting lorry, amber beacons flashing,
+   throwing a fan of salt onto the road behind it ---------- */
+const GRITTER=(()=>{
+  const g=new THREE.Group(),or=Lam({color:'#f07a12',roughness:0.55}),dk=Lam({color:'#2a2c30',roughness:0.7}),gl=Lam({color:'#1d2a33',roughness:0.15,metalness:0.3}),yl=Lam({color:'#e8c21a',roughness:0.6});
+  const box=(m,w,h,l,x,y,z,rx=0)=>{const b=new THREE.Mesh(UNIT,m);b.scale.set(w,h,l);b.position.set(x,y,z);b.rotation.x=rx;b.castShadow=true;g.add(b);return b;};
+  box(dk,1.9,0.35,5.2,0,0.62,-0.2);                                  // chassis
+  box(or,2.05,1.55,1.55,0,1.55,1.55);box(gl,1.9,0.62,0.04,0,1.95,2.33);  // cab and windscreen
+  for(const sx of [-1,1])box(gl,0.04,0.55,1.0,sx*1.03,1.95,1.6);
+  const st=Lam({color:'#a3aab0',roughness:0.45,metalness:0.5});box(st,1.95,1.2,2.6,0,1.5,-0.95);box(yl,2.0,0.14,2.64,0,2.15,-0.95);   // galvanised salt hopper with a yellow rim
+  box(dk,0.5,0.35,0.5,0,0.85,-2.55);                                  // spreader chute
+  const disc=box(dk,0.75,0.05,0.75,0,0.55,-2.7);
+  // a yellow plough blade in front
+  box(yl,2.5,0.7,0.12,0,0.5,3.0,-0.35);for(let i=0;i<5;i++)box(dk,0.36,0.6,0.13,-1+i*0.5,0.5,3.01,-0.35).scale.x=0.22;
+  const bm=new THREE.MeshBasicMaterial({color:0xffa31a}),bk=new THREE.MeshBasicMaterial({color:0x5a3a10}),beacons=[];
+  for(const sx of [-0.7,0.7]){const b=new THREE.Mesh(UNIT,bk);b.scale.set(0.22,0.2,0.22);b.position.set(sx,2.42,1.55);g.add(b);beacons.push(b);}
+  for(const sx of [-0.8,0.8]){const b=new THREE.Mesh(UNIT,bk);b.scale.set(0.18,0.18,0.18);b.position.set(sx,2.42,-2.2);g.add(b);beacons.push(b);}
+  g.visible=false;
+  // salt: little grey-white grains flung out sideways and back from the spinning disc
+  const N=160,pos=new Float32Array(N*3).fill(-999),vel=new Float32Array(N*3),life=new Float32Array(N);
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const pts=new THREE.Points(geo,new THREE.PointsMaterial({color:0xe8ecf0,size:0.1,sizeAttenuation:true}));pts.frustumCulled=false;pts.visible=false;scene.add(pts);
+  return {g,beacons,bm,bk,disc,pts,pos,vel,life,N,i:0,c:null,t:0};
+})();
+function updateGritter(dt){
+  const G=GRITTER,on=started&&SEASON_NOW==='winter'&&(SNOW>0.3||SNOWING&&RAIN>0.3);
+  if(!on){if(G.c){G.c.body.visible=true;G.c.gritter=false;G.c=null;G.g.visible=false;G.g.removeFromParent();}G.pts.visible=false;return;}
+  if(!G.c||(!G.c.ai&&G.c!==P.car)){if(G.c){G.c.body.visible=true;G.c.gritter=false;G.c=null;G.g.removeFromParent();}
+    const cx=camera.position.x,cz=camera.position.z,c=CARS.find(c=>c.ai&&!c.police&&!c.rival&&!c.bus&&!c.veh&&!c.taxi&&Math.hypot(c.x-cx,c.z-cz)>150);
+    if(!c)return;G.c=c;c.gritter=true;c.body.visible=false;c.g.add(G.g);G.g.visible=true;}
+  const c=G.c;G.t+=dt;
+  // beacons flash in turn
+  const ph=Math.floor(G.t*3)%2;G.beacons.forEach((b,i)=>{b.material=(i%2)===ph?G.bm:G.bk;});
+  G.disc.rotation.y+=dt*18;
+  // salt grains: emit while moving and near enough to see
+  const near=Math.hypot(c.x-camera.position.x,c.z-camera.position.z)<120,sp=Math.abs(c.speed);G.pts.visible=near;
+  if(near&&sp>1){const n=Math.min(8,Math.ceil(dt*90)),fx=Math.sin(c.h),fz=Math.cos(c.h),rx=Math.cos(c.h),rz=-Math.sin(c.h);
+    for(let k=0;k<n;k++){const i=G.i;G.i=(i+1)%G.N;const bx=c.x-fx*2.7,bz=c.z-fz*2.7,a=(Math.random()-0.5)*2.6,v=rand(3,6);
+      G.pos[i*3]=bx;G.pos[i*3+1]=0.55+(c.y||0);G.pos[i*3+2]=bz;
+      G.vel[i*3]=fx*c.speed*0.85+(rx*Math.sin(a)-fx*Math.cos(a)*0.6)*v;G.vel[i*3+1]=rand(0.5,1.6);G.vel[i*3+2]=fz*c.speed*0.85+(rz*Math.sin(a)-fz*Math.cos(a)*0.6)*v;G.life[i]=0.6;}}
+  if(near){for(let i=0;i<G.N;i++){if(G.life[i]<=0)continue;G.life[i]-=dt;const j=i*3;G.vel[j+1]-=9.8*dt;G.pos[j]+=G.vel[j]*dt;G.pos[j+1]+=G.vel[j+1]*dt;G.pos[j+2]+=G.vel[j+2]*dt;
+    if(G.pos[j+1]<0.05||G.life[i]<=0){G.life[i]=0;G.pos[j+1]=-999;}}
+    G.pts.geometry.attributes.position.needsUpdate=true;}
+}
 const _tw=new THREE.Vector3();
 function trackOK(x,z){return SNOW>0.3&&!inWater(x,z);}
 function addTrack(x,y,z,h,w,l,kind){const T=TRACKS,i=T.i;T.i=(i+1)%T.N;T.n=Math.min(T.N,T.n+1);
@@ -6751,7 +6794,7 @@ function frame(now){
   updateGrass();
   WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6+Math.max(0,Math.sin(t*0.11)*Math.sin(t*0.37+1))*1.6;// gusts come and go
   waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;WATER_U.uWT.value+=dt*(0.6+0.4*WIND.value.y);
-  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateSledges(dt);updateIcicles(dt);updateIceRivals(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
+  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateSledges(dt);updateIcicles(dt);updateGritter(dt);updateIceRivals(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
   // clouds drift east and wrap around the camera, so there are clouds wherever you are in town
@@ -6883,7 +6926,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({ICICLES,updateIcicles,SLEDGES,updateSledges,sledgeWeather,updateTracks,addTrack,HERO_WARM,heroWarmSet,HOAR_U,hoarTarget,setHoar:v=>{HOAR=v;HOAR_U.value=v;},XLIGHTS,BLIGHT,FROST,MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({GRITTER,updateGritter,updateIcicles,SLEDGES,updateSledges,sledgeWeather,updateTracks,addTrack,HERO_WARM,heroWarmSet,HOAR_U,hoarTarget,setHoar:v=>{HOAR=v;HOAR_U.value=v;},XLIGHTS,BLIGHT,FROST,MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

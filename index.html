@@ -5545,7 +5545,8 @@ function updateAudio(dt,px,pz){
   wind.g.gain.setTargetAtTime((inTown?0.012:0.035)+Math.min(0.05,sp*0.0016),t,0.4);
   wind.f.frequency.setTargetAtTime(300+sp*14,t,0.3);
   // footsteps
-  if(!drv&&P.y<=0.001){const ph=Math.floor(P.phase/Math.PI);if(ph!==stepPhase){stepPhase=ph;noiseHit(t,0.07,0.05,onPed(px,pz,0)||onRoad(px,pz,0)?1400:600,'lowpass');}}
+  if(!drv&&P.y<=0.001){const ph=Math.floor(P.phase/Math.PI);if(ph!==stepPhase){stepPhase=ph;if(SNOW>0.3&&!inWater(px,pz)){noiseHit(t,0.16,0.045*Math.min(1,SNOW*1.4),1900+Math.random()*700,'bandpass',0.7);noiseHit(t+0.03,0.1,0.03,420,'lowpass');}   // crunch of fresh snow
+    else noiseHit(t,0.07,0.05,onPed(px,pz,0)||onRoad(px,pz,0)?1400:600,'lowpass');}}
   // birds by day (not on the ring road), crickets at night outside the centre
   birdT-=dt;cricketT-=dt;
   if(NIGHT<0.4&&RAIN<0.3&&birdT<0){birdT=rand(1.5,6);const f=rand(2200,3600),n=randInt(2,5);for(let i=0;i<n;i++)chirp(t+i*0.11,f,f*rand(1.15,1.4),0.08,0.025);}

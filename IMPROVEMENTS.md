@@ -2,6 +2,19 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-26 (run 11:52)
+
+### Plan (prioritized)
+No open bugs. Based on the 06:45 run's "next ideas":
+
+1. **Gritter draw calls** (performance): merge its ~22 parts into a few meshes.
+2. **Other people leave tracks too** (graphics): AI cars and bikes leave tyre tracks and passers-by leave footprints in fresh snow, near the camera only.
+3. **Snow falls off trees** (graphics/gameplay): bump a snowy tree with the car and a puff of snow drops from its branches.
+4. **Snow sliding off the Poldertoren roof** or a real sledging slope (content), if time allows.
+
+### Done
+- **Gritter merged** (performance): one vertex-coloured body mesh plus glass, spreader disc and two beacon pairs: 5 draw calls instead of about 22.
+
 ## 2026-11-26 (run 06:45)
 
 ### Plan (prioritized)

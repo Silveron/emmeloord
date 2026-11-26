@@ -13,6 +13,34 @@ No open bugs except the one the 11:52 run found. Its "next ideas" list is the ba
 4. **Hero's hands on the ice-chair bar** (bug/polish).
 5. **Performance**: measure draw calls at De Deel and merge what is loose, if time allows.
 
+### Done
+- **Snow on the paving** (bug): after a snowfall pavements, footpaths and klinker streets (Lange Nering, Kettingplein) turn white with trodden grey patches; asphalt roads and cycle paths get patchy grey slush. Done in the shader of every paved material (world-position noise), no extra draw calls.
+- **Hoarfrost** (graphics): on clear winter nights (from about 1 h after sunset) and mornings the lawns, verges, roofs and the 3D grass blades turn frosty white; it melts over the first 2.2 hours after sunrise (`HOAR`, `hoarTarget()`, `HOAR_U`).
+- **Hero in winter clothes** (graphics): in winter the hero's orange top becomes a jacket with long sleeves (the arm triangles of the skin mesh switch to a jacket material, picked by the bone each vertex follows), plus a blue scarf and woolly hat; autumn just the scarf (`HERO_WARM`, `heroWarm`, `heroWarmSet`). A first try with a coat hem looked like a skirt on the hero's build, so it was left out.
+- **Hands on the ice-chair bar** (bug): a two-bone reach (`reachBone`, law of cosines) puts the hero's and the skating parents' hands exactly on the push bar, elbows bent down and out.
+- **Performance** (performance): measured De Deel: 815 draw calls, of which ~230 are the batched town tiles (one per material per tile), 48 people, ~120 objects more than 250 m away. Shop signs and pole flags were drawn up to 1.1 km away and are now distance-culled like the tiles: 815 -> 797 at De Deel. Bigger savings would need merging the tile materials (texture atlas), see next ideas.
+- **Snow on everything facing up** (graphics): hedge tops, benches, bins, shelter roofs, sills, railings and the parked cars in the bays (roof, bonnet, boot) turn white after a snowfall and frosty on clear mornings (`snowTop(m,k)`). Cars that drive about stay clear.
+
+### Report for Ron
+This run (01:17) added 6 improvements, each tested in headless Chromium (no console errors; walking, getting into a car and driving off, plus a screenshot per feature) and pushed straight to `main`:
+- Snow now also lies on pavements and the brick shopping streets; roads get grey slush.
+- On clear winter mornings the grass and roofs are white with hoarfrost until the sun melts it.
+- The hero dresses for winter: jacket with long sleeves, scarf and woolly hat (scarf only in autumn).
+- When you push an ice chair your hands now really hold the bar (the skating parents' too).
+- Snow on hedges, benches and the roofs of parked cars.
+- A small speed-up: shop signs and flags far away are no longer drawn.
+
+Screenshots in the project files under `runs/`: `2026-11-26-snow-lange-nering.png` (the Lange Nering under snow at noon), `2026-11-26-road-slush.png` (slush on the road by the garage), `2026-11-26-hoarfrost.png` (frosty verges at 09:12), `2026-11-26-hero-winter-clothes.png` (hero front, walking, and in summer clothes), `2026-11-26-chair-hands-winter-hero.png` (the hero on skates pushing the ice chair, hands on the bar), `2026-11-26-snow-hedges-deel.png` (De Deel with snowy hedges).
+
+Problems: the hero's woolly hat is a bit big because his hair is voluminous; the garage forecourt stayed dark under snow (it is a separate mesh). No bugs left open.
+
+### Next ideas (for the next run)
+1. Snow on the garage forecourt and other separate ground meshes that still stay dark under snow.
+2. Footprints and tyre tracks in fresh snow behind the player.
+3. Performance: a texture atlas for the facade materials, so each town tile is one draw call instead of one per facade type.
+4. Snow on bare tree branches and on the Poldertoren gallery after a snowfall.
+5. Icicles on gutters on frosty days; children sledging down the canal banks when there is snow.
+
 ## 2026-11-25 (run 11:52)
 
 ### Plan (prioritized)

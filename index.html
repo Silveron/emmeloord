@@ -5251,19 +5251,24 @@ const TRACKS=(()=>{
 /* ---------- the gritter: when snow lies, one of the vehicles in traffic is the council's orange gritting lorry, amber beacons flashing,
    throwing a fan of salt onto the road behind it ---------- */
 const GRITTER=(()=>{
-  const g=new THREE.Group(),or=Lam({color:'#f07a12',roughness:0.55}),dk=Lam({color:'#2a2c30',roughness:0.7}),gl=Lam({color:'#1d2a33',roughness:0.15,metalness:0.3}),yl=Lam({color:'#e8c21a',roughness:0.6});
-  const box=(m,w,h,l,x,y,z,rx=0)=>{const b=new THREE.Mesh(UNIT,m);b.scale.set(w,h,l);b.position.set(x,y,z);b.rotation.x=rx;b.castShadow=true;g.add(b);return b;};
-  box(dk,1.9,0.35,5.2,0,0.62,-0.2);                                  // chassis
-  box(or,2.05,1.55,1.55,0,1.55,1.55);box(gl,1.9,0.62,0.04,0,1.95,2.33);  // cab and windscreen
-  for(const sx of [-1,1])box(gl,0.04,0.55,1.0,sx*1.03,1.95,1.6);
-  const st=Lam({color:'#a3aab0',roughness:0.45,metalness:0.5});box(st,1.95,1.2,2.6,0,1.5,-0.95);box(yl,2.0,0.14,2.64,0,2.15,-0.95);   // galvanised salt hopper with a yellow rim
-  box(dk,0.5,0.35,0.5,0,0.85,-2.55);                                  // spreader chute
-  const disc=box(dk,0.75,0.05,0.75,0,0.55,-2.7);
-  // a yellow plough blade in front
-  box(yl,2.5,0.7,0.12,0,0.5,3.0,-0.35);for(let i=0;i<5;i++)box(dk,0.36,0.6,0.13,-1+i*0.5,0.5,3.01,-0.35).scale.x=0.22;
+  // all fixed parts merged into one vertex-coloured mesh (plus the glass, the spinning disc and two beacon pairs): 5 draw calls instead of ~22
+  const g=new THREE.Group(),parts=[],glass=[],gl=Lam({color:'#1d2a33',roughness:0.15,metalness:0.3}),_o=new THREE.Object3D();
+  const OR='#f07a12',DK='#2a2c30',YL='#e8c21a',ST='#a3aab0';
+  const mtx=(w,h,l,x,y,z,rx=0)=>{_o.position.set(x,y,z);_o.rotation.set(rx,0,0);_o.scale.set(w,h,l);_o.updateMatrix();return _o.matrix.clone();};
+  const box=(col,w,h,l,x,y,z,rx=0)=>{(col?parts:glass).push(col?[UNIT,mtx(w,h,l,x,y,z,rx),col]:[UNIT,mtx(w,h,l,x,y,z,rx)]);};
+  box(DK,1.9,0.35,5.2,0,0.62,-0.2);                                  // chassis
+  box(OR,2.05,1.55,1.55,0,1.55,1.55);box(null,1.9,0.62,0.04,0,1.95,2.33);  // cab and windscreen
+  for(const sx of [-1,1])box(null,0.04,0.55,1.0,sx*1.03,1.95,1.6);
+  box(ST,1.95,1.2,2.6,0,1.5,-0.95);box(YL,2.0,0.14,2.64,0,2.15,-0.95);   // galvanised salt hopper with a yellow rim
+  box(DK,0.5,0.35,0.5,0,0.85,-2.55);                                  // spreader chute
+  // a yellow plough blade in front, with dark rubber strips
+  box(YL,2.5,0.7,0.12,0,0.5,3.0,-0.35);for(let i=0;i<5;i++)box(DK,0.36*0.22,0.6,0.13,-1+i*0.5,0.5,3.01,-0.35);
+  const body=new THREE.Mesh(mergeCol(parts),Lam({vertexColors:true,roughness:0.55,metalness:0.15}));body.castShadow=true;g.add(body);
+  const gm=new THREE.Mesh(mergeGeo(glass),gl);g.add(gm);
+  const disc=new THREE.Mesh(UNIT,Lam({color:DK,roughness:0.7}));disc.scale.set(0.75,0.05,0.75);disc.position.set(0,0.55,-2.7);g.add(disc);
   const bm=new THREE.MeshBasicMaterial({color:0xffa31a}),bk=new THREE.MeshBasicMaterial({color:0x5a3a10}),beacons=[];
-  for(const sx of [-0.7,0.7]){const b=new THREE.Mesh(UNIT,bk);b.scale.set(0.22,0.2,0.22);b.position.set(sx,2.42,1.55);g.add(b);beacons.push(b);}
-  for(const sx of [-0.8,0.8]){const b=new THREE.Mesh(UNIT,bk);b.scale.set(0.18,0.18,0.18);b.position.set(sx,2.42,-2.2);g.add(b);beacons.push(b);}
+  for(const pr of [[[-0.7,1.55,0.22],[0.8,-2.2,0.18]],[[0.7,1.55,0.22],[-0.8,-2.2,0.18]]]){
+    const b=new THREE.Mesh(mergeGeo(pr.map(([x,z,s])=>[UNIT,mtx(s,s*0.9,s,x,2.42,z)])),bk);g.add(b);beacons.push(b);}
   g.visible=false;
   // salt: little grey-white grains flung out sideways and back from the spinning disc
   const N=160,pos=new Float32Array(N*3).fill(-999),vel=new Float32Array(N*3),life=new Float32Array(N);

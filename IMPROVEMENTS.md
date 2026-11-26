@@ -14,6 +14,27 @@ No open bugs. Based on the 06:45 run's "next ideas":
 
 ### Done
 - **Gritter merged** (performance): one vertex-coloured body mesh plus glass, spreader disc and two beacon pairs: 5 draw calls instead of about 22.
+- **Tracks from traffic and passers-by** (graphics): AI cars and buses within 75 m of the camera leave two tyre tracks, cyclists within 55 m one thin track, walking people within 35 m footprints (children smaller ones). They use their own ring of 1800 marks in the same instanced mesh (`TRACKS.MINE`, `addTrack(...,other)`), so your own tracks are never overwritten; still 1 draw call. Checked 8 times a second.
+- **Polderfontein in winter** (bug/graphics, found while testing): the splash fountain on De Deel kept its dark wet floor and white jets in a snowy square. It is now switched off in winter (as such fountains are; not checked for this one), the floor dries out and is an overlay, so it takes the paving snow (`FOUNTAIN.floor`, `FOUNTAIN.off`).
+- **Snow drops off trees** (graphics/gameplay): bump a snowy street tree with the car (over ~9 km/h), or hit its crown with a snowball, and clumps of snow fall from its branches with a soft flump, puffing up where they land; a person standing under it gets a reaction ("Hey! Snow down my neck!"). Each tree once per 6 s (`SNOWDROP`, `treeNear`, `dropSnow`, `updateSnowDrop`).
+
+### Report for Ron
+This run (11:52) added 4 improvements, all tested in headless Chromium (no console errors; walking, getting into a car and driving into a tree, plus a screenshot per feature) and pushed straight to `main`:
+- The gritting lorry now costs 5 draw calls instead of about 22 (same look).
+- Cars, buses, cyclists and people walking near you leave tracks in fresh snow too, not only you.
+- The splash fountain on De Deel is off in winter, and its floor turns white with the snow instead of staying a dark wet patch with white jets.
+- Bump a snowy tree with the car (or hit it with a snowball) and the snow falls off its branches; people underneath complain.
+
+Screenshots in the project files under `runs/`: `2026-11-26c-gritter-merged.png` (the gritter on the Urkerweg from behind), `2026-11-26c-traffic-tracks.png` (Nagelerstraat with a car ahead; the traffic tracks are faint grey lines), `2026-11-26c-fountain-winter.png` (De Deel in snow, fountain covered), `2026-11-26c-tree-snow-drop.png` (snow clumps falling from a tree the orange car just bumped).
+
+Problems: traffic tracks are subtle on roads, because the road slush is already grey. I assumed the fountain is off in winter (usual for such fountains) but did not find a source for this one. No bugs left open.
+
+### Next ideas (for the next run)
+1. Let the gritter leave a dark salted strip (wet, no slush) behind it on the road it has passed.
+2. Snow sliding off the Poldertoren's copper roof now and then on a thaw day.
+3. Performance: a texture atlas for the facade materials, so each town tile is one draw call.
+4. Children sledging down a real slope, if OSM shows one in or near Emmeloord (check first; maybe the A6 embankment or a dike).
+5. A small winter job: shovel the snow off the pavement in front of a shop for a tip.
 
 ## 2026-11-26 (run 06:45)
 

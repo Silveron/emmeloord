@@ -5179,6 +5179,52 @@ function breathe(head,h,str){const B=BREATH;head.getWorldPosition(_wa);const fx=
     B.pos[i*3]=_wa.x+fx*0.13;B.pos[i*3+1]=_wa.y+0.05;B.pos[i*3+2]=_wa.z+fz*0.13;const sp=0.35+k*0.12+rng()*0.1;
     B.vel[i*3]=fx*sp+(rng()-0.5)*0.08;B.vel[i*3+1]=0.03+rng()*0.05;B.vel[i*3+2]=fz*sp+(rng()-0.5)*0.08;
     B.age[i]=-k*0.07;B.life[i]=1.0+rng()*0.5;B.a[i]=0;B.sz[i]=0;B.str=str;}}
+/* ---------- footprints and tyre tracks in fresh snow: one instanced mesh, prints fade after a few minutes or when the snow melts ---------- */
+const TRACKS=(()=>{
+  const N=1400,LIFE=300;
+  const tex=canvasTex(256,128,(c,w,h)=>{c.clearRect(0,0,w,h);c.fillStyle='#fff';
+    // left half: a boot print (sole and heel, toe at the top); right half: a tyre track with tread ribs
+    const el=(x,y,rx,ry)=>{c.beginPath();c.ellipse(x,y,rx,ry,0,0,7);c.fill();};
+    c.filter='blur(3px)';el(64,40,44,36);el(64,103,36,22);
+    c.filter='blur(2px)';c.fillRect(146,0,96,128);c.filter='none';c.fillStyle='rgba(40,44,52,0.5)';for(let y=2;y<128;y+=16){c.fillRect(150,y,38,6);c.fillRect(200,y+8,38,6);}});
+  tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
+  const geo=new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2);
+  const born=new THREE.InstancedBufferAttribute(new Float32Array(N).fill(-1e4),1),uo=new THREE.InstancedBufferAttribute(new Float32Array(N),1);
+  born.setUsage(THREE.DynamicDrawUsage);geo.setAttribute('aBorn',born);geo.setAttribute('aUo',uo);
+  const U={uT:{value:0},uTrk:{value:0}};
+  const mat=Lam({map:tex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-10,polygonOffsetUnits:-20,roughness:0.95});
+  mat.customProgramCacheKey=()=>'tracks';
+  mat.onBeforeCompile=sh=>{sh.uniforms.uT=U.uT;sh.uniforms.uTrk=U.uTrk;
+    sh.vertexShader='attribute float aBorn,aUo;uniform float uT;varying float vFade;\n'+sh.vertexShader.replace('#include <uv_vertex>','#include <uv_vertex>\n  vMapUv.x=vMapUv.x*0.5+aUo;vFade=clamp(1.0-(uT-aBorn)/'+LIFE.toFixed(1)+',0.0,1.0);');
+    sh.fragmentShader='uniform float uTrk;varying float vFade;\n'+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n  diffuseColor.a*=sqrt(vFade)*uTrk;');};
+  const mesh=new THREE.InstancedMesh(geo,mat,N);mesh.frustumCulled=false;mesh.count=0;mesh.renderOrder=1;mesh.receiveShadow=true;
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.setColorAt(0,new THREE.Color(1,1,1));scene.add(mesh);
+  return {N,mesh,born,uo,U,i:0,t:0,ph:null,w:{},n:0,d:new THREE.Object3D(),col:[new THREE.Color(0x7a879e),new THREE.Color(0x7c838d)]};
+})();
+const _tw=new THREE.Vector3();
+function trackOK(x,z){return SNOW>0.3&&!inWater(x,z);}
+function addTrack(x,y,z,h,w,l,kind){const T=TRACKS,i=T.i;T.i=(i+1)%T.N;T.n=Math.min(T.N,T.n+1);
+  T.d.position.set(x,y+0.075,z);T.d.rotation.set(0,h+Math.PI,0);T.d.scale.set(w,1,l);T.d.updateMatrix();
+  T.mesh.setMatrixAt(i,T.d.matrix);T.mesh.setColorAt(i,T.col[kind]);T.born.array[i]=T.t;T.uo.array[i]=kind*0.5;
+  T.mesh.count=T.n;T.mesh.instanceMatrix.needsUpdate=T.mesh.instanceColor.needsUpdate=T.born.needsUpdate=T.uo.needsUpdate=true;}
+function updateTracks(dt){
+  const T=TRACKS;T.t+=dt;T.U.uT.value=T.t;T.U.uTrk.value=clamp((SNOW-0.2)/0.3,0,1);
+  if(SNOW<=0.3){T.ph=null;T.w={};return;}
+  if(P.mode==='walk'&&!RIDE&&P.y<=0.001&&!P.skating&&!(P.fall>0)){
+    // a print every stride (longer when running), left and right in turn
+    const o=T.ph,st=K('ShiftLeft','ShiftRight')||Math.hypot(TOUCH.jx,TOUCH.jy)>0.92?1.0:0.7;
+    if(!o||Math.hypot(P.x-o[0],P.z-o[1])>4)T.ph=[P.x,P.z,1];
+    else if(Math.hypot(P.x-o[0],P.z-o[1])>=st){const sd=o[2],rx=-Math.cos(P.h),rz=Math.sin(P.h),x=P.x+rx*sd*0.13,z=P.z+rz*sd*0.13;
+      if(trackOK(x,z)&&!(ICE&&iceDepth(x,z)>0))addTrack(x,groundY(x,z),z,P.h+(Math.random()-0.5)*0.12,0.2,0.36,0);const d=Math.hypot(P.x-o[0],P.z-o[1]),k=st/d;T.ph=[o[0]+(P.x-o[0])*k,o[1]+(P.z-o[1])*k,-sd];}
+    T.w={};
+  }else if(P.mode==='drive'&&P.car){const c=P.car,bike=!!c.lean;T.ph=null;
+    c.wheels.forEach((w,k)=>{if(c.fronts.includes(w.parent))return;w.getWorldPosition(_tw);const o=T.w[k];
+      if(!o||Math.hypot(_tw.x-o[0],_tw.z-o[1])>6){T.w[k]=[_tw.x,_tw.z];return;}
+      const dx=_tw.x-o[0],dz=_tw.z-o[1],L=Math.hypot(dx,dz);if(L<0.6)return;
+      const mx=(_tw.x+o[0])/2,mz=(_tw.z+o[1])/2;
+      if(trackOK(mx,mz))addTrack(mx,c.y,mz,Math.atan2(dx,dz),bike?0.08:0.22,L+0.04,1);T.w[k]=[_tw.x,_tw.z];});
+  }else{T.ph=null;T.w={};}
+}
 function updateBreath(dt,t){
   const B=BREATH,cold=breathCold()*(RAIN>0.5?0.6:1);
   if(cold<=0&&!B.on)return;
@@ -6677,7 +6723,7 @@ function frame(now){
     const dT=Math.hypot(px-TOWER.x,pz-TOWER.z);
     if(!towerVisited&&dT<26){towerVisited=true;toast('<strong>Poldertoren</strong> (1959). 65.3 m tall, with a viewing platform at 43.4 m, a carillon of 48 bells and the turning figures at 12 m.',7000);}
     const name=zoneName(px,pz);if(name!==lastLoc){lastLoc=name;$('locName').textContent=name;}
-    updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updateBlower(dt);updatePlaque(px,pz);updateBubble(dt);updateLost(dt);updateEat(dt);updateDrink(dt,t);updateBreath(dt,t);updateXLights(t);updateBikeLights();updateFrost(dt);updateDefrost(dt);updateSnowballs(dt);updateSnowmen(px,pz);updateLeaves(dt,t);
+    updateJob(dt,px,pz,t);updateHail(dt,t);updateActors(dt);updateBlower(dt);updatePlaque(px,pz);updateBubble(dt);updateLost(dt);updateEat(dt);updateDrink(dt,t);updateBreath(dt,t);updateTracks(dt);updateXLights(t);updateBikeLights();updateFrost(dt);updateDefrost(dt);updateSnowballs(dt);updateSnowmen(px,pz);updateLeaves(dt,t);
     if(MYCHAIR.asked&&!nearSkates(px,pz))MYCHAIR.asked=0;
     let pr='';
     const kE=TOUCH.on?'Tap: ':'<kbd>E</kbd> ';
@@ -6722,7 +6768,7 @@ const GRASS_BASE=GRASS_MATS.map(m=>m.color.clone());
 for(const m of GRASS_MATS){m.roughness=1;m.envMapIntensity=0.28;}
 // snow cover: blend ground, grass and roofs towards white as SNOW rises
 for(const [m,k,hk] of [...GRASS_MATS.map(m=>[m,0.95,0.62]),[roofMat,0.9,0.5]]){const prev=m.onBeforeCompile;m.onBeforeCompile=(sh,r)=>{if(prev)prev(sh,r);sh.uniforms.uSnow=SNOW_U;sh.uniforms.uHoar=HOAR_U;
-  sh.fragmentShader='uniform float uSnow,uHoar;\n'+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n  { float gn=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.93,0.95,0.98),clamp(uSnow*'+k.toFixed(2)+'*(0.85+0.3*gn),0.0,1.0));\n    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.8,0.86,0.92),clamp(uHoar*'+hk.toFixed(2)+'*(0.7+0.6*gn),0.0,1.0)*(1.0-uSnow)); }');};m.needsUpdate=true;}
+  sh.fragmentShader='uniform float uSnow,uHoar;\n'+sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\n  { float gn=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.93,0.95,0.98),clamp(uSnow*'+k.toFixed(2)+'*(0.85+0.3*gn),0.0,1.0));\n    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.8,0.86,0.92),clamp(uHoar*'+hk.toFixed(2)+'*(0.7+0.6*gn),0.0,1.0)*(1.0-uSnow)); }');};m.needsUpdate=true;}
 // snow on the paving (bug from the 11-25 run: only grass and roofs turned white): pavements, footpaths and klinker streets get an
 // almost full cover with trodden grey patches; asphalt roads and cycle paths get patchy grey slush, darker where traffic churned it
 {const PAVE=new Map();for(const [m,k] of PHOTO_SLOTS)if(!GRASS_MATS.includes(m))PAVE.set(m,k);for(const [m] of WET_MATS)if(!PAVE.has(m))PAVE.set(m,'asphalt');
@@ -6765,7 +6811,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({HERO_WARM,heroWarmSet,HOAR_U,hoarTarget,setHoar:v=>{HOAR=v;HOAR_U.value=v;},XLIGHTS,BLIGHT,FROST,MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({TRACKS,updateTracks,addTrack,HERO_WARM,heroWarmSet,HOAR_U,hoarTarget,setHoar:v=>{HOAR=v;HOAR_U.value=v;},XLIGHTS,BLIGHT,FROST,MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

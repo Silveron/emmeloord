@@ -3188,7 +3188,7 @@ function updateBus(c,dt,t){
   c.x+=Math.sin(c.h)*c.speed*dt;c.z+=Math.cos(c.h)*c.speed*dt;
 }
 /* parked cars that only fill the bays: one instanced mesh per part for all of them */
-const STATIC_GLASS=[];
+const STATIC_GLASS=[],STATIC_PAINT=[];
 function staticCars(list){
   const out={meshes:[],cols:[]};
   if(!list.length)return out;
@@ -3200,7 +3200,7 @@ function staticCars(list){
     for(const [name,mat,paint] of parts){
       const im=new THREE.InstancedMesh(geos[name],paint?carPaint({}):mat,L.length);
       L.forEach((c,i)=>{m4.compose(new THREE.Vector3(c.x,0,c.z),q.setFromAxisAngle(Y,c.h),one);im.setMatrixAt(i,m4);if(paint)im.setColorAt(i,col.set(c.color));});
-      im.castShadow=name==='shell';scene.add(im);out.meshes.push(im);if(name==='glass')STATIC_GLASS.push(im);
+      im.castShadow=name==='shell';scene.add(im);out.meshes.push(im);if(name==='glass')STATIC_GLASS.push(im);if(paint)STATIC_PAINT.push(im.material);
     }
     const wh=new THREE.InstancedMesh(CARPARTS.wheel,WHEEL_MAT,L.length*4),sh=new THREE.InstancedMesh(CAR_SHADOW_GEO,CAR_SHADOW_MAT,L.length);
     const base=new THREE.Matrix4(),off=new THREE.Matrix4();
@@ -3251,7 +3251,7 @@ for(const b of BAYS.slice(1).filter(b=>!KERMIS_AREA.inside(b.x,b.z,3)).filter(()
   // the cars where the kermis stands are their own batch, so they can make way for it at the weekend
   staticCars(fill.filter(c=>!KERMIS_AREA.inside(c.x,c.z,2)));
   Object.assign(KERMIS_CARS,staticCars(fill.filter(c=>KERMIS_AREA.inside(c.x,c.z,2))));
-  STATIC_GLASS.street=STATIC_GLASS.length;   // the show cars in the garage come later and stay clear
+  STATIC_GLASS.street=STATIC_GLASS.length;STATIC_PAINT.street=STATIC_PAINT.length;   // the show cars in the garage come later and stay clear
 }
 
 /* road network for traffic: follow the real streets, keep right, choose a turn at every junction */
@@ -6736,11 +6736,14 @@ for(const [m,k,hk] of [...GRASS_MATS.map(m=>[m,0.95,0.62]),[roofMat,0.9,0.5]]){c
      :'float tr=smoothstep(0.55,0.75,snz(vSnW.xz*0.45+9.0));vec3 sc=mix(vec3(0.88,0.9,0.94),vec3(0.66,0.68,0.72),tr*0.85);diffuseColor.rgb=mix(diffuseColor.rgb,sc*(0.94+0.1*n),clamp(uSnow*1.25,0.0,0.97));')+'}');};
   m.needsUpdate=true;}}
 // snow and hoarfrost on everything that faces up: hedge tops, benches, bin lids, bus-shelter roofs, window sills, railings
-for(const m of [plainMat,window.HEDGE_MAT])if(m){const prev=m.onBeforeCompile,pk=m.customProgramCacheKey.bind(m);m.customProgramCacheKey=()=>pk()+'|snowtop';
+// (parked cars in the bays too: snow on the roof, bonnet and boot; the cars that drive about stay clear)
+function snowTop(m,k){const prev=m.onBeforeCompile,pk=m.customProgramCacheKey.bind(m);m.customProgramCacheKey=()=>pk()+'|snowtop';
   m.onBeforeCompile=(sh,r)=>{if(prev)prev(sh,r);sh.uniforms.uSnow=SNOW_U;sh.uniforms.uHoar=HOAR_U;
    sh.vertexShader='varying vec3 vSnN;\n'+sh.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\n  vSnN=normalize(mat3(modelMatrix)*objectNormal);');
-   sh.fragmentShader='uniform float uSnow,uHoar;varying vec3 vSnN;\n'+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n  { float up=smoothstep(0.5,0.85,vSnN.y); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.92,0.94,0.97),up*clamp(uSnow*1.3,0.0,0.95));\n    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.8,0.85,0.9),up*uHoar*0.45*(1.0-uSnow)); }');};
+   sh.fragmentShader='uniform float uSnow,uHoar;varying vec3 vSnN;\n'+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n  { float up=smoothstep(0.5,0.85,vSnN.y); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.92,0.94,0.97),up*clamp(uSnow*1.3,0.0,0.95));\n    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.8,0.85,0.9),up*uHoar*'+k.toFixed(2)+'*(1.0-uSnow)); }');};
   m.needsUpdate=true;}
+for(const m of [plainMat,window.HEDGE_MAT])if(m)snowTop(m,0.45);
+for(let i=0;i<STATIC_PAINT.street;i++)snowTop(STATIC_PAINT[i],0.6);
 function calendarSeason(){const mo=new Date().getMonth();return mo<2||mo===11?'winter':mo<5?'spring':mo<8?'summer':'autumn';}
 function applySeason(){
   SEASON_NOW=SEASON_SET==='auto'?calendarSeason():SEASON_SET;

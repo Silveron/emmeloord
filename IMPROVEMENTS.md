@@ -2,6 +2,17 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-26 (run 06:45)
+
+### Plan (prioritized)
+No open bugs except the dark garage forecourt under snow from the 01:17 run. Its "next ideas" list is the base:
+
+1. **Snow on the garage forecourt and other separate ground meshes** (bug): they stay dark when everything around them is white.
+2. **Footprints and tyre tracks in fresh snow** (graphics/gameplay): the player leaves footprints when walking and dark tyre tracks when driving over snowy ground; they fade slowly.
+3. **Snow on tree branches and the Poldertoren gallery** (graphics).
+4. **Sledging children on the canal banks** when there is snow, and icicles on frosty days (content).
+5. **Performance**: only if time allows.
+
 ## 2026-11-26 (run 01:17)
 
 ### Plan (prioritized)

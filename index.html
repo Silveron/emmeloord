@@ -748,7 +748,7 @@ float cloudShade(){ if(uCloud.z<0.001) return 1.0; vec3 wp=cameraPosition+transp
   return 1.0-uCloud.z*smoothstep(0.5,0.68,n); }
 void main() {`).replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin.replace('getDirectionalLightInfo( directionalLight, directLight );','getDirectionalLightInfo( directionalLight, directLight );\n\t\tdirectLight.color *= cloudShade();'));};
 const Lam=o=>new THREE.MeshStandardMaterial(Object.assign({roughness:0.88,metalness:0,envMapIntensity:0.65},o));
-const overlay=(o,lvl)=>Lam(Object.assign({polygonOffset:true,polygonOffsetFactor:-lvl,polygonOffsetUnits:-lvl*2},o));
+const OVERLAYS=[];const overlay=(o,lvl)=>{const m=Lam(Object.assign({polygonOffset:true,polygonOffsetFactor:-lvl,polygonOffsetUnits:-lvl*2},o));m.userData.lvl=lvl;OVERLAYS.push(m);return m;};
 const wallMats=FACADES.map(f=>{const s=makeFacade(f);return Lam({map:s.map,normalMap:s.normalMap,normalScale:new THREE.Vector2(1,1),roughness:f.kind==='office'?0.55:0.9,emissiveMap:makeFacadeGlow(f),emissive:0x000000,vertexColors:true});});
 /* plain wall (no windows) for gables, one 3.4 x 3 m tile */
 const gableMats=FACADES.map(f=>{
@@ -6726,12 +6726,17 @@ for(const [m,k,hk] of [...GRASS_MATS.map(m=>[m,0.95,0.62]),[roofMat,0.9,0.5]]){c
 // snow on the paving (bug from the 11-25 run: only grass and roofs turned white): pavements, footpaths and klinker streets get an
 // almost full cover with trodden grey patches; asphalt roads and cycle paths get patchy grey slush, darker where traffic churned it
 {const PAVE=new Map();for(const [m,k] of PHOTO_SLOTS)if(!GRASS_MATS.includes(m))PAVE.set(m,k);for(const [m] of WET_MATS)if(!PAVE.has(m))PAVE.set(m,'asphalt');
+ // separate ground meshes (garage forecourt, roundabout ring, platforms, tracks, flower beds, road markings) stayed dark under snow:
+ // every overlay material not covered above gets the same treatment. Markings get the road slush with the same world-space noise,
+ // so they disappear exactly where the slush on the road is white
+ for(const m of OVERLAYS)if(!PAVE.has(m)&&!GRASS_MATS.includes(m)){const mp=m.map;
+  PAVE.set(m,mp===asphaltTex||(!mp&&m.userData.lvl===7)?'asphalt':'pavement');}
  for(const [m,k] of PAVE){const road=k==='asphalt',prev=m.onBeforeCompile,pk=m.customProgramCacheKey.bind(m);
   m.customProgramCacheKey=()=>pk()+'|snowpave'+(road?1:0)+(WET_MATS.some(w=>w[0]===m)?'w':'');
   m.onBeforeCompile=(sh,r)=>{if(prev)prev(sh,r);sh.uniforms.uSnow=SNOW_U;
    sh.vertexShader='varying vec3 vSnW;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vSnW=(modelMatrix*vec4(transformed,1.0)).xyz;');
    sh.fragmentShader='uniform float uSnow;varying vec3 vSnW;\nfloat snz(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);float a=fract(sin(dot(i,vec2(127.1,311.7)))*43758.5453),b=fract(sin(dot(i+vec2(1,0),vec2(127.1,311.7)))*43758.5453),c=fract(sin(dot(i+vec2(0,1),vec2(127.1,311.7)))*43758.5453),d=fract(sin(dot(i+vec2(1,1),vec2(127.1,311.7)))*43758.5453);return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}\n'+sh.fragmentShader
-    .replace('#include <map_fragment>','#include <map_fragment>\n  if(uSnow>0.01){float n=snz(vSnW.xz*0.21)*0.6+snz(vSnW.xz*0.9+3.0)*0.3+snz(vSnW.xz*4.0)*0.1;'+(road
+    .replace('#include <color_fragment>','#include <color_fragment>\n  if(uSnow>0.01){float n=snz(vSnW.xz*0.21)*0.6+snz(vSnW.xz*0.9+3.0)*0.3+snz(vSnW.xz*4.0)*0.1;'+(road
      ?'float cov=smoothstep(0.62-uSnow*0.3,0.72-uSnow*0.3,n);vec3 sl=mix(vec3(0.42,0.43,0.45),vec3(0.86,0.88,0.92),cov);diffuseColor.rgb=mix(diffuseColor.rgb,sl*(0.92+0.16*snz(vSnW.xz*2.3)),clamp(uSnow*1.6,0.0,1.0)*(0.35+0.6*cov));'
      :'float tr=smoothstep(0.55,0.75,snz(vSnW.xz*0.45+9.0));vec3 sc=mix(vec3(0.88,0.9,0.94),vec3(0.66,0.68,0.72),tr*0.85);diffuseColor.rgb=mix(diffuseColor.rgb,sc*(0.94+0.1*n),clamp(uSnow*1.25,0.0,0.97));')+'}');};
   m.needsUpdate=true;}}

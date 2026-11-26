@@ -1658,6 +1658,48 @@ function makeIceChair(){
   scene.remove(k.g);g.add(k.g);const sc=0.44;k.g.scale.setScalar(sc);k.sc=sc;k.kid=1.3;k.pose='sit';k.g.position.set(0,0.37-0.86*sc,-0.03);k.la.rotation.x=k.ra.rotation.x=-1.1;
   if(k.rig)rigPose(k,'sit');g.visible=false;scene.add(g);return g;
 }
+/* ---------- sledges: on snowy days some parents pull a toddler through the streets on a wooden sledge ---------- */
+const SLEDGES={list:[],made:false};
+function makeSledge(){
+  const L=[];
+  for(const x of [-0.2,0.2]){L.push([OMA_BOX,TM(x,0.03,-0.05,0.04,0.04,0.95)]);L.push([OMA_BOX,TM(x,0.1,0.48,0.04,0.04,0.2,-0.75)]);   // runners curling up at the front
+    for(const z of [-0.38,0.05,0.38])L.push([OMA_BOX,TM(x,0.13,z,0.035,0.2,0.035)]);}                                          // posts
+  for(const z of [-0.36,-0.18,0,0.18,0.36])L.push([OMA_BOX,TM(0,0.24,z,0.5,0.03,0.15)]);                                       // seat slats
+  L.push([OMA_BOX,TM(0,0.14,0.58,0.44,0.03,0.03)]);                                                                             // front bar for the rope
+  const g=new THREE.Group(),sl=new THREE.Mesh(mergeGeo(L),Lam({color:pick(['#7a4a26','#6e3f20','#8a2a1f','#5e3b22']),roughness:0.75}));sl.castShadow=true;g.add(sl);
+  const k=makePerson({shirt:pick(['#ff4f79','#3fa7d6','#7ac74f','#ffd23f','#9b5de5','#ff7b1c']),pants:pick(['#3a5a8a','#2b3a55','#5a3a5a']),skin:pick(SKINS),hair:pick(HAIRS),noSkirt:1});
+  scene.remove(k.g);g.add(k.g);const sc=0.46;k.g.scale.setScalar(sc);k.sc=sc;k.kid=1.3;k.pose='sit';k.g.position.set(0,0.27-0.86*sc,-0.12);if(k.la)k.la.rotation.x=k.ra.rotation.x=-0.6;
+  if(k.rig)rigPose(k,'sit');
+  const rope=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:0x3a2e24}));rope.frustumCulled=false;
+  g.visible=rope.visible=false;scene.add(g);scene.add(rope);return {g,k,rope,n:null,x:0,z:0,h:0};
+}
+const _sh=new THREE.Vector3();
+function sledgeWeather(){const h=(gameMin%1440)/60,[sR,sS]=SUN_TIMES[SEASON_NOW]||SUN_TIMES.winter;return SEASON_NOW==='winter'&&SNOW>0.5&&h>=sR+0.5&&h<sS+0.3&&RAIN<0.5;}
+function freeSledge(s){if(s.n)s.n.sled=null;s.n=null;s.g.visible=s.rope.visible=false;}
+function updateSledges(dt){
+  const on=started&&sledgeWeather();
+  if(!on){for(const s of SLEDGES.list)if(s.n)freeSledge(s);return;}
+  if(!SLEDGES.made){SLEDGES.made=true;for(let i=0;i<3;i++)SLEDGES.list.push(makeSledge());}
+  const cx=camera.position.x,cz=camera.position.z;
+  for(const s of SLEDGES.list){
+    // the parent wandered far off: give the sledge to someone else walking within about 230 m of the camera
+    if(s.n&&((s.n.x-cx)**2+(s.n.z-cz)**2>260*260||s.n.wait>0&&s.n.stay))freeSledge(s);
+    if(!s.n){SLEDGES.pick=(SLEDGES.pick||0)-dt;if(SLEDGES.pick>0)continue;SLEDGES.pick=0.7;
+      const c=NPCS.filter(n=>!n.sled&&!n.child&&!n.stay&&!n.market&&!n.kermis&&!n.follow&&!(n.qslot>=0)&&!n.m.old&&!n.lostMode&&!(n.leaving>0)&&!NPCS.some(k=>k.follow===n)&&(d=>d>25*25&&d<230*230)((n.x-cx)**2+(n.z-cz)**2));
+      if(!c.length)continue;const cc=c.filter(n=>inCoat(n.m)),n=pick(cc.length?cc:c);s.n=n;n.sled=s;s.x=n.x-Math.sin(n.h)*1.9;s.z=n.z-Math.cos(n.h)*1.9;s.h=n.h;}
+    const n=s.n,vis=n.m.g.visible;s.g.visible=s.rope.visible=vis;
+    if(!s.warm){const w=WARM.find(w=>w.m===s.k);if(w){w.u=0.1;setWarm(w);s.warm=1;}}   // the toddler is always wrapped up warm
+    // the rope pulls the front of the sledge after the parent's hand; the sledge swings round behind like a trailer
+    const tx=n.x-Math.sin(n.h)*0.3,tz=n.z-Math.cos(n.h)*0.3,dx=tx-s.x,dz=tz-s.z,d=Math.hypot(dx,dz),R=1.9;
+    if(d>R){s.x=tx-dx/d*R;s.z=tz-dz/d*R;}if(d>0.3)s.h=Math.atan2(dx,dz);if(d>6){s.x=tx-Math.sin(n.h)*R;s.z=tz-Math.cos(n.h)*R;s.h=n.h;}
+    if(!vis)continue;
+    s.g.position.set(s.x,groundY(s.x,s.z),s.z);s.g.rotation.y=s.h;
+    const B=n.m.rig&&rigBones(n.m.rig),hand=B&&(B.PalmR||B.WristR);
+    if(hand)hand.getWorldPosition(_sh);else _sh.set(n.x+Math.cos(n.h)*0.2,0.85+groundY(n.x,n.z),n.z-Math.sin(n.h)*0.2);
+    const a=s.rope.geometry.attributes.position;a.setXYZ(0,_sh.x,_sh.y,_sh.z);
+    a.setXYZ(1,s.x+Math.sin(s.h)*0.58,s.g.position.y+0.15,s.z+Math.cos(s.h)*0.58);a.needsUpdate=true;
+  }
+}
 function updateSkaters(dt,t){
   const h=(gameMin%1440)/60,[sR,sS]=SUN_TIMES[SEASON_NOW]||SUN_TIMES.winter,day=ICE&&started&&h>=sR+0.2&&h<sS+0.6&&RAIN<0.4,   // out on the ice from just after sunrise until a little after sunset
   px=P.mode==='drive'?P.car.x:P.x,pz=P.mode==='drive'?P.car.z:P.z;
@@ -6703,7 +6745,7 @@ function frame(now){
   updateGrass();
   WIND.value.x+=dt;WIND.value.y=1+RAIN*1.6+Math.max(0,Math.sin(t*0.11)*Math.sin(t*0.37+1))*1.6;// gusts come and go
   waterNormal.offset.x+=dt*0.012;waterNormal.offset.y+=dt*0.007;WATER_U.uWT.value+=dt*(0.6+0.4*WIND.value.y);
-  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateIceRivals(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
+  updateBirds(dt,t);updateFountain(t);updateDucks(dt,t);updateSkaters(dt,t);updateSledges(dt);updateIceRivals(dt,t);updateBlades();updateCarLights(t);updateSpray(dt);updateSmoke(dt);
   if(carousel)carousel.rotation.y+=dt*0.35;
   for(let i=0;i<FLAGS.length;i++)FLAGS[i].rotation.y=Math.sin(t*1.3+i)*0.25;
   // clouds drift east and wrap around the camera, so there are clouds wherever you are in town
@@ -6813,7 +6855,7 @@ function applySeason(){
 try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(d&&SEASONS.includes(d.season))SEASON_SET=d.season;}catch(_){}
 applySeason();
 $('pseason').addEventListener('click',()=>{SEASON_SET=SEASONS[(SEASONS.indexOf(SEASON_SET)+1)%SEASONS.length];applySeason();saveGame();toast('Season: <strong>'+SEASON_NL[SEASON_NOW]+'</strong>',1600);});
-window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({TRACKS,updateTracks,addTrack,HERO_WARM,heroWarmSet,HOAR_U,hoarTarget,setHoar:v=>{HOAR=v;HOAR_U.value=v;},XLIGHTS,BLIGHT,FROST,MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
+window.__game={playCarillon:h=>playCarillon(h),dbg:()=>({SLEDGES,updateSledges,sledgeWeather,updateTracks,addTrack,HERO_WARM,heroWarmSet,HOAR_U,hoarTarget,setHoar:v=>{HOAR=v;HOAR_U.value=v;},XLIGHTS,BLIGHT,FROST,MYCHAIR,rentChair,updateMyChair,SCRAPE,DEFROST,updateFrost,updateDefrost,startScrape,updateScrape,frostWeather,STATIC_GLASS,updateBikeLights,buildXLights,updateXLights,crownHit,launchBall,BLOWER,updateBlower,updateActors,BREATH,updateBreath,breathCold,LEAVES,PILES,makePiles,kickPile,updateLeaves,SNOWMEN,SNOWBALL,throwSnowball,updateSnowballs,updateSnowmen,buildSnowmen,THIN,bridgeGap,onThinIce,BRIDGES,breakThrough,ICE_RIVALS,updateIceRivals,updateJob,CURL_AX,curlHand,DRINK,updateDrink,ZOPIE,ICE_RACE,SKATES,SKBLADES,rackSpot,nearSkates,rentSkates,nearZopie,buyZopie,collidersAt:(x,z)=>(grid.get(gkey(Math.floor(x/CELL),Math.floor(z/CELL)))||[]).filter(c=>c.r!==undefined?Math.hypot(x-c.x,z-c.z)<c.r+1:x>c.x0-1&&x<c.x1+1&&z>c.z0-1&&z<c.z1+1).map(c=>JSON.stringify(c,(k,v)=>k==="poly"?v.length+"pts":v).slice(0,200)),SKATE,setIce,onIce,updateSkaters,EAT,updateEat,COLLEGE_RACK,buySnack,nearSnack,LOST,updateLost,updateAudio,PUPILS,BUBBLE,honkReact,COLLEGE_SPOT,KERMIS_KERB,pickFare,PLAQUE,TAXI,HAIL,ACTORS,MED_SPOT,TOWER_PASS,FARES,parcelRecipient,camera,scene,DCULL,VIEWD,recycle:()=>{recycleT=0;recycleTraffic(0.1);},TREES,GPS,gpsRoute,hurtCar,towCar,GARAGE,endJob,BIKE,SCOOTER,TRACTOR,RIVAL,KERMIS,KERMIS_AREA,POLDER,VEHICLES,startWheelRide,startTowerRide,TOWER_LIFT,getRide:()=>RIDE,kermis:()=>({up:KERMIS_UP,open:KERMIS_OPEN}),boardVehicle,GARAGE,OWN,openGarage,closeGarage,addXP,level,setCash:v=>{cash=v;$('cash').textContent='€'+cash;},BENCH_PEOPLE,POLICE,MARKET,policeAlert,setDow:v=>{GAME_DOW=v;updateMarket();},SIGNALS,SIG_CL,MOVING_BUSES,BUS_ROUTES,sigState,LANDMARKS,SPRAY,DUCKS,SHOPSPOTS,PAVED,PARKSPOTS,ROADS,CARS,BUSES,BLDS,GREEN,WATER,VOORHUYS,FOUNTAIN,polyArea,GRASS_MATS,GRASS,SNOW_U,CLOUD_U,season:()=>SEASON_NOW}),setQuality:q=>setQuality(q,false),collide,inPoly,keys,tick:(n,drive)=>{for(let i=0;i<n;i++){SIM_OFF+=0.05;const tt=performance.now()/1000+SIM_OFF;if(drive&&P.mode==='drive')driveCar(P.car,0.05);else if(drive)walkPlayer(0.05);for(const c of CARS)if(c.ai)aiCar(c,0.05,tt);else if(c.bus)updateBus(c,0.05,tt);updatePolice(0.05,tt);updateRival(0.05);carVsCar();updateCyclists(0.05,0);updateNPCs(0.05);updateKermis(0.05);for(const c of CARS)syncCar(c,0.05);updateVehicles(0.05);}},onRoad,inWater,setZoom:z=>{camZoom=z;},GEDGES,RING,RING_CP,ROADS,BLDS,START,starterBay,zoneName,setCam:(y,p)=>{camYaw=y;camPitch=p;lastMouse=performance.now()/1000+30;},getCam:()=>[camYaw,camPitch],CYCLISTS,audio:()=>AC&&AC.state,renderer,P,CARS,NPCS,COINS,toggleCar,TOUCH,JOBS,action,getJob:()=>JOB,startJob,setTime:h=>{gameMin=h*60;updateDayNight();},setFog:v=>{FOG_DAY=v;updateDayNight();},setSeason:v=>{SEASON_SET=v;applySeason();},setSnow:v=>{SNOW=v;SNOW_U.value=v;},setRain:v=>{rainTarget=v;RAIN=v;WET=v;WET_U.value=v;WATER_U.uRain.value=v;weatherT=999;updateDayNight();},start:()=>$('play').click(),music:()=>({paused:MUSIC.paused,t:+MUSIC.currentTime.toFixed(2),vol:MUSIC.volume,loop:MUSIC.loop,on:musicOn})};
 })();
 </script>
 </body>

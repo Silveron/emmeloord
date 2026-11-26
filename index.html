@@ -748,7 +748,7 @@ float cloudShade(){ if(uCloud.z<0.001) return 1.0; vec3 wp=cameraPosition+transp
   return 1.0-uCloud.z*smoothstep(0.5,0.68,n); }
 void main() {`).replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin.replace('getDirectionalLightInfo( directionalLight, directLight );','getDirectionalLightInfo( directionalLight, directLight );\n\t\tdirectLight.color *= cloudShade();'));};
 const Lam=o=>new THREE.MeshStandardMaterial(Object.assign({roughness:0.88,metalness:0,envMapIntensity:0.65},o));
-const OVERLAYS=[];const overlay=(o,lvl)=>{const m=Lam(Object.assign({polygonOffset:true,polygonOffsetFactor:-lvl,polygonOffsetUnits:-lvl*2},o));m.userData.lvl=lvl;OVERLAYS.push(m);return m;};
+const OVERLAYS=[],SNOWTOP=[];const overlay=(o,lvl)=>{const m=Lam(Object.assign({polygonOffset:true,polygonOffsetFactor:-lvl,polygonOffsetUnits:-lvl*2},o));m.userData.lvl=lvl;OVERLAYS.push(m);return m;};
 const wallMats=FACADES.map(f=>{const s=makeFacade(f);return Lam({map:s.map,normalMap:s.normalMap,normalScale:new THREE.Vector2(1,1),roughness:f.kind==='office'?0.55:0.9,emissiveMap:makeFacadeGlow(f),emissive:0x000000,vertexColors:true});});
 /* plain wall (no windows) for gables, one 3.4 x 3 m tile */
 const gableMats=FACADES.map(f=>{
@@ -1557,7 +1557,7 @@ let carousel=null;
     const sm=sg.mesh(slitMat,false,false);if(sm){scene.remove(sm);g.add(sm);}
   }
   // the visitor gallery: a thin stone ledge with a dark railing just under the eaves
-  add(oct(R+0.55,R+0.55,0.35),concrete,0,43.4,0);
+  add(oct(R+0.55,R+0.55,0.35),concrete,0,43.4,0);SNOWTOP.push([concrete,0.5]);
   add(oct(R+0.45,R+0.45,0.4),concrete,0,56.6,0);
   // the railing (8 top bars and 48 posts) is merged into one mesh: the tower is in view from most of the town
   const rail=lm('#2c2a28'),rl=[],post=B(0.05,1.1,0.05);
@@ -1569,7 +1569,7 @@ let carousel=null;
   }
   add(mergeGeo(rl),rail,0,0,0);
   // green copper roof: a steep eight-sided pyramid with a slight flare at the eaves
-  const copper=Lam({color:'#3c6e5a',roughness:0.6,metalness:0.2,envMapIntensity:0.6});
+  const copper=Lam({color:'#3c6e5a',roughness:0.6,metalness:0.2,envMapIntensity:0.6});SNOWTOP.push([copper,0.4,0.42,0.75]);
   add(oct(R+0.75,R+0.6,0.5),copper,0,57.05,0);
   add(new THREE.ConeGeometry(R+0.55,9.0,8,1,false,TH),copper,0,57.3+4.5,0);
   // needle, golden ball and the golden weather vane
@@ -2265,7 +2265,7 @@ for(const r of POLDER_ROADS){
 const TREE_CHUNKS=[];
 {
   const CH=150,trunkG=new THREE.CylinderGeometry(0.16,0.3,1,7),trunkMat=Lam({color:0x7a6c5e,roughness:1});
-  const limbG=limbTrunk(),barkMat=Lam({color:0x6e645a,roughness:1});
+  const limbG=limbTrunk(),barkMat=Lam({color:0x6e645a,roughness:1});SNOWTOP.push([barkMat,0.35,0.25,0.6]);
   const geo={round:leafCrown(120),poplar:lumpyCrown(true)},far={round:leafCrown(40),poplar:lumpyCrown(true,true)};
   const leafMat=Lam({color:0xffffff,vertexColors:true,roughness:0.95});
   const cardMat=Lam({map:leafTex,alphaTest:0.5,side:THREE.DoubleSide,vertexColors:true,roughness:0.9,envMapIntensity:0.5});
@@ -6788,12 +6788,14 @@ for(const [m,k,hk] of [...GRASS_MATS.map(m=>[m,0.95,0.62]),[roofMat,0.9,0.5]]){c
   m.needsUpdate=true;}}
 // snow and hoarfrost on everything that faces up: hedge tops, benches, bin lids, bus-shelter roofs, window sills, railings
 // (parked cars in the bays too: snow on the roof, bonnet and boot; the cars that drive about stay clear)
-function snowTop(m,k){const prev=m.onBeforeCompile,pk=m.customProgramCacheKey.bind(m);m.customProgramCacheKey=()=>pk()+'|snowtop';
+function snowTop(m,k,lo=0.5,hi=0.85){const prev=m.onBeforeCompile,pk=m.customProgramCacheKey.bind(m);m.customProgramCacheKey=()=>pk()+'|snowtop';
   m.onBeforeCompile=(sh,r)=>{if(prev)prev(sh,r);sh.uniforms.uSnow=SNOW_U;sh.uniforms.uHoar=HOAR_U;
    sh.vertexShader='varying vec3 vSnN;\n'+sh.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\n  vSnN=normalize(mat3(modelMatrix)*objectNormal);');
-   sh.fragmentShader='uniform float uSnow,uHoar;varying vec3 vSnN;\n'+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n  { float up=smoothstep(0.5,0.85,vSnN.y); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.92,0.94,0.97),up*clamp(uSnow*1.3,0.0,0.95));\n    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.8,0.85,0.9),up*uHoar*'+k.toFixed(2)+'*(1.0-uSnow)); }');};
+   sh.fragmentShader='uniform float uSnow,uHoar;varying vec3 vSnN;\n'+sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\n  { float up=smoothstep('+lo.toFixed(2)+','+hi.toFixed(2)+',vSnN.y); diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.92,0.94,0.97),up*clamp(uSnow*1.3,0.0,0.95));\n    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.8,0.85,0.9),up*uHoar*'+k.toFixed(2)+'*(1.0-uSnow)); }');};
   m.needsUpdate=true;}
 for(const m of [plainMat,window.HEDGE_MAT])if(m)snowTop(m,0.45);
+// snow on the bare branches of the street trees and on the Poldertoren's gallery ledges and copper roof
+for(const [m,k,lo,hi] of SNOWTOP)snowTop(m,k,lo,hi);
 for(let i=0;i<STATIC_PAINT.street;i++)snowTop(STATIC_PAINT[i],0.6);
 function calendarSeason(){const mo=new Date().getMonth();return mo<2||mo===11?'winter':mo<5?'spring':mo<8?'summer':'autumn';}
 function applySeason(){

@@ -1375,7 +1375,7 @@ AO_TEX.wrapS=AO_TEX.wrapT=THREE.ClampToEdgeWrapping;
     const w=Math.min(best.L-0.6,4.2),hh=0.8;
     const m=new THREE.Mesh(new THREE.PlaneGeometry(w,hh),new THREE.MeshLambertMaterial({map:signTex(text,cols[0],cols[1]),emissive:0x222222}));
     const sx=best.a[0]+(best.c[0]-best.a[0])*clamp(best.t,w/2/best.L+0.02,1-w/2/best.L-0.02),sz=best.a[1]+(best.c[1]-best.a[1])*clamp(best.t,w/2/best.L+0.02,1-w/2/best.L-0.02);
-    m.position.set(sx+best.nx*0.12,Math.min(4.1,best.b.h-0.6),sz+best.nz*0.12);m.rotation.y=Math.atan2(best.nx,best.nz);scene.add(m);
+    m.position.set(sx+best.nx*0.12,Math.min(4.1,best.b.h-0.6),sz+best.nz*0.12);m.rotation.y=Math.atan2(best.nx,best.nz);scene.add(m);dcull(m,'near',null,[sx,sz],w/2);   // a shop sign is a few pixels beyond the near view distance
     window.__SHOPSPOTS.push({x:sx+best.nx*2.2,z:sz+best.nz*2.2,name:text,type,nx:best.nx,nz:best.nz,wx:sx,wz:sz});
   }
 }
@@ -1942,7 +1942,7 @@ const flagTex=canvasTex(96,64,(g,w,h)=>{g.fillStyle='#ae1c28';g.fillRect(0,0,w,h
     if(Math.hypot(x,z)>700)continue;
     boxGB(plainGB2,x-.07,x+.07,0,9,z-.07,z+.07,C('#e8e8e8'));
     const fl=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.2),new THREE.MeshLambertMaterial({map:flagTex,side:THREE.DoubleSide}));
-    fl.position.set(x+0.95,8.2,z);scene.add(fl);FLAGS.push(fl);
+    fl.position.set(x+0.95,8.2,z);scene.add(fl);FLAGS.push(fl);dcull(fl,'near',null,[x+0.95,z],1);
     addCollider({x,z,r:0.15});
   }
   // De Leeuwen: four concrete lions around the tower (OSM tourism=artwork, replicas by Marieke van Diemen), lying sphinx-like on low plinths

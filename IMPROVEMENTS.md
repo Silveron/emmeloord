@@ -13,6 +13,13 @@ No open bugs. Based on the 01:17 run's "next ideas":
 4. **AI cars slide on snow** (traffic/physics): now and then a car brakes too late on snow and slides past the stop line with a skid sound.
 5. **Real sledging slope** (content): only if the plain OSM API shows one near the town.
 
+### Done
+- **Autumn check** (bugs): played an autumn day (the calendar season now): falling leaves, leaf heaps and the leaf blower all work, no errors. Found two things to improve, done below.
+- **Late autumn follows the calendar** (graphics): with the season on Auto, the street-tree crowns now thin out and turn from green-gold (September) to brown (late November), some trees sooner than others (per-tree offset in the crown shader, `THIN_V`, `autumnProgress`, `AUTUMN_K`). Tree shadows now use the leaf cut-out (`customDepthMaterial` with the same thinning and wind), so crowns cast dappled shadows and thin crowns thin shadows.
+- **Neighbours shovel their own pavement** (content): on snowy winter days (08:30 to 15:00) now and then a resident in a winter coat comes out of a real house near you (OSM address), clears two lanes of the pavement in front of it with a shovel (bare wet klinkers with soft snowy edges, scraping sound, puffs of snow, a remark if you are close), pushes the snow onto a little heap and goes back in. At most two at a time, 40 cleared patches per snowfall; they stay until the thaw (`NEIGH`, `neighSpot`, `startNeighbour`, `updateNeighbours`; `rigShovel` now takes `m.shovelG`).
+- **Shovelling job moves round + correct shop signs** (gameplay/bug): six real OSM shops near the Poldertoren take turns, a different one each snowfall (`shovelShops`, `nextShovelShop`). While checking them I found that 23 OSM shop types had no Dutch name and got a random (often wrong) one: the shovelling shop on the Zeeasterstraat is a convenience store but read "Kringloop". They now read Buurtsuper, Slijterij, Bouwmarkt, Autobedrijf, Computers etc.; unknown types read "Winkel". The random sequence is kept, so the rest of the town is unchanged.
+- **Traffic slides on snow** (traffic/physics): about one in five cars that has to stop for a red light on an unsalted snowy road brakes too late, slides past the stop line with the body swinging sideways and a hissing crunch, stops in the junction, waits 2.5 s and carries on (`startAiSlip`, `updateAiSlip`, `AI_SLIP_P`). Not buses, the gritter or salted roads.
+
 ## 2026-11-27 (run 01:17)
 
 ### Plan (prioritized)

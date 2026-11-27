@@ -43,7 +43,7 @@ Hard crashes into walls, trees or other cars damage the car you drive (the bar u
 
 ## Achievements
 
-37 achievements (pushing an ice chair, scraping a frozen windscreen, first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
+38 achievements (shovelling snow, pushing an ice chair, scraping a frozen windscreen, first coin, every job, the tower lift, the Ferris wheel, 150 km/h, losing the police, a night out at 3 AM, the Thursday market, and more). A gold message pops up when you earn one; the full list is in the pause menu under **Achievements**.
 
 ## Saving
 
@@ -60,6 +60,7 @@ Coloured light beams mark the job start spots (also shown on the minimap). Stand
 - **Centrum time trial** (pink): one lap around the centre (Korte Dreef, Espelerlaan, Koningin Julianastraat, Noordzijde, Smedingplein, Lange Dreef) through all the gates before the timer runs out. Your best lap is remembered.
 - **Ice race** (light blue, winter only, on the ice beside the koek-en-zopie stall): with rented skates, skate to the orange flag at each end of the frozen canal and back to the stall before the timer runs out, against two rival skaters (Sjoerd and Femke) after a 3-2-1 countdown. Beat them both for a €20 prize. Your best time is remembered.
 
+- **Snow shovelling** (white, winter only, when snow lies): the shopkeeper of the shop nearest the Poldertoren (a real OpenStreetMap shop) stands in the doorway and asks you to clear the pavement in front of the shop. Walk up and down with the shovel; the paving you clear turns bare and wet, the snow goes onto a heap at the end. Clear 90% of it within the time for a tip.
 Finishing faster pays more cash. **R** cancels a job.
 
 ## What's in town

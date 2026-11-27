@@ -13,6 +13,11 @@ No open bugs. Based on the 11:52 run's "next ideas", plus driving physics (snow 
 4. **Snow sliding off the Poldertoren roof** on a thaw day, or a real sledging slope if OSM shows one (check first).
 5. **Performance**: texture atlas for facades, only if time allows.
 
+### Done
+- **Slippery snowy roads** (physics/gameplay): when snow lies, cars have less grip (`snowGrip`, `SLIDE`): they pull away gently, need a longer way to brake, and the direction of travel follows the nose only slowly (`c.vh`), so you drift wide in bends if you go in too fast; the handbrake makes it worse. A toast warns the first time. AI traffic drives about 28% slower on snowy roads. Tractors grip a bit better.
+- **Gritter salts the roads** (graphics/gameplay): the gritter paints a world-space salt mask (`SALT`, 2048x2048 over the whole map, only the changed rectangle is uploaded with texSubImage2D every 0.5 s). The road slush shader reads it: salted asphalt is dark and wet instead of grey slush, salted klinker streets mostly clear. Salted roads give cars their grip back (`saltAt`). The salt is washed away when the snow has gone.
+- **Snow shovelling job** (gameplay, new job): on snowy winter days the shopkeeper of the shop nearest the Poldertoren (an OSM shop, not a café or snack bar because of their terraces; it is the one on the Zeeasterstraat) waits in the doorway. Start the job (white marker) and walk up and down with the shovel; the cleared 8 x 3 m of paving shows bare wet klinkers (its own draped mesh with the 16x6 cell grid as alpha map), snow puffs off the blade with a scraping sound, and a heap grows at the end. Clear 90% within 2:30 for a tip; once per snowfall (`SHOVEL`, `shovelShop`, `updateShovel`, `rigShovel`, `jobOpen`). Achievement 'Snow shoveller' (38 in total).
+
 ## 2026-11-26 (run 11:52)
 
 ### Plan (prioritized)

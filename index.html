@@ -5743,8 +5743,10 @@ function updateAudio(dt,px,pz){
   // tyre squeal when sliding: handbrake at speed or hard steering fast
   let slip=0;
   if(drv){const hb=K('Space');slip=Math.max(hb&&sp>6?Math.min(1,sp/18):0,Math.abs(c.steer)>0.7&&sp>17?(sp-17)/12:0);}
-  tyre.g.gain.setTargetAtTime(clamp(slip,0,1)*0.07,t,0.06);
-  tyre.f.frequency.setTargetAtTime(1700+Math.random()*500,t,0.02);
+  // on snow the tyres do not squeal: sliding gives a low hissing crunch of packed snow instead, and a soft rumble while driving
+  const snowy=drv&&SLIDE.grip<0.97;if(snowy)slip=Math.min(1,SLIDE.a*2.2)+Math.min(0.25,sp/60);
+  tyre.g.gain.setTargetAtTime(clamp(slip,0,1)*(snowy?0.05:0.07),t,0.06);
+  tyre.f.frequency.setTargetAtTime(snowy?380+SLIDE.a*500+Math.random()*120:1700+Math.random()*500,t,0.02);tyre.f.Q.setTargetAtTime(snowy?1.3:9,t,0.05);
   rainS.g.gain.setTargetAtTime(RAIN*(drv?0.05:0.035),t,0.3);
   // wind
   const inTown=px>-310&&px<330&&pz>-190&&pz<190;

@@ -19,6 +19,28 @@ No open bugs. Based on the 01:17 run's "next ideas":
 - **Neighbours shovel their own pavement** (content): on snowy winter days (08:30 to 15:00) now and then a resident in a winter coat comes out of a real house near you (OSM address), clears two lanes of the pavement in front of it with a shovel (bare wet klinkers with soft snowy edges, scraping sound, puffs of snow, a remark if you are close), pushes the snow onto a little heap and goes back in. At most two at a time, 40 cleared patches per snowfall; they stay until the thaw (`NEIGH`, `neighSpot`, `startNeighbour`, `updateNeighbours`; `rigShovel` now takes `m.shovelG`).
 - **Shovelling job moves round + correct shop signs** (gameplay/bug): six real OSM shops near the Poldertoren take turns, a different one each snowfall (`shovelShops`, `nextShovelShop`). While checking them I found that 23 OSM shop types had no Dutch name and got a random (often wrong) one: the shovelling shop on the Zeeasterstraat is a convenience store but read "Kringloop". They now read Buurtsuper, Slijterij, Bouwmarkt, Autobedrijf, Computers etc.; unknown types read "Winkel". The random sequence is kept, so the rest of the town is unchanged.
 - **Traffic slides on snow** (traffic/physics): about one in five cars that has to stop for a red light on an unsalted snowy road brakes too late, slides past the stop line with the body swinging sideways and a hissing crunch, stops in the junction, waits 2.5 s and carries on (`startAiSlip`, `updateAiSlip`, `AI_SLIP_P`). Not buses, the gritter or salted roads.
+- **Sledging slope** (content): skipped. I scanned the whole town with the plain OSM API (30 tiles): no sledging piste, hill or peak is mapped in or around Emmeloord, only canal and road embankments. No made-up slope.
+- **Sinterklaas parcel weeks** (gameplay, extra): from 14 November to 5 December (calendar) parcel jobs pay 50% more (a toast says why), the step reads "Deliver the present", and the resident takes a gift-wrapped present (shiny paper, ribbon, bow) with a line about pakjesavond (`SINT`, `sintSeason`, `giftBox`, `JOB.sint`).
+
+### Report for Ron
+This run (06:45) added 6 improvements, all tested in headless Chromium (no console errors; walking, the jobs involved, traffic over many ticks, a screenshot per feature) and pushed straight to `main`:
+- Late autumn now follows the calendar: the street trees are thinner and browner now (end of November), some nearly bare, and tree shadows are dappled leaf shadows instead of solid blobs.
+- On snowy days neighbours come out of real houses and shovel the pavement in front of their house; the cleared lanes stay until the thaw.
+- The snow-shovelling job moves between six real shops near the Poldertoren, a different one each snowfall.
+- Shop signs are right now for 23 more kinds of OSM shop (Buurtsuper, Slijterij, Bouwmarkt, ...). The shovelling shop on the Zeeasterstraat said "Kringloop" but is a convenience store: it now says "Buurtsuper".
+- On snowy roads a car sometimes brakes too late for a red light and slides past the stop line, then carries on.
+- Sinterklaas weeks (until 5 December): parcel jobs pay 50% more and the parcels are wrapped presents.
+
+Screenshots in the project files under `runs/`: `2026-11-27b-late-autumn.png` (the trees by De Deel: thin brown crowns, dappled shadows), `2026-11-27b-neighbour-shovelling.png` (a neighbour in a red coat shovelling the Nagelerstraat pavement, cleared lane and snow heap), `2026-11-27b-van-slides.png` (a red van sliding a little sideways past the stop line on the Rietstraat), `2026-11-27b-sinterklaas-present.png` (a resident on the Zuiderkade taking a green present with a gold ribbon).
+
+Problems: no real sledging slope exists in OSM, so I did not add one. The resident's arms do not hold the present (it floats in front of the chest). No bugs left open.
+
+### Next ideas (for the next run)
+1. Winter switches on by itself on 1 December: play a fresh winter start once more (new game at 09:30, snow, ice, jobs) and fix anything odd.
+2. Hold things properly: hands on the present (and on the parcel) using `reachBone`, like the shovel.
+3. Performance: a texture atlas for the facade materials, so each town tile is one draw call.
+4. Sinterklaas: lit-up shop windows with presents in the shopping streets until 5 December (shops from OSM only).
+5. Player car can be hit by a sliding AI car: give the driver a reaction and a damage/insurance moment.
 
 ## 2026-11-27 (run 01:17)
 

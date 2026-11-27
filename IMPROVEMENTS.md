@@ -17,6 +17,28 @@ No open bugs. Based on the 11:52 run's "next ideas", plus driving physics (snow 
 - **Slippery snowy roads** (physics/gameplay): when snow lies, cars have less grip (`snowGrip`, `SLIDE`): they pull away gently, need a longer way to brake, and the direction of travel follows the nose only slowly (`c.vh`), so you drift wide in bends if you go in too fast; the handbrake makes it worse. A toast warns the first time. AI traffic drives about 28% slower on snowy roads. Tractors grip a bit better.
 - **Gritter salts the roads** (graphics/gameplay): the gritter paints a world-space salt mask (`SALT`, 2048x2048 over the whole map, only the changed rectangle is uploaded with texSubImage2D every 0.5 s). The road slush shader reads it: salted asphalt is dark and wet instead of grey slush, salted klinker streets mostly clear. Salted roads give cars their grip back (`saltAt`). The salt is washed away when the snow has gone.
 - **Snow shovelling job** (gameplay, new job): on snowy winter days the shopkeeper of the shop nearest the Poldertoren (an OSM shop, not a café or snack bar because of their terraces; it is the one on the Zeeasterstraat) waits in the doorway. Start the job (white marker) and walk up and down with the shovel; the cleared 8 x 3 m of paving shows bare wet klinkers (its own draped mesh with the 16x6 cell grid as alpha map), snow puffs off the blade with a scraping sound, and a heap grows at the end. Clear 90% within 2:30 for a tip; once per snowfall (`SHOVEL`, `shovelShop`, `updateShovel`, `rigShovel`, `jobOpen`). Achievement 'Snow shoveller' (38 in total).
+- **Sliding sounds like snow** (sound): on snowy roads the tyre squeal is replaced by a low hissing crunch that rises with the slide, plus a soft rumble while driving.
+- **Snow slides off roofs in the thaw** (graphics): on dry winter afternoons (11:00 to 16:30) with snow lying, every 4 to 9 s a slab of snow slides off a pitched roof in view within 45 m and lands with a soft whump; people under it jump aside (`ROOFSLIDE`, `updateRoofSlide`, `dropSlab`; eaves from `ICICLE_EDGES`, particles from `SNOWDROP`).
+
+### Report for Ron
+This run (01:17) added 5 improvements, all tested in headless Chromium (no console errors; walking, getting into a car and driving, plus a screenshot per feature) and pushed straight to `main`:
+- Snow now changes how cars drive: less grip, longer braking, and the car drifts wide in bends if you go in too fast. Traffic drives more carefully on snowy roads.
+- The gritting lorry salts the roads it passes: they turn dark and wet instead of grey slush, and have grip again.
+- New winter job, **Snow shovelling**: the shopkeeper of a real shop on the Zeeasterstraat (the shop nearest the Poldertoren that has no terrace) asks you to clear the pavement. Walk up and down with the shovel; the cleared paving shows bare wet klinkers and the snow goes onto a heap. New achievement.
+- Sliding on snow sounds like snow (a hissing crunch, not a squeal).
+- On dry winter afternoons snow slides off the roofs now and then with a soft whump.
+
+Screenshots in the project files under `runs/`: `2026-11-27-salted-road.png` (Korte Dreef behind the gritter: the salted road is dark, the road ahead of it white), `2026-11-27-shovelling.png` (the hero with the shovel in front of the shop, the cleared strip by the shop window and the snow heap), `2026-11-27-shovelled-pavement.png` (the finished job: bare klinkers along the shop front), `2026-11-27-roof-snow-slide.png` (a slab of snow falling off a roof on the Jeanne d'Arclaan).
+
+Problems: the shop's sign text is the game's generic name for its OSM type (it reads "Kringloop"). The cleared-paving mesh follows the surfaces below it, so there is a faint seam where the pavement meets the verge. Overpass (for finding a real sledging slope) is blocked from the cloud session, so that idea was skipped. No bugs left open.
+
+### Next ideas (for the next run)
+1. Real sledging slope: check OSM with the plain API (api.openstreetmap.org/api/0.6/map) around the Emmelerbos or the A6 embankment.
+2. More than one shop for the shovelling job (a different shop each snowfall), and neighbours shovelling their own paths.
+3. Performance: a texture atlas for the facade materials, so each town tile is one draw call.
+4. Let AI cars slide a little too on snow (a car that cannot stop in time at a junction), and a skid-to-a-stop achievement.
+5. Season is still "autumn" by the calendar until 1 December: check the autumn features once more (leaves, blower) before winter switches on automatically.
+
 
 ## 2026-11-26 (run 11:52)
 

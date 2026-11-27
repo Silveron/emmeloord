@@ -2,6 +2,17 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-27 (run 06:45)
+
+### Plan (prioritized)
+No open bugs. Based on the 01:17 run's "next ideas":
+
+1. **Autumn check** (bugs): the calendar season is still autumn until 1 December, so that is what Ron sees now. Play an autumn day and check falling leaves, leaf heaps and the leaf blower work without errors after all the winter work.
+2. **Neighbours shovel their own paths** (content/graphics): on snowy winter mornings a few residents clear the snow in front of their house with a shovel, leaving bare klinkers.
+3. **Shovelling job at more shops** (gameplay): a different shop near the centre each snowfall instead of always the same one.
+4. **AI cars slide on snow** (traffic/physics): now and then a car brakes too late on snow and slides past the stop line with a skid sound.
+5. **Real sledging slope** (content): only if the plain OSM API shows one near the town.
+
 ## 2026-11-27 (run 01:17)
 
 ### Plan (prioritized)

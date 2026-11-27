@@ -2226,7 +2226,7 @@ glowTex.wrapS=glowTex.wrapT=THREE.ClampToEdgeWrapping;
 const LAMP_HEAD=new THREE.MeshLambertMaterial({color:0xfff3c8,emissive:0x887a50});
 const LAMP_POOL=new THREE.MeshBasicMaterial({map:glowTex,color:0xffc773,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-12});
 const TREES=[];
-const SEASON_MATS={},THIN_U={value:0};
+const SEASON_MATS={},THIN_U={value:0},THIN_V={value:0};
 const WIND={value:new THREE.Vector2(0,1)};   // x = time, y = strength
 /* tree crowns: a cluster of noisy spheres merged into one mesh, darker underneath and inside (fake ambient occlusion) */
 function lumpyCrown(poplar,simple){
@@ -2320,13 +2320,18 @@ const TREE_CHUNKS=[];
   const cardMat=Lam({map:leafTex,alphaTest:0.5,side:THREE.DoubleSide,vertexColors:true,roughness:0.9,envMapIntensity:0.5});
   const crownMat={round:cardMat,poplar:leafMat};SEASON_MATS.card=cardMat;SEASON_MATS.leaf=leafMat;
   // wind: crowns sway, each tree with its own phase (from its position); stronger in rain
-  for(const mt of [cardMat,leafMat])mt.onBeforeCompile=sh=>{sh.uniforms.uWind=WIND;sh.uniforms.uThin=THIN_U;
+  // shadows: a depth material with the same leaf cut-out, wind and thinning, so thin late-autumn crowns cast thin shadows
+  const cardDepth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:leafTex,alphaTest:0.5,side:THREE.DoubleSide}),leafDepth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});
+  const crownDepth={round:cardDepth,poplar:leafDepth};
+  for(const mt of [cardMat,leafMat,cardDepth,leafDepth])mt.onBeforeCompile=sh=>{sh.uniforms.uWind=WIND;sh.uniforms.uThin=THIN_U;sh.uniforms.uThinV=THIN_V;
     // uThin drops whole clumps of leaf cards (thin spring crowns), picked by a hash of the card's place in the crown
     sh.fragmentShader='uniform float uThin;\nvarying float vThin;\n'+sh.fragmentShader.replace('void main() {','void main() {\n  if(vThin<uThin) discard;');
-    sh.vertexShader='uniform vec2 uWind;\nvarying float vThin;\n'+sh.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+    sh.vertexShader='uniform vec2 uWind;uniform float uThinV;\nvarying float vThin;\n'+sh.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
       vThin=fract(sin(dot(floor(position*2.5),vec3(12.9898,78.233,37.719)))*43758.5453);
       #ifdef USE_INSTANCING
-      { vec3 ip=instanceMatrix[3].xyz; float ph=ip.x*0.13+ip.z*0.17; float h=clamp(position.y+0.7,0.0,1.6);
+      { vec3 ip=instanceMatrix[3].xyz; float ph=ip.x*0.13+ip.z*0.17;
+        // late autumn: some trees lose their leaves sooner than others (uThin.y = how much the trees differ)
+        vThin=clamp(vThin+(fract(sin(dot(floor(ip.xz),vec2(41.7,289.3)))*15731.13)-0.5)*uThinV,0.0,1.0); float h=clamp(position.y+0.7,0.0,1.6);
         float sw=(sin(uWind.x*1.1+ph)*0.6+sin(uWind.x*2.3+ph*1.7)*0.25)*uWind.y*h;
         transformed.x+=sw*0.045; transformed.z+=sw*0.03; transformed.y+=sin(uWind.x*3.1+ph+position.x*4.0)*0.012*uWind.y*h; }
       #endif`);};
@@ -2338,7 +2343,7 @@ const TREE_CHUNKS=[];
     const trunk=new THREE.InstancedMesh(trunkG,trunkMat,list.length);
     const nRound=list.filter(t=>t.type==='round').length,limbs=nRound?new THREE.InstancedMesh(limbG,barkMat,nRound):null;let li=0;
     const crowns={};
-    for(const type of ['round','poplar']){const n=list.filter(t=>t.type===type).length;if(n)crowns[type]=new THREE.InstancedMesh(geo[type],crownMat[type],n);}
+    for(const type of ['round','poplar']){const n=list.filter(t=>t.type===type).length;if(n){crowns[type]=new THREE.InstancedMesh(geo[type],crownMat[type],n);crowns[type].customDepthMaterial=crownDepth[type];}}
     const idx={round:0,poplar:0};
     list.forEach((t,i)=>{
       const th=t.type==='poplar'?3*t.s:2.6*t.s;
@@ -7109,10 +7114,16 @@ function updateIcicles(dt){
 // snow on the bare branches of the street trees and on the Poldertoren's gallery ledges and copper roof
 for(const [m,k,lo,hi] of SNOWTOP)snowTop(m,k,lo,hi);
 for(let i=0;i<STATIC_PAINT.street;i++)snowTop(STATIC_PAINT[i],0.6);
+const lrp=(a,b,t)=>a+(b-a)*t;let AUTUMN_K=0;function autumnProgress(){const d=new Date(),a=new Date(d.getFullYear(),8,1),b=new Date(d.getFullYear(),11,1);return clamp((d-a)/(b-a),0,1);}
 function calendarSeason(){const mo=new Date().getMonth();return mo<2||mo===11?'winter':mo<5?'spring':mo<8?'summer':'autumn';}
 function applySeason(){
   SEASON_NOW=SEASON_SET==='auto'?calendarSeason():SEASON_SET;
-  const T={spring:[1.15,1.3,0.8],summer:[1,1,1],autumn:[2.6,0.95,0.2],winter:[1,1,1]}[SEASON_NOW];THIN_U.value={spring:0.45,autumn:0.18}[SEASON_NOW]||0;
+  const T={spring:[1.15,1.3,0.8],summer:[1,1,1],autumn:[2.6,0.95,0.2],winter:[1,1,1]}[SEASON_NOW];THIN_U.value={spring:0.45,autumn:0.18}[SEASON_NOW]||0;THIN_V.value=0;
+  // autumn follows the calendar: in September the crowns are still mostly green-gold, by late November they are thin and
+  // brown and many trees are nearly bare (some sooner than others). Autumn picked by hand looks like mid-October
+  AUTUMN_K=SEASON_NOW!=='autumn'?0:SEASON_SET==='auto'?autumnProgress():0.5;
+  if(SEASON_NOW==='autumn'){const k=AUTUMN_K;T[0]=lrp(1.7,2.6,Math.min(1,k*2))-Math.max(0,k-0.6)*1.0;T[1]=lrp(1.12,0.95,Math.min(1,k*2))-Math.max(0,k-0.6)*0.9;T[2]=lrp(0.45,0.2,Math.min(1,k*2));
+    THIN_U.value=k<0.5?k*0.36:0.18+(k-0.5)*1.4;THIN_V.value=Math.min(0.9,k*1.1);}
   const G={spring:[1.04,1.08,0.95],summer:[1,1,1],autumn:[0.98,0.92,0.72],winter:[0.86,0.86,0.8]}[SEASON_NOW];
   for(const k of ['card','leaf']){const m=SEASON_MATS[k];if(!m)continue;m.color.setRGB(...T);m.visible=SEASON_NOW!=='winter';}
   GRASS_MATS.forEach((m,i)=>{m.color.copy(GRASS_BASE[i]).multiply(new THREE.Color(...G));if(m.userData.photoTint)m.color.multiply(m.userData.photoTint);});

@@ -2,6 +2,17 @@
 
 Each daily run adds an entry at the top: the plan, what was done (title, category, outcome), problems found, and ideas for the next run.
 
+## 2026-11-27 (run 01:17)
+
+### Plan (prioritized)
+No open bugs. Based on the 11:52 run's "next ideas", plus driving physics (snow never changed how a car handles):
+
+1. **Slippery snowy roads** (physics/gameplay): cars have less grip on snow, brake later and drift wide in bends; AI traffic drives more carefully.
+2. **Gritter leaves a salted strip** (graphics/gameplay): the roads it has passed turn dark and wet instead of grey slush, and have grip again.
+3. **Snow-shovelling job** (gameplay): clear the snow off the pavement in front of a real shop for a tip.
+4. **Snow sliding off the Poldertoren roof** on a thaw day, or a real sledging slope if OSM shows one (check first).
+5. **Performance**: texture atlas for facades, only if time allows.
+
 ## 2026-11-26 (run 11:52)
 
 ### Plan (prioritized)
